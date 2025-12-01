@@ -1,0 +1,4 @@
+top=encode4_2
+en BTNC
+x (SW3,SW2,SW1,SW0)
+y (LD1,LD0)
