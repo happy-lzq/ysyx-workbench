@@ -17,6 +17,7 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <utils.h>
 #include "sdb.h"
 #include <utils.h>
 
@@ -28,21 +29,17 @@ void init_wp_pool();
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
   static char *line_read = NULL;
-
   if (line_read) {
     free(line_read);
     line_read = NULL;
   }
-
   line_read = readline("(nemu) ");
 
   if (line_read && *line_read) {
     add_history(line_read);
   }
-
   return line_read;
 }
-
 static int cmd_c(char *args) {
   cpu_exec(-1);
   return 0;
@@ -50,7 +47,7 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
-   nemu_state.state = NEMU_QUIT;
+  nemu_state.state = NEMU_QUIT;   // cpu是一个状态机，每执行一个指令就会更新一次状态，这里设置为退出状态
   return -1;
 }
 
@@ -99,11 +96,12 @@ void sdb_set_batch_mode() {
 }
 
 void sdb_mainloop() {
+  // 持续运行直到指令结束或用户退出
   if (is_batch_mode) {
     cmd_c(NULL);
     return;
   }
-
+  // 用户交互循环处理输入指令模式
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
 

@@ -11,7 +11,7 @@
 !/navy-apps/
 !/npc/
 !/nvboard/
-
+!/study/
 # 包含必要的文件
 !Makefile
 !README.md
@@ -22,6 +22,11 @@
 !/nvboard/
 !/nvboard/**
 nvboard/RTL_prj/*/*_obj/
+
+# 包含 study以及 study 目录下的所有文件，但排除特定的 .o 文件
+!/study/
+!/study/**
+study/**/**/*.o
 
 # 排除fceux-am
 /fceux-am
