@@ -18,8 +18,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <utils.h>
-#include <memory/host.h>  // <--- 添加这一行
-#include <memory/vaddr.h> // <--- 或者这一行 (通常 vaddr_read 在这里)
+#include <memory/vaddr.h> 
 #include "sdb.h"
 
 
