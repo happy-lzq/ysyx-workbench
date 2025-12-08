@@ -96,6 +96,7 @@ static int cmd_help(char *args) {
 
   // cmd_c 继续执行程序的命令处理函数
 static int cmd_c(char *args) {
+  // 传入-1 cpu-exce()参数进行隐式无符号数转化为：0xffffffff uint32_t 的最大值
   cpu_exec(-1);
   return 0;
 }
@@ -120,8 +121,11 @@ static int cmd_si(char *args) {
       return 0;
     }
   }
-
-  cpu_exec(n);  // 执行n条指令
+  // 执行n条指令
+  for (int i = 0; i < n; i++){
+    cpu_exec(1);
+  }
+  // cpu_exec(n);  
   return 0;
 }
 
