@@ -122,6 +122,12 @@ static int cmd_si(char *args) {
 
   // cmd_info 打印寄存器+监控点信息
 static int cmd_info(char *args){
+  char *arg = strtok (NULL," ");
+  if (arg == NULL){
+    printf("Usage: info [r/w]\n");
+    return 0;
+  }
+  
   return 0;
 }
 
