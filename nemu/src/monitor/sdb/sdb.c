@@ -22,13 +22,14 @@
 #define NR_CMD ARRLEN(cmd_table)
 static int is_batch_mode = false;
 
-void init_regex();
-void init_wp_pool();
 //============================ Command declarations ============================//
+void init_regex();
+void init_wp_pool(); 
 static int cmd_help(char *args);
 static int cmd_c(char *args);
 static int cmd_q(char *args);
 static int cmd_si(char *args);
+
 //================================ Command table ================================//
 static struct {
   const char *name;
@@ -95,18 +96,21 @@ static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
+
   // cmd_si 单步执行指令的命令处理函数
 static int cmd_si(char *args) {
+  char *endptr;
   int n;
-  if (args == NULL) {
-    n = 1;  // 默认执行一条指令
-  } else {
-    n = atoi(args);  // 将参数转换为整数
-    if (n <= 0) {
+  if (args==NULL){
+    n=1;
+  } else{
+    n =strtoul(args,&endptr,10);
+    if (endptr == args || *endptr !='\0' || n <= 0){
       printf("Invalid number of instructions: %s\n", args);
       return 0;
     }
   }
+
   cpu_exec(n);  // 执行n条指令
   return 0;
 }
