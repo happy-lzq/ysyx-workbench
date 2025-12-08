@@ -263,6 +263,24 @@ gcc -g program.c -o program
 - **反向调试**：`record`、`record stop`、`reverse-step`、`reverse-next`、`reverse-continue`
 - **核心转储**：`gdb program core`、`bt`、`info registers`
 - **其他**：`set follow-fork-mode`、`set detach-on-fork`、`info proc mappings`、`shell <command>`、`source <file>`、`p &variable`
+- **TUI 视觉模式 (多窗口)**：
+    - **布局切换 (`layout`)**：
+        - `layout src`：显示源代码窗口（类似 IDE）。
+        - `layout asm`：显示汇编指令窗口。
+        - `layout regs`：显示寄存器窗口（通常位于顶部，随指令高亮变化）。
+        - `layout split`：**强推**，同时显示源代码和汇编窗口，对照调试神器。
+        - `layout next` / `prev`：切换到下一个/上一个布局模式。
+    - **快捷键控制**：
+        - `Ctrl + x` 再按 `1`：单窗口模式（只看代码或汇编）。
+        - `Ctrl + x` 再按 `2`：双窗口模式（分割视图）。
+        - `Ctrl + x` 再按 `a`：**退出/进入 TUI 模式**（当 TUI 界面卡死或需要复制大量文本时，切回传统模式很有用）。
+        - `Ctrl + L`：**刷新屏幕**（TUI 模式下程序输出常会打乱界面，此键可重绘窗口）。
+    - *注：TUI 模式下方向键默认滚动代码。若需翻阅历史命令，使用 `focus cmd` 将焦点切换到命令窗口。*
+    - **TUI 启动标准流程**：
+        1. **编译**：`gcc -g main.c -o main` (必须加 `-g` 才有源码)。
+        2. **启动**：`gdb main`。
+        3. **切换视图**：输入 `layout src` (此时界面可能为空)。
+        4. **激活代码**：输入 `start` (程序运行并暂停在 main 函数，源码自动出现并高亮)。
 
 ### 8.3 RISC-V 交叉编译与调试
 
