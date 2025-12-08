@@ -18,7 +18,11 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <utils.h>
+#include <memory/host.h>  // <--- 添加这一行
+#include <memory/vaddr.h> // <--- 或者这一行 (通常 vaddr_read 在这里)
 #include "sdb.h"
+
+
 // 自动计算数组元素个数，动态计算cmd_table[]中的指令数
 #define NR_CMD ARRLEN(cmd_table)
 // 定义NEMU进行交互模式，显示(nemu)提示符
@@ -32,6 +36,7 @@ static int cmd_c(char *args);
 static int cmd_q(char *args);
 static int cmd_si(char *args);
 static int cmd_info(char *args);
+static int cmd_x(char *args);
 
 //================================ Command table ================================//
 static struct {
@@ -43,7 +48,8 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step execute",cmd_si},
-  {"info","Generic program status (r: register, w: watchpoint)", cmd_info }
+  {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
+  {"x","read memery from addr (x n 0x80000000)",cmd_x}
   /* TODO: Add more commands */
 
 };
@@ -129,15 +135,48 @@ static int cmd_info(char *args){
   }
   if (strcmp(arg,"r") == 0){
     isa_reg_display();
-  //} else if (strcmp(arg,"w") == 0){
-  } else
-  {
-    printf("Usage: info [r/w]\n");
+  } else if (strcmp(arg,"w") == 0){
+
+    printf("Watchpoint info is not implemented yet.\n");
+  } else{
+    printf("Unknown argument '%s'. Usage: info [r|w]\n", args);
     return 0;
   }
   
   return 0;
 }
+
+  // cmd_x n [0x80000000] 
+  static int cmd_x(char *args){
+    if (args == NULL){
+      printf("Usage: x N EXPR\n");
+      return 0;
+    }
+    
+    char *n_arg = strtok(NULL," ");
+    if (n_arg == NULL){
+      printf("Missing argument N\n");
+      return 0;
+    }
+    int n = atoi(n_arg);
+
+    char *expr_arg = strtok(NULL," ");
+    if (expr_arg == NULL) {
+      printf("Missing argument EXPR\n");
+      return 0;
+    }
+
+    uint32_t addr;
+    uint32_t data;
+    sscanf(expr_arg,"%x",&addr);
+    printf("Memory dump at 0x%08x for %d words:\n", addr, n);
+    for (int i = 0; i < n; i++){
+      data = vaddr_read(addr,sizeof(int));
+      printf("0x%08x: 0x%08x\n", addr, data);
+      addr += 4;
+    }
+    return 0;
+  }
 
 //============================= SDB main loop and initialization =============================//
 void sdb_set_batch_mode() {
