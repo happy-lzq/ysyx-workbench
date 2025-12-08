@@ -19,7 +19,9 @@
 #include <readline/history.h>
 #include <utils.h>
 #include "sdb.h"
+// 自动计算数组元素个数，动态计算cmd_table[]中的指令数
 #define NR_CMD ARRLEN(cmd_table)
+// 定义NEMU进行交互模式，显示(nemu)提示符
 static int is_batch_mode = false;
 
 //============================ Command declarations ============================//
@@ -29,6 +31,7 @@ static int cmd_help(char *args);
 static int cmd_c(char *args);
 static int cmd_q(char *args);
 static int cmd_si(char *args);
+static int cmd_info(char *args);
 
 //================================ Command table ================================//
 static struct {
@@ -40,6 +43,7 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step execute",cmd_si},
+  {"info","Generic program status (r: register, w: watchpoint)", cmd_info }
   /* TODO: Add more commands */
 
 };
@@ -93,6 +97,7 @@ static int cmd_c(char *args) {
 
   // cmd_q 退出程序的命令处理函数
 static int cmd_q(char *args) {
+
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
@@ -115,6 +120,10 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+  // cmd_info 打印寄存器+监控点信息
+static int cmd_info(char *args){
+  return 0;
+}
 
 //============================= SDB main loop and initialization =============================//
 void sdb_set_batch_mode() {
@@ -150,7 +159,10 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        if (cmd_table[i].handler(args) < 0) { return; }
+        // readline 输入与cmd_table匹配后回调函数执行，进入对应指令操作
+        if (cmd_table[i].handler(args) < 0) { 
+          return ;
+        }
         break;
       }
     }
