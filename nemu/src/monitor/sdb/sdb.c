@@ -97,7 +97,7 @@ static int cmd_q(char *args) {
   return -1;
 }
 
-  // cmd_si 单步执行指令的命令处理函数
+  // cmd_si 单步执行指定指令数的命令处理函数
 static int cmd_si(char *args) {
   char *endptr;
   int n;
