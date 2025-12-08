@@ -19,40 +19,17 @@
 #include <readline/history.h>
 #include <utils.h>
 #include "sdb.h"
-#include <utils.h>
-
+#define NR_CMD ARRLEN(cmd_table)
 static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
-
-/* We use the `readline' library to provide more flexibility to read from stdin. */
-static char* rl_gets() {
-  static char *line_read = NULL;
-  if (line_read) {
-    free(line_read);
-    line_read = NULL;
-  }
-  line_read = readline("(nemu) ");
-
-  if (line_read && *line_read) {
-    add_history(line_read);
-  }
-  return line_read;
-}
-static int cmd_c(char *args) {
-  cpu_exec(-1);
-  return 0;
-}
-
-
-static int cmd_q(char *args) {
-  nemu_state.state = NEMU_QUIT;   // cpu是一个状态机，每执行一个指令就会更新一次状态，这里设置为退出状态
-  return -1;
-}
-
+//============================ Command declarations ============================//
 static int cmd_help(char *args);
-
+static int cmd_c(char *args);
+static int cmd_q(char *args);
+static int cmd_si(char *args);
+//================================ Command table ================================//
 static struct {
   const char *name;
   const char *description;
@@ -61,13 +38,29 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  {"si", "Step execute",cmd_si},
   /* TODO: Add more commands */
 
 };
 
-#define NR_CMD ARRLEN(cmd_table)
+  //======================== 用户界面交互处理 ====================================//
+	// rl_gets 使用 readline 库读取用户输入的一行指令
+static char* rl_gets() {
+  static char *line_read = NULL;
+  if (line_read) {
+    free(line_read);
+    line_read = NULL;
+  }
+  line_read = readline("(nemu) ");
+	// 检查指针是否有效，同时在检查指针有效情况下首字母不为非空'\0'，防止上一指令输入回车后未清除
+  if (line_read && *line_read) {								
+    add_history(line_read);
+  }
+  return line_read;
+}
 
+//============================= Command functions =============================//
+  // cmd_help 显示帮助信息的命令处理函数
 static int cmd_help(char *args) {
   /* extract the first argument */
   char *arg = strtok(NULL, " ");
@@ -91,10 +84,38 @@ static int cmd_help(char *args) {
   return 0;
 }
 
+  // cmd_c 继续执行程序的命令处理函数
+static int cmd_c(char *args) {
+  cpu_exec(-1);
+  return 0;
+}
+
+  // cmd_q 退出程序的命令处理函数
+static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
+  return -1;
+}
+  // cmd_si 单步执行指令的命令处理函数
+static int cmd_si(char *args) {
+  int n;
+  if (args == NULL) {
+    n = 1;  // 默认执行一条指令
+  } else {
+    n = atoi(args);  // 将参数转换为整数
+    if (n <= 0) {
+      printf("Invalid number of instructions: %s\n", args);
+      return 0;
+    }
+  }
+  cpu_exec(n);  // 执行n条指令
+  return 0;
+}
+
+
+//============================= SDB main loop and initialization =============================//
 void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
-
 void sdb_mainloop() {
   // 持续运行直到指令结束或用户退出
   if (is_batch_mode) {

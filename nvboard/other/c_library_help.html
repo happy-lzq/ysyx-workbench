@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C 语言库函数助手 v2.0</title>
+    <!-- 引入 Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .code-block { background-color: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 0.5rem; font-family: 'Consolas', monospace; overflow-x: auto; }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container mx-auto p-6 max-w-5xl">
+    
+    <!-- 头部 -->
+    <header class="mb-8 text-center">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">C 语言库函数速查</h1>
+        <p class="text-gray-600">基于 NEMU 学习笔记生成的知识库</p>
+    </header>
+
+    <div class="flex flex-col md:flex-row gap-6 items-start">
+        
+        <!-- 左侧侧边栏：分类导航 -->
+        <aside class="w-full md:w-64 bg-white rounded-xl shadow-md p-4 flex-shrink-0 sticky top-4">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-gray-700">库文件分类</h2>
+                <button @click="resetFilter" class="text-xs text-blue-500 hover:underline" v-if="activeFilter.type !== 'all'">显示全部</button>
+            </div>
+            
+            <div class="space-y-2">
+                <!-- 遍历头文件分组 -->
+                <div v-for="(funcs, header) in groupedFunctions" :key="header" class="border-b border-gray-100 last:border-0 pb-2">
+                    <!-- 头文件标题 -->
+                    <div 
+                        @click="toggleHeader(header)" 
+                        class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition select-none"
+                        :class="{'bg-blue-50 text-blue-700': activeFilter.type === 'header' && activeFilter.value === header}"
+                    >
+                        <span class="font-mono font-bold text-sm">{{ header }}</span>
+                        <span class="text-xs text-gray-400 transform transition-transform duration-200" :class="{'rotate-90': expandedHeaders.has(header)}">▶</span>
+                    </div>
+
+                    <!-- 函数列表（折叠区域） -->
+                    <div v-show="expandedHeaders.has(header)" class="pl-4 mt-1 space-y-1">
+                        <div 
+                            v-for="func in funcs" 
+                            :key="func.name"
+                            @click.stop="selectFunctionFromSidebar(func.name)"
+                            class="text-sm text-gray-600 hover:text-blue-600 cursor-pointer py-1 px-2 rounded hover:bg-gray-100 font-mono truncate"
+                            :class="{'text-blue-600 bg-blue-50 font-bold': activeFilter.type === 'function' && activeFilter.value === func.name}"
+                        >
+                            {{ func.name }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右侧主内容区 -->
+        <main class="flex-1 w-full">
+            <!-- 控制栏 -->
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div class="relative w-full md:w-1/2">
+                    <input 
+                        v-model="searchQuery" 
+                        type="text" 
+                        placeholder="搜索函数名 (例如: fopen)..." 
+                        class="w-full p-3 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    >
+                    <span class="absolute left-3 top-3 text-gray-400">🔍</span>
+                </div>
+                <button 
+                    @click="openAddModal"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow transition flex items-center gap-2"
+                >
+                    <span>+</span> 添加新函数
+                </button>
+            </div>
+
+            <!-- 当前视图提示 -->
+            <div v-if="activeFilter.type !== 'all'" class="mb-4 flex items-center gap-2">
+                <span class="text-sm text-gray-500">当前查看:</span>
+                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                    {{ activeFilter.value }}
+                    <button @click="resetFilter" class="hover:text-blue-900">×</button>
+                </span>
+            </div>
+
+            <!-- 函数列表展示区 -->
+            <div class="grid grid-cols-1 gap-6">
+                <div v-for="func in filteredFunctions" :key="func.name" class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition duration-300 border-l-4 border-blue-500">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h2 class="text-2xl font-bold text-blue-800 font-mono">{{ func.name }}</h2>
+                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded uppercase">{{ func.header || 'unknown.h' }}</span>
+                        </div>
+                        
+                        <!-- 原型 -->
+                        <div class="mb-4">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">函数原型</h3>
+                            <div class="bg-gray-50 p-2 rounded border border-gray-200 font-mono text-sm text-gray-800 break-all">
+                                {{ func.prototype }}
+                            </div>
+                        </div>
+
+                        <!-- 描述 -->
+                        <div class="mb-4">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">功能描述</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{{ func.description }}</p>
+                        </div>
+
+                        <!-- 返回值 -->
+                        <div v-if="func.return_val" class="mb-4">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">返回值</h3>
+                            <p class="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{{ func.return_val }}</p>
+                        </div>
+
+                        <!-- 新增：参数模式/标志位表格 -->
+                        <div v-if="func.modes && func.modes.length > 0" class="mb-4">
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">参数模式 / 标志位</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm text-left text-gray-500 border border-gray-200 rounded-lg">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                        <tr>
+                                            <th scope="col" class="px-4 py-2 w-24 border-r">模式/参数</th>
+                                            <th scope="col" class="px-4 py-2">含义说明</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(mode, index) in func.modes" :key="index" class="bg-white border-b hover:bg-gray-50">
+                                            <td class="px-4 py-2 font-mono font-bold text-blue-600 border-r whitespace-nowrap">
+                                                {{ mode.code }}
+                                            </td>
+                                            <td class="px-4 py-2 text-gray-700">
+                                                {{ mode.detail }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 示例代码 -->
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">示例代码</h3>
+                            <pre class="code-block text-sm">{{ func.example }}</pre>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="mt-4 flex justify-end gap-4">
+                            <button @click="editFunction(func)" class="text-blue-400 hover:text-blue-600 text-xs underline transition">编辑</button>
+                            <button @click="deleteFunction(func.name)" class="text-red-300 hover:text-red-600 text-xs underline transition">删除</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 无结果提示 -->
+                <div v-if="filteredFunctions.length === 0" class="text-center py-12 text-gray-500">
+                    没有找到匹配的函数，试着添加它？
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 添加/编辑函数模态框 -->
+    <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl transform transition-all max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">{{ isEditing ? '编辑函数' : '添加新函数' }}</h2>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">函数名</label>
+                        <input v-model="newFunc.name" type="text" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例如: fopen">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">头文件</label>
+                        <input v-model="newFunc.header" type="text" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例如: stdio.h">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">函数原型</label>
+                    <input v-model="newFunc.prototype" type="text" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="FILE *fopen(const char *filename, const char *mode);">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">功能描述</label>
+                    <textarea v-model="newFunc.description" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="2" placeholder="简要描述函数的作用..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">返回值描述</label>
+                    <textarea v-model="newFunc.return_val" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="2" placeholder="描述函数的返回值..."></textarea>
+                </div>
+
+                <!-- 新增：参数模式录入 -->
+                <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                    <label class="block text-sm font-medium text-blue-800 mb-1">参数模式详情 (可选)</label>
+                    <p class="text-xs text-blue-600 mb-2">格式：<span class="font-mono bg-white px-1 rounded">参数 : 说明</span> (每行一个)</p>
+                    <textarea 
+                        v-model="newFunc.modesText" 
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" 
+                        rows="4" 
+                        placeholder='r : 读取模式，文件必须存在&#10;w : 写入模式，创建新文件或覆盖&#10;a : 追加模式，在末尾写入'
+                    ></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">示例代码</label>
+                    <textarea v-model="newFunc.example" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm bg-gray-50" rows="4" placeholder="// 示例代码..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8">
+                <button @click="closeModal" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
+                <button @click="saveFunction" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow">保存</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+
+    createApp({
+        setup() {
+            // 初始数据：包含你要求的 fopen 示例
+            const defaultData = [
+                {
+                    name: "fopen",
+                    header: "stdio.h",
+                    prototype: "FILE *fopen(const char *filename, const char *mode);",
+                    description: "使用给定的模式 mode 打开 filename 所指向的文件。",
+                    return_val: "如果文件成功打开，则返回一个指向 FILE 对象的指针。否则返回 NULL。",
+                    // 这里是新的数据结构
+                    modes: [
+                        { code: '"r"', detail: "读取：打开文件以进行输入操作。文件必须存在。" },
+                        { code: '"w"', detail: "写入：创建一个用于输出操作的空文件。如果同名文件已存在，则丢弃其内容。" },
+                        { code: '"a"', detail: "追加：在文件末尾打开文件以进行输出。如果文件不存在，则会创建该文件。" },
+                        { code: '"r+"', detail: "读取/更新：打开文件进行更新（包括输入和输出）。文件必须存在。" },
+                        { code: '"w+"', detail: "写入/更新：创建一个空文件并打开它进行更新。如果存在则覆盖。" },
+                        { code: '"a+"', detail: "追加/更新：打开一个文件进行更新，所有输出操作都会将数据写入文件末尾。" }
+                    ],
+                    example: `FILE *fp;\nfp = fopen("file.txt", "w+");\nfprintf(fp, "%s %s", "Hello", "World");\nfclose(fp);`
+                },
+                {
+                    name: "fgets",
+                    header: "stdio.h",
+                    prototype: "char *fgets(char *str, int n, FILE *stream);",
+                    description: "从指定的流 stream 读取一行，并把它存储在 str 所指向的字符串内。",
+                    return_val: "如果读取成功，该函数返回相同的 str 参数。如果到达文件末尾或者没有读取到任何字符，str 的内容保持不变，并返回一个空指针。如果发生错误，返回一个空指针。",
+                    modes: [], // 没有特殊模式参数
+                    example: `FILE *fp = fopen("file.txt", "r");\nchar str[60];\nif(fgets(str, 60, fp)!=NULL) {\n    printf("%s", str);\n}\nfclose(fp);`
+                },
+                {
+                    name: "strchr",
+                    header: "string.h",
+                    prototype: "char *strchr(const char *str, int c);",
+                    description: "在参数 str 所指向的字符串中搜索第一次出现字符 c（一个无符号字符）的位置。",
+                    return_val: "该函数返回在字符串 str 中第一次出现字符 c 的位置，如果未找到该字符则返回 NULL。",
+                    modes: [],
+                    example: `const char str[] = "http://www.runoob.com";\nconst char ch = '.';\nchar *ret;\nret = strchr(str, ch);\nprintf("|%c| 之后的字符串是 - |%s|\\n", ch, ret);`
+                }
+            ];
+
+            const functions = ref([]);
+            const searchQuery = ref("");
+            const showAddModal = ref(false);
+            const isEditing = ref(false);
+            const currentEditName = ref("");
+            
+            // 侧边栏状态
+            const expandedHeaders = ref(new Set());
+            const activeFilter = ref({ type: 'all', value: null });
+
+            // 新函数表单数据，增加了 modesText 用于临时存储文本输入
+            const newFunc = ref({
+                name: "", header: "", prototype: "", description: "", return_val: "", example: "", modesText: ""
+            });
+
+            // 加载数据
+            onMounted(() => {
+                const saved = localStorage.getItem('c_library_data_v2'); // 升级了存储key，避免旧数据冲突
+                if (saved) {
+                    functions.value = JSON.parse(saved);
+                } else {
+                    functions.value = defaultData;
+                }
+            });
+
+            // 监听数据变化并保存
+            watch(functions, (newVal) => {
+                localStorage.setItem('c_library_data_v2', JSON.stringify(newVal));
+            }, { deep: true });
+
+            // 分组逻辑
+            const groupedFunctions = computed(() => {
+                const groups = {};
+                functions.value.forEach(func => {
+                    const header = func.header || '其他';
+                    if (!groups[header]) {
+                        groups[header] = [];
+                    }
+                    groups[header].push(func);
+                });
+                // 排序头文件
+                return Object.keys(groups).sort().reduce((acc, key) => {
+                    acc[key] = groups[key].sort((a, b) => a.name.localeCompare(b.name));
+                    return acc;
+                }, {});
+            });
+
+            // 搜索过滤
+            const filteredFunctions = computed(() => {
+                let result = functions.value;
+
+                // 1. 应用侧边栏过滤
+                if (activeFilter.value.type === 'header') {
+                    result = result.filter(f => (f.header || '其他') === activeFilter.value.value);
+                } else if (activeFilter.value.type === 'function') {
+                    result = result.filter(f => f.name === activeFilter.value.value);
+                }
+
+                // 2. 应用搜索框过滤
+                if (searchQuery.value) {
+                    const query = searchQuery.value.toLowerCase();
+                    result = result.filter(f => 
+                        f.name.toLowerCase().includes(query) || 
+                        f.description.toLowerCase().includes(query)
+                    );
+                }
+                
+                return result;
+            });
+
+            // 侧边栏操作
+            const toggleHeader = (header) => {
+                if (expandedHeaders.value.has(header)) {
+                    expandedHeaders.value.delete(header);
+                } else {
+                    expandedHeaders.value.add(header);
+                }
+                // 点击头文件同时也过滤显示该头文件下的所有函数
+                activeFilter.value = { type: 'header', value: header };
+                searchQuery.value = ""; // 清空搜索
+            };
+
+            const selectFunctionFromSidebar = (name) => {
+                activeFilter.value = { type: 'function', value: name };
+                searchQuery.value = ""; // 清空搜索
+            };
+
+            const resetFilter = () => {
+                activeFilter.value = { type: 'all', value: null };
+                searchQuery.value = "";
+            };
+
+            // 打开添加模态框
+            const openAddModal = () => {
+                isEditing.value = false;
+                currentEditName.value = "";
+                newFunc.value = { name: "", header: "", prototype: "", description: "", return_val: "", example: "", modesText: "" };
+                showAddModal.value = true;
+            };
+
+            // 打开编辑模态框
+            const editFunction = (func) => {
+                isEditing.value = true;
+                currentEditName.value = func.name;
+                newFunc.value = {
+                    name: func.name,
+                    header: func.header,
+                    prototype: func.prototype,
+                    description: func.description,
+                    return_val: func.return_val || "",
+                    example: func.example,
+                    modesText: func.modes ? func.modes.map(m => `${m.code} : ${m.detail}`).join('\n') : ""
+                };
+                showAddModal.value = true;
+            };
+
+            // 关闭模态框
+            const closeModal = () => {
+                showAddModal.value = false;
+                isEditing.value = false;
+                currentEditName.value = "";
+                newFunc.value = { name: "", header: "", prototype: "", description: "", return_val: "", example: "", modesText: "" };
+            };
+
+            // 保存函数（添加或更新）
+            const saveFunction = () => {
+                if (!newFunc.value.name || !newFunc.value.prototype) {
+                    alert("请至少填写函数名和原型！");
+                    return;
+                }
+
+                // 解析参数模式文本
+                let parsedModes = [];
+                if (newFunc.value.modesText) {
+                    // 按行分割，然后按冒号分割
+                    parsedModes = newFunc.value.modesText.split('\n')
+                        .filter(line => line.trim() !== '' && line.includes(':'))
+                        .map(line => {
+                            const firstColonIndex = line.indexOf(':');
+                            const code = line.substring(0, firstColonIndex).trim();
+                            const detail = line.substring(firstColonIndex + 1).trim();
+                            return { code, detail };
+                        });
+                }
+
+                // 构建新对象
+                const entry = {
+                    name: newFunc.value.name,
+                    header: newFunc.value.header,
+                    prototype: newFunc.value.prototype,
+                    description: newFunc.value.description,
+                    return_val: newFunc.value.return_val,
+                    example: newFunc.value.example,
+                    modes: parsedModes
+                };
+
+                if (isEditing.value) {
+                    // 更新现有条目
+                    const index = functions.value.findIndex(f => f.name === currentEditName.value);
+                    if (index !== -1) {
+                        functions.value[index] = entry;
+                    }
+                } else {
+                    // 添加到列表头部
+                    functions.value.unshift(entry);
+                }
+                
+                closeModal();
+            };
+
+            // 删除函数
+            const deleteFunction = (name) => {
+                if(confirm(`确定要删除 ${name} 吗？`)) {
+                    functions.value = functions.value.filter(f => f.name !== name);
+                }
+            };
+
+            return {
+                functions,
+                searchQuery,
+                filteredFunctions,
+                showAddModal,
+                isEditing,
+                newFunc,
+                openAddModal,
+                editFunction,
+                closeModal,
+                saveFunction,
+                deleteFunction,
+                groupedFunctions,
+                expandedHeaders,
+                activeFilter,
+                toggleHeader,
+                selectFunctionFromSidebar,
+                resetFilter
+            };
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
