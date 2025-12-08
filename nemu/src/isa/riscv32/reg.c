@@ -30,7 +30,7 @@ const char *regs[] = {
 void isa_reg_display() {
   int length = ARRLEN(regs);
     // 单独打印 PC
-  printf("pc  = 0x%08x  ：\n", cpu.pc);
+  printf("pc  = 0x%08x\n", cpu.pc);
   // 打印通用寄存器 (GPR)，格式：4列 x 8行
   for (int i = 0; i < length; i++) {
     // 打印当前寄存器：名字占3字符，值占10字符(0x...)，制表符对齐
