@@ -122,10 +122,10 @@ static int cmd_si(char *args) {
     }
   }
   // 执行n条指令
-  for (int i = 0; i < n; i++){
-    cpu_exec(1);
-  }
-  // cpu_exec(n);  
+  // for (int i = 0; i < n; i++){
+  //   cpu_exec(1);
+  // }
+  cpu_exec(n);  
   return 0;
 }
 
