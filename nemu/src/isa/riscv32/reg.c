@@ -14,7 +14,7 @@
 ***************************************************************************************/
 
 #include <isa.h>
-#include "local-include/reg.h"
+#include <isa-def.h>
 
 const char *regs[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -24,8 +24,18 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
-}
+  // 1. 计算寄存器数量
+  int length = ARRLEN(regs);
+  
+  // 2. 遍历打印通用寄存器 (GPR)
+  // cpu.gpr[] 存储了寄存器的值，定义在 include/isa-def.h 中
+  for (int i = 0; i < length; i++) {
+    printf("%-4s = 0x%08x (%d)\n", regs[i], cpu.gpr[i], cpu.gpr[i]);
+  }
 
+  // 3. 单独打印 PC 指针
+  printf("%-4s = 0x%08x (%d)\n", "pc", cpu.pc, cpu.pc);
+}
 word_t isa_reg_str2val(const char *s, bool *success) {
   return 0;
 }

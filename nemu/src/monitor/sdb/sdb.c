@@ -127,6 +127,9 @@ static int cmd_info(char *args){
     printf("Usage: info [r/w]\n");
     return 0;
   }
+  if (strcmp(arg,"r") == 0){
+    isa_reg_display();
+  }
   
   return 0;
 }
