@@ -38,6 +38,7 @@ static int cmd_si(char *args);
 static int cmd_info(char *args);
 static int cmd_x(char *args);
 static int cmd_p(char *args);
+
 //================================ Command table ================================//
 static struct {
   const char *name;
@@ -184,7 +185,7 @@ static int cmd_info(char *args){
     }
     return 0;
   }
-    // 表达式求值 cmd_p 
+    // 表达式求值 cmd_p p $t1
   static int cmd_p(char *args){
     if (args == NULL){
       printf("Usage: p expr\n");
@@ -201,7 +202,7 @@ static int cmd_info(char *args){
     return 0;
   }
 
-//============================= SDB main loop and initialization =============================//
+//============================= SDB main loop ========================================//
 void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
@@ -241,7 +242,7 @@ void sdb_mainloop() {
     if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
   }
 }
-
+// ======================= SDB 简易调试器表达式求值与监视点初始化==============================// 
 void init_sdb() {
   /* Compile the regular expressions. */
   init_regex();
