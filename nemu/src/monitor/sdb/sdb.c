@@ -20,6 +20,7 @@
 #include <utils.h>
 #include <memory/vaddr.h> 
 #include "sdb.h"
+#include <common.h>
 
 
 // 自动计算数组元素个数，动态计算cmd_table[]中的指令数
