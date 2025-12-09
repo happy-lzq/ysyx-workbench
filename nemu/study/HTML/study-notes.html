@@ -128,7 +128,7 @@
                         <!-- 原型 -->
                         <div class="mb-4">
                             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">函数原型</h3>
-                            <div class="bg-gray-50 p-2 rounded border border-gray-200 font-mono text-sm text-gray-800 break-all">
+                            <div class="bg-gray-50 p-2 rounded border border-gray-200 font-mono text-sm text-gray-800 break-all whitespace-pre-wrap">
                                 {{ func.prototype }}
                             </div>
                         </div>
@@ -215,17 +215,17 @@
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">函数原型</label>
-                    <input v-model="newFunc.prototype" type="text" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="FILE *fopen(const char *filename, const char *mode);">
+                    <textarea v-model="newFunc.prototype" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" rows="3" placeholder="FILE *fopen(const char *filename, const char *mode);" @keydown="handleTab"></textarea>
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">功能+参数描述</label>
-                    <textarea v-model="newFunc.description" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="5" placeholder="简要描述函数的作用..."></textarea>
+                    <textarea v-model="newFunc.description" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="5" placeholder="简要描述函数的作用..." @keydown="handleTab"></textarea>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">返回值描述</label>
-                    <textarea v-model="newFunc.return_val" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="5" placeholder="描述函数的返回值..."></textarea>
+                    <textarea v-model="newFunc.return_val" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows="5" placeholder="描述函数的返回值..." @keydown="handleTab"></textarea>
                 </div>
 
                 <!-- 新增：参数模式录入 -->
@@ -237,12 +237,13 @@
                         class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" 
                         rows="4" 
                         placeholder='r : 读取模式，文件必须存在&#10;w : 写入模式，创建新文件或覆盖&#10;a : 追加模式，在末尾写入'
+                        @keydown="handleTab"
                     ></textarea>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">示例代码</label>
-                    <textarea v-model="newFunc.example" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm bg-gray-50" rows="4" placeholder="// 示例代码..."></textarea>
+                    <textarea v-model="newFunc.example" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm bg-gray-50" rows="4" placeholder="// 示例代码..." @keydown="handleTab"></textarea>
                 </div>
             </div>
 
@@ -561,9 +562,19 @@
                 event.target.value = '';
             };
 
-
-
-
+            // Tab 缩进2空格支持
+            const handleTab = (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const textarea = e.target;
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const value = textarea.value;
+                    textarea.value = value.substring(0, start) + '    ' + value.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = start + 4;
+                    textarea.dispatchEvent(new Event('input'));
+                }
+            };
 
             return {
                 functions,
@@ -587,7 +598,7 @@
                 resetFilter,
                 modalPos,
                 startDrag,
-
+                handleTab,
             };
         }
     }).mount('#app');

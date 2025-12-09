@@ -30,33 +30,33 @@ enum {
 
 };
 
-//===========Token 结构体数组定义token规则（每个数组元素由结构体成员构成） ==================//
+//===========Token 结构体数组定义 正则规则（每个数组元素由结构体成员构成） ==================//
 static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-  {" +", TK_NOTYPE},    // 空格
-  {"==",TK_EQ},         // 等于
-  {"\\+", '+'},         // 加号
-  {"-", '-'},           // 减号
-  {"\\*", '*'},         // 乘号
-  {"/", '/'},           // 除号
-  {"\\(", '('},         // 左括号
-  {"\\)", ')'},         // 右括号
-  {"[0-9]+", TK_NUM}    // 十进制整数
+  {" +", TK_NOTYPE},    // 空格      256
+  {"==",TK_EQ},         // 等于      257
+  {"[0-9]+", TK_NUM},   // 十进制整数 
+  {"\\+", '+'},         // 加号      43
+  {"-", '-'},           // 减号      45
+  {"\\*", '*'},         // 乘号      42
+  {"/", '/'},           // 除号      47
+  {"\\(", '('},         // 左括号    40
+  {"\\)", ')'}          // 右括号    41
+  
 };
-
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules结构体数组元素个数
 
-static regex_t re[NR_REGEX] = {};
-//==============利用正则表达式库函数进行正则表达式字符串编译==============================//
+//============== 利用正则表达式库函数进行正则表达式字符串编译初始化 ==============================//
+static regex_t re[NR_REGEX] = {}; // re[] 是一个regex_t 结构体数组，每个 regex_t 结构体代表一个已编译的正则表达式。
 void init_regex() {
   int i;
   char error_msg[128];
   int ret;
 
   for (i = 0; i < NR_REGEX; i ++) {
-    ret = regcomp(&re[i], rules[i].regex, REG_EXTENDED);
+    ret = regcomp(&re[i], rules[i].regex, REG_EXTENDED);  // REG_EXENDED扩展正则
     if (ret != 0) {
       regerror(ret, &re[i], error_msg, 128);
       panic("regex compilation failed: %s\n%s", error_msg, rules[i].regex);
@@ -64,21 +64,23 @@ void init_regex() {
   }
 }
 
+// ================================ 正则表达式词法分析 ===============================//
 typedef struct token {
   int type;
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
-static int nr_token __attribute__((used))  = 0;
+// 结构体数组tokens 用于存放词法分析得到的所有 token（记号） __attribute__((used))：防止编译器因“未使用”而优化掉该变量。
+static Token tokens[32] __attribute__((used)) = {};       
+static int nr_token __attribute__((used))  = 0;           // 记录当前已经识别出的 token 数量
 
 static bool make_token(char *e) {
   int position = 0;
   int i;
-  regmatch_t pmatch;
-
+  // regmatch_t 结构体用于存放正则表达式匹配结果的位置
+  regmatch_t pmatch;      
   nr_token = 0;
-
+  // e[position] 实际上等价于 *(e + position)，即“从 e 指向的起始地址偏移 position 个字节后的内容”。
   while (e[position] != '\0') {
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
@@ -97,8 +99,7 @@ static bool make_token(char *e) {
          */
 
         switch (rules[i].token_type) {
-          // TK_NOTYPE:;
-          // TK_EQ: 
+
           default: TODO();
         }
 
@@ -115,7 +116,7 @@ static bool make_token(char *e) {
   return true;
 }
 
-// bool *success 属于输出参数
+
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
