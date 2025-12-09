@@ -22,37 +22,34 @@
 // #include </home/l/ysyx/ysyx-workbench/nemu/include/common.h>
 
 
-//========================= Token 类型与规则 ====================================//
+//========================= Token 类型 ====================================//
 enum {
-  TK_NOTYPE = 256, TK_EQ
+  TK_NOTYPE = 256, TK_EQ,TK_NUM
 
   /* TODO: Add more token types */
 
 };
 
-//========================= Token 结构体与数组 ====================================//
+//===========Token 结构体数组定义token规则（每个数组元素由结构体成员构成） ==================//
 static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
-
-  {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ},        // equal
-  {"\\=", '='}           //TEST
+  {" +", TK_NOTYPE},    // 空格
+  {"==",TK_EQ},         // 等于
+  {"\\+", '+'},         // 加号
+  {"-", '-'},           // 减号
+  {"\\*", '*'},         // 乘号
+  {"/", '/'},           // 除号
+  {"\\(", '('},         // 左括号
+  {"\\)", ')'},         // 右括号
+  {"[0-9]+", TK_NUM}    // 十进制整数
 };
 
-#define NR_REGEX ARRLEN(rules)    // 自动计算rules数组元素个数
+#define NR_REGEX ARRLEN(rules)    // 自动计算rules结构体数组元素个数
 
 static regex_t re[NR_REGEX] = {};
-
-/* Rules are used for many times.
- * Therefore we compile them only once before any usage.
- */
+//==============利用正则表达式库函数进行正则表达式字符串编译==============================//
 void init_regex() {
   int i;
   char error_msg[128];
@@ -118,7 +115,7 @@ static bool make_token(char *e) {
   return true;
 }
 
-
+// bool *success 属于输出参数
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;

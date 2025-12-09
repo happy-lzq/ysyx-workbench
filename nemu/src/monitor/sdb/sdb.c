@@ -37,7 +37,7 @@ static int cmd_q(char *args);
 static int cmd_si(char *args);
 static int cmd_info(char *args);
 static int cmd_x(char *args);
-
+static int cmd_p(char *args);
 //================================ Command table ================================//
 static struct {
   const char *name;
@@ -49,7 +49,8 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step execute",cmd_si},
   {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
-  {"x","read memery from addr (x n 0x80000000)",cmd_x}
+  {"x","read memery from addr (x n 0x80000000)",cmd_x},
+  {"p","parse expression",cmd_p}
   /* TODO: Add more commands */
 
 };
@@ -183,15 +184,22 @@ static int cmd_info(char *args){
     }
     return 0;
   }
-
-  // static int cmd_p(char *args){
-  //   if (args == NULL){
-  //     printf("Usage: p N EXPR\n");
-  //     return 0;
-  //   }
-
-  //   return 0;
-  // }
+    // 表达式求值 cmd_p 
+  static int cmd_p(char *args){
+    if (args == NULL){
+      printf("Usage: p expr\n");
+      return 0;
+    }
+    bool success = false;
+    word_t result = expr(args,&success);
+    if (success){
+      printf("%u\n",result);
+    } else{
+      printf("Bad expression.\n");
+    }
+    
+    return 0;
+  }
 
 //============================= SDB main loop and initialization =============================//
 void sdb_set_batch_mode() {
@@ -206,14 +214,9 @@ void sdb_mainloop() {
   // 用户交互循环处理输入指令模式
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
-
     /* extract the first token as the command */
     char *cmd = strtok(str, " ");
     if (cmd == NULL) { continue; }
-
-    /* treat the remaining string as the arguments,
-     * which may need further parsing
-     */
     char *args = cmd + strlen(cmd) + 1;
     if (args >= str_end) {
       args = NULL;
