@@ -1,5 +1,76 @@
 [
   {
+    "name": "sscanf",
+    "header": "stdio.h",
+    "prototype": "int sscanf ( const char * s, const char * format, ...);",
+    "description": "sscanf 是 C 标准库中的一个输入函数，用于从指定字符串中按照指定格式读取数据。它的工作方式类似于 scanf，但 scanf 是从标准输入（如键盘）读取，而 sscanf 是从字符串中读取。\n\nstr  源字符串，从中读取数据。\nformat  格式控制字符串，指定如何解析输入。它包含格式说明符（如 %d, %f, %s 等）和普通字符。\n...  可变数量的指针参数，用于存储解析后的数据。这些指针的类型必须与 format 中的格式说明符匹配。",
+    "return_val": "正整数：成功匹配并赋值的参数个数。\n0：没有成功匹配任何项。\nEOF：在尝试读取时发生错误或到达字符串末尾。",
+    "example": "#include <stdio.h>\n\nint main() {\n    char data[] = \"John 25 85.5\";\n    char name[50];\n    int age;\n    float score;\n    \n    // 从字符串按格式读取\n    sscanf(data, \"%s %d %f\", name, &age, &score);\n    \n    printf(\"Name: %s, Age: %d, Score: %.1f\\n\", name, age, score);\n    return 0;\n}",
+    "modes": [
+      {
+        "code": "%d",
+        "detail": "读取整数。"
+      },
+      {
+        "code": "%f",
+        "detail": "读取浮点数。"
+      },
+      {
+        "code": "%lf",
+        "detail": "读取双精度浮点数。"
+      },
+      {
+        "code": "%c",
+        "detail": "读取字符。"
+      },
+      {
+        "code": "%s",
+        "detail": "读取字符串（遇到空白字符停止）。"
+      },
+      {
+        "code": "%[]",
+        "detail": "读取匹配字符集合的字符串。"
+      },
+      {
+        "code": "%x",
+        "detail": "读取十六进制整数。"
+      },
+      {
+        "code": "%o",
+        "detail": "读取八进制整数。"
+      },
+      {
+        "code": "%u",
+        "detail": "读取无符号整数。"
+      },
+      {
+        "code": "%i",
+        "detail": "读取整数（自动检测进制）。"
+      },
+      {
+        "code": "%p",
+        "detail": "读取指针地址。"
+      },
+      {
+        "code": "%n",
+        "detail": "记录已读取的字符数。"
+      },
+      {
+        "code": "%%",
+        "detail": "匹配百分号。"
+      }
+    ]
+  },
+  {
+    "name": "atoi",
+    "header": "stdlib.h",
+    "prototype": "int atoi(const char *str);",
+    "description": "扫描参数 str 字符串，跳过前面的空白字符（例如空格，tab缩进等），直到遇上数字或正负符号才开始做转换，而再遇到非数字或字符串结束时('\\0')才结束转换，并将结果返回。",
+    "return_val": "将数字字符串返回为整数数值",
+    "example": "static int cmd_si(char *args) {\n  int n;\n  if (args == NULL) {\n    n = 1;  // 默认执行一条指令\n  } else {\n    n = atoi(args);  // 将参数转换为整数\n    if (n <= 0) {\n      printf(\"Invalid number of instructions: %s\\n\", args);\n      return 0;\n    }\n  }\n  cpu_exec(n);  // 执行n条指令\n  return 0;\n}",
+    "modes": []
+  },
+  {
     "name": "calloc",
     "header": "stdlib.h",
     "prototype": "void* calloc (size_t num, size_t size);",
@@ -162,7 +233,7 @@
     "name": "fgets",
     "header": "stdio.h",
     "prototype": "char *fgets(char *str, int n, FILE *stream);",
-    "description": "从指定的流 stream 读取一行，并把它存储在 str 所指向的字符串内。",
+    "description": "从指定的流 stream 读取一行，并把它存储在 str 所指向的字符串内。\nint n 用于指定字节个数，一般为数字的大小",
     "return_val": "如果读取成功，该函数返回相同的 str 参数。\n如果到达文件末尾或者没有读取到任何字符，str 的内容保持不变，并返回一个空指针。\n如果发生错误，返回一个空指针。",
     "example": "FILE *fp = fopen(\"file.txt\", \"r\");\nchar str[60];\nif(fgets(str, 60, fp)!=NULL) {\n    printf(\"%s\", str);\n}\nfclose(fp);",
     "modes": []

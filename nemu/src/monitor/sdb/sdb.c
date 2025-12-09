@@ -121,10 +121,6 @@ static int cmd_si(char *args) {
       return 0;
     }
   }
-  // 执行n条指令
-  // for (int i = 0; i < n; i++){
-  //   cpu_exec(1);
-  // }
   cpu_exec(n);  
   return 0;
 }
@@ -169,8 +165,7 @@ static int cmd_info(char *args){
       return 0;
     }
 
-    uint32_t addr;
-    uint32_t data;
+    word_t addr,data;
     sscanf(expr_arg,"%x",&addr);
     printf("Memory dump at 0x%08x for %d words:\n", addr, n);
     for (int i = 0; i < n; i++){
