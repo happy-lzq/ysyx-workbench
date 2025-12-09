@@ -24,7 +24,7 @@
 
 //========================= Token 类型与规则 ====================================//
 enum {
-  TK_NOTYPE = 256, TK_EQ,TK_1
+  TK_NOTYPE = 256, TK_EQ
 
   /* TODO: Add more token types */
 
@@ -43,7 +43,7 @@ static struct rule {
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
   {"==", TK_EQ},        // equal
-  {"=", TK_1}           //TEST
+  {"\\=", '='}           //TEST
 };
 
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules数组元素个数
