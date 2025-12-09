@@ -13,13 +13,16 @@
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
 
-#include <isa.h>
-
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
+#include <isa.h>
 #include <regex.h>
+#include <stdbool.h>
+// #include </home/l/ysyx/ysyx-workbench/nemu/include/common.h>
 
+
+//========================= Token 类型与规则 ====================================//
 enum {
   TK_NOTYPE = 256, TK_EQ,
 
@@ -27,6 +30,7 @@ enum {
 
 };
 
+//========================= Token 结构体与数组 ====================================//
 static struct rule {
   const char *regex;
   int token_type;
@@ -41,7 +45,7 @@ static struct rule {
   {"==", TK_EQ},        // equal
 };
 
-#define NR_REGEX ARRLEN(rules)
+#define NR_REGEX ARRLEN(rules)    // 自动计算rules数组元素个数
 
 static regex_t re[NR_REGEX] = {};
 
