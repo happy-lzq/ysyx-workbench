@@ -157,8 +157,15 @@ static int cmd_info(char *args){
       printf("Missing argument N\n");
       return 0;
     }
-    int n = atoi(n_arg);
-
+    // 两类库函数将数字字符类型转化为 整数int类型
+    // int n = atoi(n_arg);
+    char *endptr;
+    int n = (int)strtoul(n_arg,&endptr,10);
+    // 非法结束字符位置不能等于初始位置，
+    if (endptr == n_arg || *endptr !='\0' || n <= 0){
+      printf("Invalid number of instructions: %s\n", n_arg);
+      return 0;
+    }
     char *expr_arg = strtok(NULL," ");
     if (expr_arg == NULL) {
       printf("Missing argument EXPR\n");
