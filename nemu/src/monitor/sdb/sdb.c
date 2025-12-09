@@ -184,6 +184,15 @@ static int cmd_info(char *args){
     return 0;
   }
 
+  // static int cmd_p(char *args){
+  //   if (args == NULL){
+  //     printf("Usage: p N EXPR\n");
+  //     return 0;
+  //   }
+
+  //   return 0;
+  // }
+
 //============================= SDB main loop and initialization =============================//
 void sdb_set_batch_mode() {
   is_batch_mode = true;
