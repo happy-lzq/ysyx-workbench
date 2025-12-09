@@ -24,7 +24,7 @@
 
 //========================= Token 类型与规则 ====================================//
 enum {
-  TK_NOTYPE = 256, TK_EQ,
+  TK_NOTYPE = 256, TK_EQ,TK_1
 
   /* TODO: Add more token types */
 
@@ -43,6 +43,7 @@ static struct rule {
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
   {"==", TK_EQ},        // equal
+  {"=", TK_1}           //TEST
 };
 
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules数组元素个数
@@ -99,6 +100,8 @@ static bool make_token(char *e) {
          */
 
         switch (rules[i].token_type) {
+          // TK_NOTYPE:;
+          // TK_EQ: 
           default: TODO();
         }
 
