@@ -168,12 +168,12 @@ int find_main_operator(int l, int r,bool *success){
       }
     }
   }
-
+  // op 未变 找不到主运算符则算法表达式错误，结束递归传输bad expression     
   if (op == -1) {
     *success = false;
     printf("No main operator found\n");
     printf("Bad expression\n");
-    // assert(0);
+    assert(0);
   }
   return op;
 }
@@ -183,7 +183,7 @@ word_t eval(int l,int r,bool *success){
   if (l > r){
     printf("Bad expression\n");
     *success =false;
-    return -1;
+    return 1;
   } else if (l == r){
     // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
@@ -194,7 +194,8 @@ word_t eval(int l,int r,bool *success){
   } else if (check_parentheses(l,r) == 0){
     // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
     return eval(l+1,r-1,success);
-  } else {                                                                                       
+  } else {        
+    // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
     int op = find_main_operator(l,r,success);
     val1 = eval(l,op-1,success);
     val2 = eval(op+1,r,success);
