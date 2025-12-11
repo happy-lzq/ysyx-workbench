@@ -193,7 +193,7 @@ word_t eval(int l,int r,bool *success){
   } else if (check_parentheses(l,r) == 0){
     // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
     return eval(l+1,r-1,success);
-  } else {
+  } else {                                                                                       
     int op = find_main_operator(l,r,success);
     val1 = eval(l,op-1,success);
     val2 = eval(op+1,r,success);
