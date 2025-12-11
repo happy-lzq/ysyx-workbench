@@ -122,23 +122,21 @@ static bool make_token(char *e) {
 
 // ============================== 递归求值 =======================================//
 // 检查tokens[]表达式始末是否有括号，以及括号是否合法
-int check_parentheses(int l,int r){
-  int paren_level = 0 ;
-  for (int i = l ; i <=r; i++){
-    if (tokens[i].type == '('){
-      paren_level++;
-    } else if (tokens[i].type == ')'){
-      paren_level--;
+int check_parentheses(int l, int r) {
+  // 表达式最边侧主要有一个不是括号对，直接返回-1表达整个表达式肯定不是被()括起来
+  if (tokens[l].type != '(' || tokens[r].type != ')') return -1;
+  int paren_level = 0;
+  // 表达式左右两边有括号对，但是要去检验是不是将整个表达式括起来，防止：（）+（）系列
+  // 进入for循环则表达式左侧一定为'()'，那么需要在检查到最左侧')' 之前，l'('闭合，说明表达式整体未被扩 
+  // 所以在遇到一个')'就立即检查是否闭合
+  for (int i = l + 1; i < r; i++) {
+    if (tokens[i].type == '(') paren_level++;       // (())+()
+    else if (tokens[i].type == ')') {
+      if (paren_level == 0) return 0; 
+        paren_level--;
     }
   }
-  if ( (paren_level == 0) && (tokens[l].type == 40 && tokens[r].type == 41)){
-    return 0;
-  } else if ((paren_level == 0 ) && (tokens[l].type != 40 || tokens[r].type !=41)){
-    return -1;
-  } else {
-    printf("Bad expression\n");
-    assert(0);
-  }
+  return paren_level == 0 ? 0 : -1;
 }
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
