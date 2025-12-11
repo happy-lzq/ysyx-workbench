@@ -136,7 +136,7 @@ int check_parentheses(int l, int r) {
         paren_level--;
     }
   }
-  return paren_level != 0 ? 0 : -1;
+  return paren_level == 0 ? 0 : -1;
 }
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
