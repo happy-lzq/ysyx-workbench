@@ -206,11 +206,8 @@ word_t eval(int l,int r,bool *success){
       // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
       default: assert(0); // 未知类型直接报错
     }
-
   }
-
 }
-
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
