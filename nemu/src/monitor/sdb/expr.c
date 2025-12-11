@@ -173,7 +173,7 @@ int find_main_operator(int l, int r,bool *success){
     *success = false;
     printf("No main operator found\n");
     printf("Bad expression\n");
-    // assert(0);
+    assert(0);
   }
   return op;
 }
@@ -183,7 +183,7 @@ word_t eval(int l,int r,bool *success){
   if (l > r){
     printf("Bad expression\n");
     *success =false;
-    return -1;
+    return 0;
   } else if (l == r){
     // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
