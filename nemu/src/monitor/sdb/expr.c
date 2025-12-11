@@ -168,11 +168,11 @@ int find_main_operator(int l, int r,bool *success){
       }
     }
   }
-  // op 未变 找不到主运算符则算法表达式错误，结束递归传输bad expression     
+  // op 未变 找不到主运算符则算法表达式错误，传出success = false  
   if (op == -1) {
     *success = false;
     printf("No main operator found\n");
-    return -1;
+    return 0;
   }
   return op;
 }
@@ -196,6 +196,8 @@ word_t eval(int l,int r,bool *success){
   } else {        
     // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
     int op = find_main_operator(l,r,success);
+    // 利用*success 检查主运算符是否检查正确，错误提前返回
+    if (*success == false) return 0;
     val1 = eval(l,op-1,success);
     val2 = eval(op+1,r,success);
     switch (tokens[op].type) {
