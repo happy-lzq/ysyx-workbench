@@ -171,7 +171,7 @@ int find_main_operator(int l, int r,bool *success){
 
   if (op == -1) {
     *success = false;
-    printf("No main operator found\n");
+    printf("No main operator found**\n");
     return 0;
   }
   return op;
@@ -180,7 +180,7 @@ int find_main_operator(int l, int r,bool *success){
 word_t eval(int l,int r,bool *success){
   word_t val1,val2;
   if (l > r){
-    printf("Bad expression\n");
+    printf("Bad expression****\n");
     *success =false;
     return 0;
   } else if (l == r){
