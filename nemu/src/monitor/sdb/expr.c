@@ -132,11 +132,11 @@ int check_parentheses(int l, int r) {
   for (int i = l + 1; i < r; i++) {
     if (tokens[i].type == '(') paren_level++;       // (())+()
     else if (tokens[i].type == ')') {
-      if (paren_level == 0) return 0; 
+      if (paren_level == 0) return -1; 
         paren_level--;
     }
   }
-  return paren_level == 0 ? 0 : -1;
+  return paren_level != 0 ? 0 : -1;
 }
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
