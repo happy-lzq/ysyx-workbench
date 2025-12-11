@@ -172,7 +172,7 @@ int find_main_operator(int l, int r,bool *success){
   if (op == -1) {
     *success = false;
     printf("No main operator found**\n");
-    return 0;
+    return -1;
   }
   return op;
 }
