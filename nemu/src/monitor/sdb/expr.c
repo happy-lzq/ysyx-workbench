@@ -172,8 +172,7 @@ int find_main_operator(int l, int r,bool *success){
   if (op == -1) {
     *success = false;
     printf("No main operator found\n");
-    printf("Bad expression\n");
-    assert(0);
+    return -1;
   }
   return op;
 }
@@ -210,6 +209,7 @@ word_t eval(int l,int r,bool *success){
     }
   }
 }
+
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
@@ -219,3 +219,4 @@ word_t expr(char *e, bool *success) {
   return eval(0,nr_token-1,success);
   }
 }
+
