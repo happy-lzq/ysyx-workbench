@@ -123,9 +123,22 @@ static bool make_token(char *e) {
 // ============================== 递归求值 =======================================//
 // 检查tokens[]表达式始末是否有括号，以及括号是否合法
 int check_parentheses(int l,int r){
-  if (tokens[l].type == 40 && tokens[r].type == 41){
+  int paren_level = 0 ;
+  for (int i = l ; i <=r; i++){
+    if (tokens[i].type == '('){
+      paren_level++;
+    } else if (tokens[i].type == ')'){
+      paren_level--;
+    }
+  }
+  if ( (paren_level == 0) && (tokens[l].type == 40 && tokens[r].type == 41)){
     return 0;
-  } else return -1;
+  } else if ((paren_level == 0 ) && (tokens[l].type != 40 || tokens[r].type !=41)){
+    return -1;
+  } else {
+    printf("Bad expression\n");
+    assert(0);
+  }
 }
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
@@ -151,12 +164,13 @@ int find_main_operator(int l, int r,bool *success){
   // 逐个扫描获取非括号内的运算符等级
       int pri = get_priortiy(tokens[i].type);
   // 设计逻辑：逐个比较等级：等级低的覆盖等级大的，同一等级的，位于表达式更后面的覆盖前面的作为主运算符
-      if (pri < min_priority || (pri == min_priority && l > op)){
+      if (pri < min_priority || (pri == min_priority && i > op)){
         min_priority = pri;
-        op = l;
+        op = i;
       }
     }
   }
+
   if (op == -1) {
     *success = false;
     printf("No main operator found\n");
@@ -179,7 +193,7 @@ word_t eval(int l,int r,bool *success){
       default: *success = false; return 0;
     }
   } else if (check_parentheses(l,r) == 0){
-    // 表达式两边都存在括号，去除括号再次递归
+    // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
     return eval(l+1,r-1,success);
   } else {
     int op = find_main_operator(l,r,success);
