@@ -182,7 +182,7 @@ word_t eval(int l,int r,bool *success){
   if (l > r){
     printf("Bad expression****\n");
     *success =false;
-    return -1;
+    return 0;
   } else if (l == r){
     // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
