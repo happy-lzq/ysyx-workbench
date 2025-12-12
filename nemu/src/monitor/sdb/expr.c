@@ -38,9 +38,10 @@ static struct rule {
   {" +", TK_NOTYPE},                      // 空格       256
   {"==",TK_EQ},                           // 等于       257
   {"[0-9]+", TK_NUM},                     // 十进制整数  258
-  {"\\$[a-z][0-9]+",TK_REG},                // 寄存器     259
-  {"\\$[a-z]{2}",TK_REG},  
-  {"\\$[0-9]+",TK_REG}, 
+  {"0[xX][0-9a-fA-F]+",TK_NUM},           // 16进制     258
+  {"\\$[a-z][0-9]+",TK_REG},              // 寄存器     259
+  {"\\$[a-z]{2}",TK_REG},                 // 寄存器     259
+  {"\\$[0-9]+",TK_REG},                   // 寄存器     259
   {"\\+", '+'},                           // 加号       43
   {"-", '-'},                             // 减号       45
   {"\\*", '*'},                           // 乘号       42
@@ -50,6 +51,17 @@ static struct rule {
 
 };
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules结构体数组元素个数
+
+static word_t parse_num(const char *s, bool *success){
+  char *endptr = NULL;
+  word_t val = strtoull(s,&endptr,0);
+  if (endptr == s || *endptr != '\0' ){
+    printf("自动解析数值转化失败！请检查输入");
+    *success = false;
+    return 0;
+  }
+  return val;
+}
 
 //============== 编译 rules[] Tokens 与正则表达式一一对应 ==============================//
 static regex_t re[NR_REGEX] = {}; // re[] 是一个regex_t 结构体数组，每个 regex_t 结构体代表一个已编译的正则表达式。
@@ -186,28 +198,29 @@ word_t eval(int l,int r,bool *success){
   } else if (l == r){
     // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
-      case TK_NUM : return atoi(tokens[l].str);
+      case TK_NUM : return parse_num(tokens[l].str,success);
       case TK_REG : return isa_reg_str2val(tokens[l].str,success);
-      default: *success = false; return 0;
+      default: 
+      *success = false; return 0;
     }
   } else if (check_parentheses(l,r) == 0){
     // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
-    return eval(l+1,r-1,success);
+      return eval(l+1,r-1,success);
   } else {        
     // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
-    int op = find_main_operator(l,r,success);
-    // 利用*success 检查主运算符是否检查正确，错误提前返回
-    if (*success == false) return 0;
-    val1 = eval(l,op-1,success);
-    val2 = eval(op+1,r,success);
-    switch (tokens[op].type) {
-      case '+': return val1 + val2;
-      case '-': return val1 - val2;
-      case '*': return val1 * val2;
-      case '/': return val1 / val2;
-      case TK_EQ: return val1 == val2;
-      // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
-      default: assert(0); // 未知类型直接报错
+      int op = find_main_operator(l,r,success);
+      // 利用*success 检查主运算符
+      if (*success == false) return 0;
+      val1 = eval(l,op-1,success);
+      val2 = eval(op+1,r,success);
+      switch (tokens[op].type) {
+        case '+': return val1 + val2;
+        case '-': return val1 - val2;
+        case '*': return val1 * val2;
+        case '/': return val1 / val2;
+        case TK_EQ: return val1 == val2;
+        // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
+        default: assert(0); // 未知类型直接报错
     }
   }
 }
@@ -218,6 +231,7 @@ word_t expr(char *e, bool *success) {
     return 0;
   } else{
     *success = true;
+  // 进入表达式求值递归求值处理之前，先将success设置为ture,eval求值过程中如果有错误提前返回false 结束当前求值
   return eval(0,nr_token-1,success);
   }
 }

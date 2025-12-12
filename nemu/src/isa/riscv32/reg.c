@@ -44,6 +44,51 @@ void isa_reg_display() {
   }
 }
 word_t isa_reg_str2val(const char *s, bool *success) {
-  
+  if (s == NULL) {
+    if (success) *success = false;
+    return 0;
+  }
+
+  const char *name = s;
+  if (name[0] == '$') name = name + 1; // accept both "$t0" and "t0"
+
+  // check pc first
+  if (strcmp(name, "pc") == 0) {
+    if (success) *success = true;
+    return cpu.pc;
+  }
+
+  // if starts with digit, parse numeric register index
+  if (name[0] >= '0' && name[0] <= '9') {
+    char *endptr = NULL;
+    long idx = strtol(name, &endptr, 10);
+    if (endptr != NULL && *endptr == '\0' && idx >= 0 && idx < (long)ARRLEN(regs)) {
+      if (success) *success = true;
+      return cpu.gpr[idx];
+    } else {
+      if (success) *success = false;
+      return 0;
+    }
+  }
+
+  // search named registers (regs array) - regs[] may contain "$0" for index 0 or names without '$'
+  int len = ARRLEN(regs);
+  for (int i = 0; i < len; i++) {
+    const char *r = regs[i];
+    // compare both with and without leading '$'
+    if (r[0] == '$') {
+      if (strcmp(r + 1, name) == 0) {
+        if (success) *success = true;
+        return cpu.gpr[i];
+      }
+    }
+    if (strcmp(r, name) == 0) {
+      if (success) *success = true;
+      return cpu.gpr[i];
+    }
+  }
+
+  // not found
+  if (success) *success = false;
   return 0;
 }
