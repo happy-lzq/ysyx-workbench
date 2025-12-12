@@ -54,7 +54,7 @@ word_t isa_reg_str2val(const char *s, bool *success) {
     } 
   }
   if (!ok){
-    printf("regs 匹配错误！");
+    printf("regs_name is bad！\n");
     *success = false;
     return 0;
   } else{
