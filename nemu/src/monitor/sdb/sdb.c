@@ -185,20 +185,25 @@ static int cmd_info(char *args){
     }
     return 0;
   }
-    // 表达式求值 cmd_p p $t1
+    //======================== 表达式求值 cmd_p p $t1===================================//
   static int cmd_p(char *args){
     if (args == NULL){
       printf("Usage: p expr\n");
       return 0;
     }
     bool success = false;
-    word_t result = expr(args,&success);
+    bool hex = false;
+    word_t result = expr(args,&success,&hex);
+
     if (success){
-      printf("%u\n",result);
+      if (hex == false){
+        printf("%u\n",result);
+      } else {
+        printf("0x%08" PRIx32 "\n", result);
+      }
     } else{
       printf("Bad expression.\n");
     }
-    
     return 0;
   }
 

@@ -24,7 +24,7 @@
 
 //========================= Token 类型 ====================================//
 enum {
-  TK_NOTYPE = 256, TK_EQ,TK_NUM,TK_REG
+  TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG
 
   /* TODO: Add more token types */
 
@@ -37,11 +37,11 @@ static struct rule {
 } rules[] = {
   {" +", TK_NOTYPE},                      // 空格       256
   {"==",TK_EQ},                           // 等于       257
-  {"0[xX][0-9a-fA-F]+",TK_NUM},           // 16进制     258
-  {"[0-9]+", TK_NUM},                     // 十进制整数  258
-  {"\\$[a-z][0-9]+",TK_REG},              // 寄存器     259
-  {"\\$[a-z]{2}",TK_REG},                 // 寄存器     259
-  {"\\$[0-9]+",TK_REG},                   // 寄存器     259
+  {"0[xX][0-9a-fA-F]+",TK_16NUM},         // 16进制     258
+  {"[0-9]+", TK_NUM},                     // 十进制整数  259
+  {"\\$[a-z][0-9]+",TK_REG},              // 寄存器     260
+  {"\\$[a-z]{2}",TK_REG},                 // 寄存器     260
+  {"\\$[0-9]+",TK_REG},                   // 寄存器     260
   {"\\+", '+'},                           // 加号       43
   {"-", '-'},                             // 减号       45
   {"\\*", '*'},                           // 乘号       42
@@ -59,7 +59,7 @@ static word_t parse_num(const char *s, bool *success){
     printf("自动解析数值转化失败！请检查输入");
     *success = false;
     return 0;
-  }
+  } 
   return val;
 }
 
@@ -198,8 +198,9 @@ word_t eval(int l,int r,bool *success){
   } else if (l == r){
     // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
-      case TK_NUM : return parse_num(tokens[l].str,success);
-      case TK_REG : return isa_reg_str2val(tokens[l].str,success);
+      case TK_16NUM : return parse_num(tokens[l].str,success);
+      case TK_NUM   : return parse_num(tokens[l].str,success);
+      case TK_REG   : return isa_reg_str2val(tokens[l].str,success);
       default: 
       *success = false; return 0;
     }
@@ -225,14 +226,20 @@ word_t eval(int l,int r,bool *success){
   }
 }
 
-word_t expr(char *e, bool *success) {
+word_t expr(char *e, bool *success, bool *hex) {
   if (!make_token(e)) {
     *success = false;
     return 0;
   } else{
+  // 检查表达式是否存在16进制token
+    for (int i = 0; i < nr_token; i++){
+      if (tokens[i].type == TK_16NUM){
+        *hex = true;
+        break;
+      } 
+    } 
     *success = true;
   // 进入表达式求值递归求值处理之前，先将success设置为ture,eval求值过程中如果有错误提前返回false 结束当前求值
   return eval(0,nr_token-1,success);
   }
 }
-
