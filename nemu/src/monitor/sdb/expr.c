@@ -189,7 +189,7 @@ int find_main_operator(int l, int r,bool *success){
   return op;
 }
 // 递归处理表达式求值
-word_t eval(int l,int r,bool *success){
+word_t eval(int l,int r,bool *success,bool *hex){
   word_t val1,val2;
   if (l > r){
     printf("Bad expression\n");
@@ -200,20 +200,20 @@ word_t eval(int l,int r,bool *success){
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      case TK_REG   : return isa_reg_str2val(tokens[l].str,success);
+      case TK_REG   : return isa_reg_str2val(tokens[l].str,success); *hex =true;
       default: 
       *success = false; return 0;
     }
   } else if (check_parentheses(l,r) == 0){
     // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
-      return eval(l+1,r-1,success);
+      return eval(l+1,r-1,success,hex);
   } else {        
     // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
       int op = find_main_operator(l,r,success);
       // 利用*success 检查主运算符
       if (*success == false) return 0;
-      val1 = eval(l,op-1,success);
-      val2 = eval(op+1,r,success);
+      val1 = eval(l,op-1,success,hex);
+      val2 = eval(op+1,r,success,hex);
       switch (tokens[op].type) {
         case '+': return val1 + val2;
         case '-': return val1 - val2;
@@ -240,6 +240,6 @@ word_t expr(char *e, bool *success, bool *hex) {
     } 
     *success = true;
   // 进入表达式求值递归求值处理之前，先将success设置为ture,eval求值过程中如果有错误提前返回false 结束当前求值
-  return eval(0,nr_token-1,success);
+  return eval(0,nr_token-1,success,hex);
   }
 }
