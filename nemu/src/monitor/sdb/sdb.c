@@ -198,6 +198,7 @@ static int cmd_info(char *args){
     if (success){
       if (hex == false){
         printf("%u\n",result);
+        printf("0x%08" PRIx32 "\n", result);
       } else {
         printf("0x%08" PRIx32 "\n", result);
       }
