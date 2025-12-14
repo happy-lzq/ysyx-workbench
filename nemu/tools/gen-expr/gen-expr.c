@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
 
     fprintf(out, "%s\n", buf);
     if (i < 10) {
-      printf("%s\n", buf);
+      fprintf(stderr, "%s\n", buf);
     }
   }
 
