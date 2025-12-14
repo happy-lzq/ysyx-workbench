@@ -80,7 +80,7 @@ void init_regex() {
 // ================================ 正则表达式词法分析 ===============================//
 typedef struct token {
   int type;
-  char str[32];
+  char str[256];
 } Token;
 
 // 结构体数组tokens 用于存放词法分析得到的所有 token（记号）
