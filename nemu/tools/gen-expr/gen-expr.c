@@ -152,6 +152,40 @@ static void gen_operand(char **pp, int *rem, int depth) {
   }
 }
 
+/* generate an operand that is guaranteed not to be zero (avoid 0 literal and $0 reg)
+   used for right-hand side of division to reduce chance of division-by-zero */
+static void gen_operand_nonzero(char **pp, int *rem, int depth) {
+  if (*rem <= 0) return;
+  (void)depth;
+  /* try picking kinds but ensure non-zero output */
+  for (int tries = 0; tries < 10; tries++) {
+    int idx = pool_pick(&op_pool);
+    const char *kind = op_pool.items[idx].name;
+    if (strcmp(kind, "dec") == 0) {
+      int v = (rand() % 999) + 1; /* 1..999 */
+      append_fmt(pp, rem, "%d", v);
+      return;
+    } else if (strcmp(kind, "hex") == 0) {
+      int v = (rand() % 0xFFFF) + 1; /* 1..0xFFFF */
+      append_fmt(pp, rem, "0x%X", v);
+      return;
+    } else if (strcmp(kind, "reg") == 0) {
+      /* pick a non-$0 register */
+      const char *r;
+      int guard = 0;
+      do {
+        r = regs_name[rand() % regs_name_n];
+        guard++;
+      } while (strcmp(r, "$0") == 0 && guard < 20);
+      while (*r == '$') r++;
+      append_fmt(pp, rem, "$%s", r);
+      return;
+    }
+  }
+  /* fallback */
+  append_fmt(pp, rem, "1");
+}
+
 /* generate expression at given depth */
 static void gen_expr_rec(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
@@ -170,12 +204,17 @@ static void gen_expr_rec(char **pp, int *rem, int depth) {
     const char *op = al_pool.items[opi].name;
     append_fmt(pp, rem, " %s ", op);
     /* right operand */
-    if (depth > 0 && (rand() % 100) < 15) {
-      append_str(pp, rem, "(");
-      gen_expr_rec(pp, rem, depth - 1);
-      append_str(pp, rem, ")");
+    if (strcmp(op, "/") == 0) {
+      /* avoid generating a zero RHS: don't use subexprs here, pick non-zero operand */
+      gen_operand_nonzero(pp, rem, depth);
     } else {
-      gen_operand(pp, rem, depth);
+      if (depth > 0 && (rand() % 100) < 15) {
+        append_str(pp, rem, "(");
+        gen_expr_rec(pp, rem, depth - 1);
+        append_str(pp, rem, ")");
+      } else {
+        gen_operand(pp, rem, depth);
+      }
     }
   }
 }
