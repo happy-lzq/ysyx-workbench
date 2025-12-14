@@ -1,5 +1,77 @@
 [
   {
+    "name": "fputs",
+    "header": "stdio.h",
+    "prototype": "int fputs ( const char * str, FILE * stream );",
+    "description": "功能：\n将指定指针str中的字符串复制到文件流stream中，终止符不复制（puts-会复制）\n参数：\nstr：将复制的指针\nstream：文件流指针",
+    "return_val": "成功返回非负值，\n失败返回：EOF",
+    "example": "/* fputs example */\n#include <stdio.h>\n\nint main ()\n{\n   FILE * pFile;\n   char sentence [256];\n\n   printf (\"Enter sentence to append: \");\n   fgets (sentence,256,stdin);\n   pFile = fopen (\"mylog.txt\",\"a\");\n   fputs (sentence,pFile);\n   fclose (pFile);\n   return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "sprintf",
+    "header": "stdio.h",
+    "prototype": "int sprintf ( char * str, const char * format, ... );",
+    "description": "功能：\n将format中的字符串按规定格式输入到缓冲str中\n参数：\nstr：目标指针\nformat：规定字符串指针",
+    "return_val": "返回最终出现在str中的字符大小",
+    "example": "/* sprintf example */\n#include <stdio.h>\n\nint main ()\n{\n  char buffer [50];\n  int n, a=5, b=3;\n  n=sprintf (buffer, \"%d plus %d is %d\", a, b, a+b);\n  printf (\"[%s] is a string %d chars long\\n\",buffer,n);\n  return 0;\n}\n\n[5 plus 3 is 8] is a string 13 chars long",
+    "modes": []
+  },
+  {
+    "name": "strtol",
+    "header": "string.h",
+    "prototype": "long int strtol (const char* str, char** endptr, int base);",
+    "description": "功能：\n把以 C 字符串表示的整数转换为 long 类型。支持不同进制（2–36 或 auto-detect）。\n参数：\nnptr：指向要解析的字符串（可包含前导空白和可选正负号）。\nendptr：如果非 NULL，*endptr 会被设置为指向第一个不能被解析为数字的字符（即解析停止处）。若未能解析出任何数字，*endptr == nptr。可用来检测是否成功或进行后续解析。\nbase：指定基数（2–36）。若为 0，函数会根据字符串前缀自动判断：以 0x/0X 为十六进制，以 0 开头为八进制，否则十进制。",
+    "return_val": "返回值：转换后的 long 值。若无可转换数字则返回 0（同时 endptr 指向原始字符串）。\n溢出/下溢：若数值超出 long 表示范围，返回 LONG_MAX 或 LONG_MIN，并将 errno 设为 ERANGE。\n部分解析：如果字符串前面包含可转换部分（比如 \"123abc\"），返回 123 且 *endptr 指向 'a'。\n要正确判断成功与否，应同时检查 endptr、errno 和返回值是否等于边界值。",
+    "example": "/* strtol example */\n#include <stdio.h>      /* printf */\n#include <stdlib.h>     /* strtol */\n\nint main ()\n{\n  char szNumbers[] = \"2001 60c0c0 -1101110100110100100000 0x6fffff\";\n  char * pEnd;\n  long int li1, li2, li3, li4;\n  li1 = strtol (szNumbers,&pEnd,10);\n  li2 = strtol (pEnd,&pEnd,16);\n  li3 = strtol (pEnd,&pEnd,2);\n  li4 = strtol (pEnd,NULL,0);\n  printf (\"The decimal equivalents are: %ld, %ld, %ld and %ld.\\n\", li1, li2, li3, li4);\n  return 0;\n}\n\nThe decimal equivalents are: 2001, 6340800, -3624224 and 7340031",
+    "modes": []
+  },
+  {
+    "name": "regmatch_t",
+    "header": "regex.h",
+    "prototype": "typedef struct {\n  regoff_t rm_so;\n  regoff_t rm_eo;\n} regmatch_t;",
+    "description": "功能：\nregmatch_t 是一个结构体，用于存放正则表达式匹配结果的位置。\n主要用于 regexec()，用来记录每个捕获组（包括整个匹配和子表达式）的起止位置。\n参数：\nrm_so（start offset）：匹配子串在目标字符串中的起始下标（从0开始）。\nrm_eo（end offset）：匹配子串在目标字符串中的结束下标（开区间，即不包含该位置）。",
+    "return_val": "在调用 regexec() 时，传入 regmatch_t pmatch[] 数组，pmatch[0] 存放整个正则的匹配区间，pmatch[1] 及以后存放各子表达式的区间。\n如果没有匹配，rm_so 和 rm_eo 通常为 -1。",
+    "example": "#include <stdio.h>\n#include <regex.h>\n\nint main() {\n    regex_t regex;\n    regmatch_t pmatch[1];\n    const char *pattern = \"[0-9]+\";\n    const char *str = \"abc123xyz\";\n\n    regcomp(&regex, pattern, REG_EXTENDED);\n    if (regexec(&regex, str, 1, pmatch, 0) == 0) {\n        printf(\"Match: start=%d, end=%d\\n\", (int)pmatch[0].rm_so, (int)pmatch[0].rm_eo);\n        // 输出: Match: start=3, end=6\n        // 即 \"123\" 在 \"abc123xyz\" 的下标3~6（不含6）\n    }\n    regfree(&regex);\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "regfree",
+    "header": "regex.h",
+    "prototype": "void regfree(regex_t *preg);",
+    "description": "功能：\n释放由 regcomp 分配的正则对象资源。\n参数：\npreg：指向要释放的 regex_t 对象。\n返回值：\n",
+    "return_val": "无返回值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regexec",
+    "header": "regex.h",
+    "prototype": "int regexec(const regex_t *preg, const char *string, size_t nmatch,regmatch_t pmatch[], int eflags);",
+    "description": "功能：\n用编译好的正则对象匹配目标字符串\n参数：\n\npreg：rgecomp编译成功的正则对象。\nstring：待匹配的目标字符串。\nnmatch：pmatch 数组长度，指定要捕获多少个子表达式。\npmatch：用于存放匹配结果的数组（每个元素记录匹配子串在目标字符串中的起止位置）。\neflags：执行选项，如 REG_NOTBOL（不是行首）、REG_NOTEOL（不是行尾）等。",
+    "return_val": "返回值：\n\n返回 0 表示匹配成功。\nREG_NOMATCH 表示不匹配。\n其它值表示错误。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regerorr",
+    "header": "regex.h",
+    "prototype": "size_t regerror(int errcode, const regex_t *preg, char *errbuf, size_t errbuf_size);",
+    "description": "功能：\n将正则相关错误码转换为可读的错误信息字符串。\n参数：\nerrcode：错误码（通常是 regcomp 或 regexec 的返回值）。\npreg：指向相关 regex_t 对象。\nerrbuf：用于存放错误信息的缓冲区。\nerrbuf_size：缓冲区大小。",
+    "return_val": "返回值：\n返回错误信息实际长度。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regcomp",
+    "header": "regex.h",
+    "prototype": "int regcomp(regex_t *preg, const char *regex, int cflags);",
+    "description": "功能：\n编译正则表达式字符串，生成可用于匹配的正则对象。\n参数：\npreg：指向 regex_t 结构体的指针，存储编译后的正则对象。\nregex：正则表达式字符串。\ncflags：编译选项，如 REG_EXTENDED（扩展正则）、REG_ICASE（忽略大小写）等。",
+    "return_val": "返回 0 表示编译成功。\n非 0 表示编译失败，可用 regerror 获取错误信息。",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "sscanf",
     "header": "stdio.h",
     "prototype": "int sscanf ( const char * s, const char * format, ...);",
@@ -92,8 +164,8 @@
     "name": "strtoul",
     "header": "string.h",
     "prototype": "unsigned long int strtoul (const char* str, char** endptr, int base);",
-    "description": "拆解：str (String) + to + u (Unsigned) + l (Long)\n逻辑：字符串转无符号长整型。\n功能描述：将字符串转换成 unsigned long 数值。比简单的 atoi 强大，因为它能检测非法字符停止的位置（endptr）和指定进制（base）。",
-    "return_val": "转换后的无符号长整数。如果溢出返回 ULONG_MAX。",
+    "description": "拆解：str (String) + to + u (Unsigned) + l (Long)\n逻辑：字符串转无符号长整型。\n功能描述：将字符串转换成 unsigned long 数值。比简单的 atoi 强大，因为它能检测非法字符停止的位置（endptr）和指定进制（base）。\n",
+    "return_val": "转换后的无符号长整数。如果溢出返回 ULONG_MAX。\nstr 指向需要转化为的字符串；\nenptr 属于指针类型，用于检查指向的str中的非法数字字符串地址。\nbase 转化类型",
     "example": "/* strtoul example */\n#include <stdio.h>      /* printf, NULL */\n#include <stdlib.h>     /* strtoul */\n\nint main ()\n{\n  char buffer [256];\n  unsigned long ul;\n  printf (\"Enter an unsigned number: \");\n  fgets (buffer, 256, stdin);\n  ul = strtoul (buffer, NULL, 0);\n  printf (\"Value entered: %lu. Its double: %lu\\n\",ul,ul*2);\n  return 0;\n\noutput:\nEnter an unsigned number: 30003\nValue entered: 30003. Its double: 60006",
     "modes": []
   },
@@ -245,6 +317,88 @@
     "description": "在参数 str 所指向的字符串中搜索第一次出现字符 c（一个无符号字符）的位置。",
     "return_val": "该函数返回在字符串 str 中第一次出现字符 c 的位置，如果未找到该字符则返回 NULL。",
     "example": "const char str[] = \"http://www.runoob.com\";\nconst char ch = '.';\nchar *ret;\nret = strchr(str, ch);\nprintf(\"|%c| 之后的字符串是 - |%s|\\n\", ch, ret);\n\noutput:\n  Looking for the 's' character in \"This is a sample string\"...\n  found at 4\n  found at 7\n  found at 11\n  found at 18",
+    "modes": []
+  }
+,
+  {
+    "name": "time",
+    "header": "time.h",
+    "prototype": "time_t time(time_t *tloc);",
+    "description": "获取当前日历时间（自 Epoch 起的秒数）。若 tloc 非空，同时把结果存入 *tloc。",
+    "return_val": "成功返回当前时间（time_t）。若出错返回 (time_t)-1。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "srand",
+    "header": "stdlib.h",
+    "prototype": "void srand(unsigned int seed);",
+    "description": "设置伪随机数生成器的种子，用于初始化后续的 rand() 序列。",
+    "return_val": "无返回值（void）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "fclose",
+    "header": "stdio.h",
+    "prototype": "int fclose(FILE *stream);",
+    "description": "关闭文件流并释放相关资源，同时刷新缓冲区。",
+    "return_val": "成功返回 0；失败返回 EOF 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "system",
+    "header": "stdlib.h",
+    "prototype": "int system(const char *command);",
+    "description": "在子 shell 中执行命令字符串 command（等同在终端运行该命令）。若 command 为 NULL，可用于检测是否存在命令处理器。",
+    "return_val": "返回命令的退出状态（平台相关）。若无法创建子进程或执行失败返回 -1 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "popen",
+    "header": "stdio.h",
+    "prototype": "FILE *popen(const char *command, const char *type);",
+    "description": "执行命令并建立与子进程的管道，返回可读/可写的 FILE*（type 为 \"r\" 读取子进程输出，\"w\" 写入子进程输入）。",
+    "return_val": "成功返回 FILE*，失败返回 NULL 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "fscanf",
+    "header": "stdio.h",
+    "prototype": "int fscanf(FILE *stream, const char *format, ...);",
+    "description": "从文件流 stream 中按格式读取数据并赋值到后续参数指定的变量。",
+    "return_val": "成功赋值的字段数量；若匹配失败或达到 EOF，返回值可能比预期小或为 EOF。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "pclose",
+    "header": "stdio.h",
+    "prototype": "int pclose(FILE *stream);",
+    "description": "关闭由 popen 返回的文件流，并等待所对应的子进程终止，返回子进程的终止状态。",
+    "return_val": "返回子进程的状态；出错返回 -1 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "printf",
+    "header": "stdio.h",
+    "prototype": "int printf(const char *format, ...);",
+    "description": "按格式将输出写到标准输出（stdout）。",
+    "return_val": "写入的字符数（不含结束 NUL）；错误时返回负值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "assert",
+    "header": "assert.h",
+    "prototype": "void assert(int expression);",
+    "description": "调试用断言：当 expression 为假时打印诊断信息并调用 abort()；若定义了 NDEBUG，则 assert 宏无操作。",
+    "return_val": "无返回值；失败时通常终止程序。",
+    "example": "",
     "modes": []
   }
 ]
