@@ -1,3 +1,27 @@
+CC := gcc
+CFLAGS := -O2 -Wall -Wextra
+
+SRC := gen-expr.c
+OUTDIR := build
+OUT := $(OUTDIR)/gen-expr
+
+.PHONY: all clean run
+
+all: $(OUT)
+
+$(OUTDIR):
+	mkdir -p $(OUTDIR)
+
+$(OUT): $(SRC) | $(OUTDIR)
+	$(CC) $(CFLAGS) -o $@ $(SRC)
+
+run: $(OUT)
+	@n=$(n); if [ -z "$$n" ]; then n=1; fi; \
+	./$(OUT) $$n
+
+clean:
+	rm -rf $(OUTDIR)
+
 #***************************************************************************************
 # Copyright (c) 2014-2024 Zihao Yu, Nanjing University
 #
@@ -16,3 +40,5 @@
 NAME = gen-expr
 SRCS = gen-expr.c
 include $(NEMU_HOME)/scripts/build.mk
+
+
