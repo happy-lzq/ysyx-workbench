@@ -83,8 +83,10 @@ typedef struct token {
   char str[32];
 } Token;
 
-// 结构体数组tokens 用于存放词法分析得到的所有 token（记号） __attribute__((used))：防止编译器因“未使用”而优化掉该变量。
-static Token tokens[32] __attribute__((used)) = {};       
+// 结构体数组tokens 用于存放词法分析得到的所有 token（记号）
+// 增加容量并在词法分析时检查边界，防止长表达式导致缓冲区溢出
+#define MAX_TOKENS 256
+static Token tokens[MAX_TOKENS] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;           // 记录当前已经识别出的 token 数量
 
 static bool make_token(char *e) {
@@ -110,9 +112,13 @@ static bool make_token(char *e) {
             // 空格，不保存，跳过
             break;
           default: 
+            if (nr_token >= MAX_TOKENS) {
+              printf("too many tokens: exceed %d\n", MAX_TOKENS);
+              return false;
+            }
             tokens[nr_token].type = rules[i].token_type;
-            int copy_len = substr_len < 31 ? substr_len : 31;
-            strncpy(tokens[nr_token].str,substr_start,copy_len);
+            int copy_len = substr_len < (int)sizeof(tokens[nr_token].str) - 1 ? substr_len : (int)sizeof(tokens[nr_token].str) - 1;
+            strncpy(tokens[nr_token].str, substr_start, copy_len);
             tokens[nr_token].str[copy_len] = '\0';
             nr_token++;
             break;
