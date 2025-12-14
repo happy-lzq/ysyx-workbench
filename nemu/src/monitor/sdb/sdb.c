@@ -196,11 +196,10 @@ static int cmd_info(char *args){
     word_t result = expr(args,&success,&hex);
 
     if (success){
-      if (hex == false){
-        printf("%u\n",result);
+      if (hex == true){
         printf("0x%08" PRIx32 "\n", result);
       } else {
-        printf("0x%08" PRIx32 "\n", result);
+        printf("%u\n",result);
       }
     } else{
       printf("Bad expression.\n");
