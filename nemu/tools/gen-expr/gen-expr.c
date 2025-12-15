@@ -111,7 +111,7 @@ static void append_fmt(char **pp, int *rem, const char *fmt, ...) {
   *pp += n; *rem -= n;
 }
 
-/* 从寄存器结构体中随机选取寄存器名，并配上表达式引导符号 & */
+// 从寄存器结构体中随机选取寄存器名，并配上表达式引导符号 & 
 static void append_reg_from_white(char **pp, int *rem) {
   if (*rem <= 0) return;
   const char *r = regs_name[rand() % regs_name_n];
@@ -121,8 +121,6 @@ static void append_reg_from_white(char **pp, int *rem) {
   append_fmt(pp, rem, "$%s", r);
 }
 
-/* forward declarations for recursive generators */
-static void gen_expr_rec(char **pp, int *rem, int depth);
 
   // 操作数选择
 static void gen_operand(char **pp, int *rem, int depth) {
@@ -138,51 +136,14 @@ static void gen_operand(char **pp, int *rem, int depth) {
   } else if (strcmp(kind, "reg") == 0) {
     append_reg_from_white(pp, rem);
   } else {
-    /* fallback to decimal */
     append_fmt(pp, rem, "%d", rand() % 1000);
   }
 }
 
-// 随机生成非0值的操作数，目的是保证运算符/ 除数不能为0
-// static void gen_operand_nonzero(char **pp, int *rem, int depth) {
-//   if (*rem <= 0) return;
-//   (void)depth;
-//   for (int i = 0; i < 10; i++) {
-//     int idx = pool_pick(&op_pool);
-//     const char *kind = op_pool.items[idx].name;
-//     if (strcmp(kind, "dec") == 0) {
-//       int v = (rand() % 999) + 1; /* 1..999 */
-//       append_fmt(pp, rem, "%d", v);
-//       return;
-//     } else if (strcmp(kind, "hex") == 0) {
-//       int v = (rand() % 0xFFFF) + 1; /* 1..0xFFFF */
-//       append_fmt(pp, rem, "0x%X", v);
-//       return;
-//     } else if (strcmp(kind, "reg") == 0) {
-
-//       /* pick a non-$0 register */
-//       const char *r;
-//       int guard = 0;
-//       do {
-//         r = regs_name[rand() % regs_name_n];
-//         guard++;
-//       } while (strcmp(r, "$0") == 0 && guard < 20);
-//       while (*r == '$') r++;
-//       append_fmt(pp, rem, "$%s", r);
-//       return;
-//     }
-//   }
-//   /* fallback */
-//   append_fmt(pp, rem, "1");
-// }
-
-/* generate expression at given depth */
 static void gen_expr_rec(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
   int atoms = 1 + rand() % cfg.max_atoms;
-  /* first operand */
   if (depth > 0 && (rand() % 100) < 15) {
-    /* with small probability, make first operand a subexpr */
     append_str(pp, rem, "(");
     gen_expr_rec(pp, rem, depth - 1);
     append_str(pp, rem, ")");
@@ -193,20 +154,15 @@ static void gen_expr_rec(char **pp, int *rem, int depth) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
     append_fmt(pp, rem, " %s ", op);
-    /* right operand */
-    // if (strcmp(op, "/") == 0) {
-    //   /* avoid generating a zero RHS: don't use subexprs here, pick non-zero operand */
-    //   gen_operand_nonzero(pp, rem, depth);
-    // } else {
-      if (depth > 0 && (rand() % 100) < 15) {
-        append_str(pp, rem, "(");
-        gen_expr_rec(pp, rem, depth - 1);
-        append_str(pp, rem, ")");
-      } else {
-        gen_operand(pp, rem, depth);
-      }
+    if (depth > 0 && (rand() % 100) < 15) {
+      append_str(pp, rem, "(");
+      gen_expr_rec(pp, rem, depth - 1);
+      append_str(pp, rem, ")");
+    } else {
+      gen_operand(pp, rem, depth);
     }
   }
+}
 
 
 
