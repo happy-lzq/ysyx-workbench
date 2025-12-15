@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
         bool success = false; bool ishex = false;
         word_t val = expr(p, &success, &ishex);
         if (success) {
+          printf("current expr: %s\n",p);
           if (ishex) printf("0x%08" PRIx32 "\n", val);
           else printf("%u\n", (unsigned)val);
         } else {
