@@ -48,9 +48,9 @@ int main(int argc, char *argv[]) {
         *end = '\0';
         if (*p == '\0') continue;
         bool success = false; bool ishex = false;
+        printf("\ncurrent expr: %s\n",p);
         word_t val = expr(p, &success, &ishex);
         if (success) {
-          printf("current expr: %s\n",p);
           if (ishex) printf("0x%08" PRIx32 "\n", val);
           else printf("%u\n", (unsigned)val);
         } else {
