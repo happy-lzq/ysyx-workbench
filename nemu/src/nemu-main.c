@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
         printf("\ncurrent expr: %s\n",p);
         word_t val = expr(p, &success, &ishex);
         if (success) {
-          if (ishex) printf("0x%08" PRIx32 "\n", val);
-          else printf("%u\n", (unsigned)val);
+          if (ishex) printf("value: 0x%08" PRIx32 "\n", val);
+          else printf("value: %u\n", (unsigned)val);
         } else {
           printf("Bad expression: %s\n", p);
         }
