@@ -21,7 +21,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
-
 // this should be enough
 static char buf[65536] = {};
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
@@ -125,12 +124,13 @@ static void append_reg_from_white(char **pp, int *rem) {
 /* forward declarations for recursive generators */
 static void gen_expr_rec(char **pp, int *rem, int depth);
 
-/* generate a single operand */
+  // 操作数选择
 static void gen_operand(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
   (void)depth;
-  int idx = pool_pick(&op_pool);
-  const char *kind = op_pool.items[idx].name;
+  int idx = pool_pick(&op_pool);                  // 返回值为随机从操作数池中选择对应的操作数类型标志  
+  const char *kind = op_pool.items[idx].name;     // 根据返回值参数选定操作数池中的对应的字符串名称
+  // 可以利用op_items[]，使用switch实现，直接避开字符串对比
   if (strcmp(kind, "dec") == 0) {
     append_fmt(pp, rem, "%d", rand() % 1000);
   } else if (strcmp(kind, "hex") == 0) {
@@ -143,13 +143,11 @@ static void gen_operand(char **pp, int *rem, int depth) {
   }
 }
 
-/* generate an operand that is guaranteed not to be zero (avoid 0 literal and $0 reg)
-   used for right-hand side of division to reduce chance of division-by-zero */
+// 随机生成非0值的操作数，目的是保证运算符/ 除数不能为0
 static void gen_operand_nonzero(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
   (void)depth;
-  /* try picking kinds but ensure non-zero output */
-  for (int tries = 0; tries < 10; tries++) {
+  for (int i = 0; i < 10; i++) {
     int idx = pool_pick(&op_pool);
     const char *kind = op_pool.items[idx].name;
     if (strcmp(kind, "dec") == 0) {
@@ -161,6 +159,7 @@ static void gen_operand_nonzero(char **pp, int *rem, int depth) {
       append_fmt(pp, rem, "0x%X", v);
       return;
     } else if (strcmp(kind, "reg") == 0) {
+
       /* pick a non-$0 register */
       const char *r;
       int guard = 0;
@@ -210,11 +209,11 @@ static void gen_expr_rec(char **pp, int *rem, int depth) {
   }
 }
 
-/* top-level generator: try a few times then fallback */
+
 static void gen_rand_expr() {
-  char tmp[4096];
-  int tries = 5;
-  while (tries--) {
+  char tmp[4096];             // 缓冲区
+  int i = 5;
+  while (i--) {
     tmp[0] = '\0';
     char *p = tmp;
     int rem = sizeof(tmp);
@@ -263,7 +262,7 @@ static void sanitize_for_c(const char *src, char *dst, int dstsz) {
 int main(int argc, char *argv[]) {
   int seed = time(0);
   srand(seed);
-  /* prepare weight pools */
+  // 操作数+操作符权重池初始化
   pool_prepare(&op_pool);
   pool_prepare(&al_pool);
   int loop = 1;

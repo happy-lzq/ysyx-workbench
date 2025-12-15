@@ -21,7 +21,6 @@ run: $(OUT)
 
 clean:
 	rm -rf $(OUTDIR)
-
 #***************************************************************************************
 # Copyright (c) 2014-2024 Zihao Yu, Nanjing University
 #
