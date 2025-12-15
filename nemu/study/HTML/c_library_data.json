@@ -205,6 +205,33 @@
     "modes": []
   },
   {
+    "name": "isdigit",
+    "header": "ctype.h",
+    "prototype": "int isdigit(int c);",
+    "description": "功能：\n检测参数 c 是否为十进制数字字符（'0'..'9'）。通常用于判断字符是否为数字而不涉及多字节或 locale 的复杂性。\n\n参数：\n- c：要检测的字符，类型为 int。传入时应先转换为 (unsigned char) 或传入 EOF，以避免未定义行为。",
+    "return_val": "若 c 为数字字符则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"a1b2\";\n    for (int i = 0; s[i]; i++) {\n        if (isdigit((unsigned char)s[i])) printf(\"digit: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "isalpha",
+    "header": "ctype.h",
+    "prototype": "int isalpha(int c);",
+    "description": "功能：\n检测参数 c 是否为字母字符（通常为 A-Z 或 a-z，具体取决于 C 的 locale 设置）。\n\n参数：\n- c：要检测的字符，类型为 int。建议传入 (unsigned char) 值或 EOF，以符合标准规定并避免未定义行为。",
+    "return_val": "若 c 在当前 locale 中被视为字母则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"abc123\";\n    for (int i = 0; s[i]; i++) {\n        if (isalpha((unsigned char)s[i])) printf(\"alpha: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "isalnum",
+    "header": "ctype.h",
+    "prototype": "int isalnum(int c);",
+    "description": "功能：\n检测参数 c 是否为字母或数字字符（等价于 isalpha(c) || isdigit(c)，受 locale 影响）。\n\n参数：\n- c：要检测的字符，类型为 int。建议使用 (unsigned char) 或 EOF 作为参数。",
+    "return_val": "若 c 为字母或数字字符则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"a_1-2b\";\n    for (int i = 0; s[i]; i++) {\n        if (isalnum((unsigned char)s[i])) printf(\"alnum: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
     "name": "isspace",
     "header": "ctype.h",
     "prototype": "int isspace(int c);",
@@ -339,6 +366,15 @@
     "modes": []
   },
   {
+    "name": "rand",
+    "header": "stdlib.h",
+    "prototype": "int rand(void);",
+    "description": "功能：\n返回一个伪随机整数，范围为 0 到 RAND_MAX（含）。若需改变序列，应先调用 srand() 设定种子。",
+    "return_val": "返回一个在 0..RAND_MAX 之间的非负整数。函数本身没有错误指示。",
+    "example": "#include <stdio.h>\n#include <stdlib.h>\n#include <time.h>\n\nint main(void) {\n    srand((unsigned)time(NULL));\n    int r = rand();\n    int small = rand() % 100;\n    printf(\"rand=%d, small=%d\\n\", r, small);\n    return 0;\n}",
+    "modes": []
+  },
+  {
     "name": "fclose",
     "header": "stdio.h",
     "prototype": "int fclose(FILE *stream);",
@@ -399,6 +435,16 @@
     "description": "调试用断言：当 expression 为假时打印诊断信息并调用 abort()；若定义了 NDEBUG，则 assert 宏无操作。",
     "return_val": "无返回值；失败时通常终止程序。",
     "example": "",
+    "modes": []
+  }
+,
+  {
+    "name": "strncmp",
+    "header": "string.h",
+    "prototype": "int strncmp(const char *s1, const char *s2, size_t n);",
+    "description": "功能：\n比较字符串 s1 和 s2 的最多前 n 个字符，用于在限制长度下判断字符串的字典序关系（常用于前缀比较或避免越界读取）。\n\n参数：\n- s1：指向第一个待比较的 C 字符串（以 '\\0' 终止）。\n- s2：指向第二个待比较的 C 字符串。\n- n：要比较的最大字符数（类型为 size_t）。函数最多比较 n 个字符；若在比较过程中遇到 '\\0' 则停止。\n\n实现细节：\n- 比较是按每字节的无符号值（即按 (unsigned char)）进行，而不是按 locale 或多字节字符集语义。\n- 当 n == 0 时，函数不会访问 s1/s2 的内容，直接返回 0。\n- 该函数适用于比较前缀或在不确定字符串是否以 '\\0' 结尾但知道最大长度时使用；若需要比较固定长度的内存块（可能包含 '\\0'），请使用 memcmp。\n- 注意避免传入 NULL 指针（未定义行为），并确保在比较的长度范围内内存是可读的。",
+    "return_val": "返回一个整数：\n- < 0：在比较的范围内 s1 小于 s2（按无符号字节值比较）。\n- 0：在最多 n 个字符内两字符串相等（包括 n == 0 时）。\n- > 0：在比较的范围内 s1 大于 s2。",
+    "example": "/* strncmp 示例 */\n#include <stdio.h>\n#include <string.h>\n\nint main() {\n  if (strncmp(\"hello\", \"heaven\", 2) == 0) {\n    printf(\"前两个字符相等\\n\");\n  }\n  if (strncmp(\"abc\", \"abd\", 3) < 0) {\n    printf(\"\"abc\" < \"abd\" 在前 3 个字符比较下\n\");\n  }\n  return 0;\n}",
     "modes": []
   }
 ]

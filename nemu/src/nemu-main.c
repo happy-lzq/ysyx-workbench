@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* If an input file exists, run expressions from it and exit. */
+  // 表达式求值输入文件验证
   {
     FILE *f = fopen("input", "r");
     if (f) {

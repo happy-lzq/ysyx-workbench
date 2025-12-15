@@ -33,26 +33,22 @@ static char *code_format =
 "  return 0; "
 "}";
 
-/* forward */
-static void gen_rand_expr();
-
-
 
 typedef struct {
-  int max_depth;
-  int max_atoms;
-  int max_length;
+  int max_depth;      // 递归嵌套深度
+  int max_atoms;      // 单层操作数
+  int max_length;     // 最终表达式字符串长度
 } complexity_t;
 
 typedef struct {
-  const char *name; // 标识，如 "dec","hex","reg","subexpr" 或 "+","-","*","/"
-  int weight;       // 相对权重
+  const char *name; 
+  int weight;       
 } weight_item_t;
 
 typedef struct {
   weight_item_t *items;
   int n;
-  int total;        // 预计算权重和
+  int total;       
 } weight_pool_t;
 
  const char *regs_name[] = {
@@ -69,7 +65,7 @@ static weight_item_t op_items[]= {
   {"dec",40},{"hex",10},{"reg",20}
 };
 static weight_pool_t op_pool = {op_items,sizeof(op_items)/sizeof(op_items[0]),0};
-// 操作数以及权重
+// 操作符以及权重
 static weight_item_t al_items[]= {
   {"+",30}, {"-",30}, {"*",25}, {"/",15}
 };
@@ -79,11 +75,14 @@ static weight_pool_t al_pool = { al_items, sizeof(al_items)/sizeof(al_items[0]),
 static void pool_prepare(weight_pool_t *p) {
   int sum = 0;
   for (int i = 0; i < p->n; i++) {
-    if (p->items[i].weight > 0) sum += p->items[i].weight;
+    if (p->items[i].weight > 0) {
+      sum += p->items[i].weight;
+    }
   }
   p->total = (sum > 0) ? sum : 1;
 }
-
+// 利用随机生成一个权重总和为0~total之间的随机数，每次循环acc等于权重累加，
+// 利用r与acc关系，当r<acc时，即是r随机数处于当前i对应的权重位。
 static int pool_pick(weight_pool_t *p) {
   if (p->n <= 0) return -1;
   int r = rand() % p->total;
@@ -113,21 +112,13 @@ static void append_fmt(char **pp, int *rem, const char *fmt, ...) {
   *pp += n; *rem -= n;
 }
 
-/* append register from white list, always output single leading '$' */
+/* 从寄存器结构体中随机选取寄存器名，并配上表达式引导符号 & */
 static void append_reg_from_white(char **pp, int *rem) {
   if (*rem <= 0) return;
   const char *r = regs_name[rand() % regs_name_n];
-  while (*r == '$') r++;
-  /* validate name */
-  int ok = 0;
-  if (isdigit((unsigned char)r[0])) {
-    ok = 1;
-    for (const char *p = r; *p; p++) if (!isdigit((unsigned char)*p)) { ok = 0; break; }
-  } else if (isalpha((unsigned char)r[0])) {
-    ok = 1;
-    for (const char *p = r + 1; *p; p++) if (!isalnum((unsigned char)*p)) { ok = 0; break; }
-  }
-  if (!ok) r = "0";
+  if (r[0] == '$'){
+    r = r + 1;
+  } 
   append_fmt(pp, rem, "$%s", r);
 }
 
