@@ -1,5 +1,41 @@
 [
   {
+    "name": "snprintf",
+    "header": "stdio.h",
+    "prototype": "int snprintf(char *str, size_t size, const char *format, ...);",
+    "description": "功能概述：\n\n按 format 对后续参数进行格式化并写入缓冲区 str，至多写入 size 字节（包含结尾的 NUL 字符）。常用于安全地向固定大小缓冲区写入格式化字符串以避免缓冲区溢出。\n参数说明：\n\nstr：目标缓冲区指针（可为有效缓冲或 NULL，见下文 size==0 情形）。\nsize：缓冲区总容量（字节）。若 size > 0，函数保证在 str 中写入结尾 '\\0'（除非发生错误）；若 size == 0 则不写入任何字节，但仍计算所需长度并返回（不写 NUL）。\nformat：格式字符串，与 printf 的格式相同（%s、%d、%u、%x、%p、%f 等）。\n...：与格式字符串对应的参数列表。",
+    "return_val": "返回值（C99 / POSIX 语义）：\n\n若成功，返回“本应写入的字符数”（不包含最终的 NUL），也就是如果缓冲够大，返回值等于实际要输出的字符数。\n如果返回值 >= size，表示输出被截断（结果不完整），可用该返回值分配更大的缓冲区或判定失败。\n若发生编码或其他错误，返回负值（通常 -1），并可能设置 errno。\n\n保证 NUL：当 size > 0 时，snprintf 在任何成功路径或截断路径都会在 str 中写入 NUL（即使输出被截断）。\n判定截断：检查返回值 n：\nn < 0 → 错误；\nn >= size → 输出被截断（需要更大缓冲或重试）；\n0 <= n < size → 成功且未截断。\n若 size == 0：函数仅计算所需长度并返回该长度（不写入 NUL），适用于先测长度再分配的场景。\n与 vsnprintf：vsnprintf(char *str, size_t size, const char *format, va_list ap) 接受 va_list，适合在实现变参包装函数时使用。",
+    "example": "/* snprintf example */\n#include <stdio.h>\n\nint main ()\n{\n  char buffer [100];\n  int cx;\n\n  cx = snprintf ( buffer, 100, \"The half of %d is %d\", 60, 60/2 );\n\n  if (cx>=0 && cx<100)      // check returned value\n\n    snprintf ( buffer+cx, 100-cx, \", and the half of that is %d.\", 60/2/2 );\n\n  puts (buffer);\n\n  return 0;\n}\nThe half of 60 is 30, and the half of that is 15.",
+    "modes": []
+  },
+  {
+    "name": "fprintf",
+    "header": "stdio.h",
+    "prototype": "int fprintf(FILE *stream, const char *format, ...);",
+    "description": "功能描述: 按照 format 指定的格式，把格式化后的文本写入 stream（任意 FILE*，例如 stdout、stderr 或文件）。其行为与 printf 类似，但目标是指定的 FILE 流。\n参数:\nstream: 目标 FILE *（已打开的流）。\nformat: 格式字符串，含普通字符与格式控制（如 %s, %d, %u, %x, %p, %f 等）。\n...: 与格式串对应的参数列表。",
+    "return_val": "返回值:\n成功时返回写入的字符数（非负整数，不包括隐含的终止 NUL）；\n失败时返回负值（并通常设置 errno 来表明错误原因，如磁盘已满、流无效等）。\n副作用/注意事项:\n若 format 与随后的参数不匹配，会导致未定义行为。避免把不受信任的字符串直接作为 format（防止格式字符串注入），如要输出用户字符串应使用 fprintf(stream, \"%s\", userstr)。\n输出先进入 FILE 的缓冲区，未必立即写入底层设备；如需立即写入，请使用 fflush(stream) 或关闭流。\n检查返回值可以发现写失败（例如 IO 错误）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "perror",
+    "header": "errno.h",
+    "prototype": "void perror(const char *s);",
+    "description": "功能描述: 向标准错误流 stderr 输出一条错误说明。输出形式通常为：\n当 s 非空且不为空串时：s: <错误描述>\\n\n当 s 为 NULL 或空串时：<错误描述>\\n\n其中 <错误描述> 来源于内部对全局变量 errno 的解释（相当于 strerror(errno)）。\n参数:\ns: 指向用户提供的简单描述字符串（可为 NULL）。该字符串不会被当作格式串处理，仅作为前缀文字。",
+    "return_val": "无返回值\n作用/注意事项:\n使用 perror 前要确保最近的调用已设置 errno（例如系统调用或库函数失败时）。\nperror 本身不会格式化可变参数，也不会返回错误代码；如需可编程控制错误文本，使用 strerror/strerror_r。\nperror 不是在信号处理器或所有异步上下文下安全（非 async-signal-safe）。\n在多线程环境下，perror 的输出通常是原子写一行，但 strerror 在某些实现上可能不是线程安全的；若需要线程安全的错误文本，使用 strerror_r。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "vsnpintf",
+    "header": "stdio.h",
+    "prototype": "int vsnprintf (char * s, size_t n, const char * format, va_list arg );",
+    "description": "功能：按 format 和 va_list ap 格式化输出到缓冲区 str，最多写入 size 字节（包含终止 NUL）。相当于 snprintf 的 va_list 版本，常用于实现带可变参数的封装函数。\n\n参数：\n\nstr：目标缓冲区（当 size > 0 时保证写入终止 NUL，size == 0 时不写入）。\nsize：缓冲区大小（字节）。\nformat：格式字符串。\nap：由 va_start 初始化的 va_list，表示变参列表。若在需要复用 ap，要先用 va_copy 复制。\n",
+    "return_val": "返回值（C99 / POSIX）：\n\n成功时返回“如果无限缓冲能写入的字符数”（不含终止 NUL）。\n若返回值 >= size 表示输出被截断（可用返回值分配更大缓冲重试）。\n出错时返回负值。",
+    "example": "void PrintFError ( const char * format, ... )\n{\n  char buffer[256];\n  va_list args;\n  va_start (args, format);\n  vsnprintf (buffer,256,format, args);\n  perror (buffer);\n  va_end (args);\n}\n\nint main ()\n{\n   FILE * pFile;\n   char szFileName[]=\"myfile.txt\";\n\n   pFile = fopen (szFileName,\"r\");\n   if (pFile == NULL)\n     PrintFError (\"Error opening '%s'\",szFileName);\n   else\n   {\n     // file successfully open\n     fclose (pFile);\n   }\n   return 0;\n}\n\n",
+    "modes": []
+  },
+  {
     "name": "fputs",
     "header": "stdio.h",
     "prototype": "int fputs ( const char * str, FILE * stream );",
@@ -77,7 +113,7 @@
     "prototype": "int sscanf ( const char * s, const char * format, ...);",
     "description": "sscanf 是 C 标准库中的一个输入函数，用于从指定字符串中按照指定格式读取数据。它的工作方式类似于 scanf，但 scanf 是从标准输入（如键盘）读取，而 sscanf 是从字符串中读取。\n\nstr  源字符串，从中读取数据。\nformat  格式控制字符串，指定如何解析输入。它包含格式说明符（如 %d, %f, %s 等）和普通字符。\n...  可变数量的指针参数，用于存储解析后的数据。这些指针的类型必须与 format 中的格式说明符匹配。",
     "return_val": "正整数：成功匹配并赋值的参数个数。\n0：没有成功匹配任何项。\nEOF：在尝试读取时发生错误或到达字符串末尾。",
-    "example": "#include <stdio.h>\n\nint main() {\n    char data[] = \"John 25 85.5\";\n    char name[50];\n    int age;\n    float score;\n    \n    // 从字符串按格式读取\n    sscanf(data, \"%s %d %f\", name, &age, &score);\n    \n    printf(\"Name: %s, Age: %d, Score: %.1f\\n\", name, age, score);\n    return 0;\n}",
+    "example": "/* sscanf example */\n#include <stdio.h>\n\nint main ()\n{\n  char sentence []=\"Rudolph is 12 years old\";\n  char str [20];\n  int i;\n\n  sscanf (sentence,\"%s %*s %d\",str,&i);\n  printf (\"%s -> %d\\n\",str,i);\n  \n  return 0;\n}\n\nRudolph -> 12",
     "modes": [
       {
         "code": "%d",
@@ -241,15 +277,6 @@
     "modes": []
   },
   {
-    "name": "snprintf",
-    "header": "stdio.h",
-    "prototype": "int snprintf(char *str, size_t size, const char *format, ...);",
-    "description": "拆解：s (String) + n (Number/Limit) + printf (Print Formatted)\n逻辑：向字符串打印，但限制 N 个字符。\n功能描述：将格式化的数据写入字符串缓冲区，但最多写入 size 个字节（包括结尾的 \\0），防止缓冲区溢出。",
-    "return_val": "返回原本应该写入的字符总数（不含 \\0）。\n注意：如果返回值 >= size，说明发生了截断。",
-    "example": "char buf[10];\n// 尝试写入 \"Hello World\" (11 chars)，但限制 10\nint len = snprintf(buf, sizeof(buf), \"Hello %s\", \"World\"); \n// buf 内容为 \"Hello Wor\\0\"，len 返回 11 (告诉你有截断)",
-    "modes": []
-  },
-  {
     "name": "strcmp",
     "header": "string.h",
     "prototype": "int strcmp ( const char * str1, const char * str2 );",
@@ -345,8 +372,7 @@
     "return_val": "该函数返回在字符串 str 中第一次出现字符 c 的位置，如果未找到该字符则返回 NULL。",
     "example": "const char str[] = \"http://www.runoob.com\";\nconst char ch = '.';\nchar *ret;\nret = strchr(str, ch);\nprintf(\"|%c| 之后的字符串是 - |%s|\\n\", ch, ret);\n\noutput:\n  Looking for the 's' character in \"This is a sample string\"...\n  found at 4\n  found at 7\n  found at 11\n  found at 18",
     "modes": []
-  }
-,
+  },
   {
     "name": "time",
     "header": "time.h",
@@ -436,8 +462,7 @@
     "return_val": "无返回值；失败时通常终止程序。",
     "example": "",
     "modes": []
-  }
-,
+  },
   {
     "name": "strncmp",
     "header": "string.h",

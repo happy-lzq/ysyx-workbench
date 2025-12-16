@@ -21,18 +21,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
-// this should be enough
+
+
 static char buf[65536] = {};
-static char code_buf[65536 + 128] = {}; // a little larger than `buf`
-static char *code_format =
-"#include <stdio.h>\n"
-"int main() { "
-"  unsigned result = %s; "
-"  printf(\"%%u 0x%%X\", result, result); "
-"  return 0; "
-"}";
-
-
 typedef struct {
   int max_depth;      // 递归嵌套深度
   int max_atoms;      // 单层操作数
@@ -177,11 +168,19 @@ static void gen_rand_expr() {
     int rem = sizeof(tmp);
     gen_expr_rec(&p, &rem, cfg.max_depth);
     if (rem <= 0 || tmp[0] == '\0') continue;
-    /* simple bracket balance check */
+   
     int bal = 0, ok = 1;
+    // 循环条件下：字符串指针，作为结束条件时：*q 表示当*q='\0'结束
     for (char *q = tmp; *q; q++) {
-      if (*q == '(') bal++;
-      else if (*q == ')') { if (bal == 0) { ok = 0; break; } bal--; }
+      if (*q == '(') {
+        bal++;
+      } else if (*q == ')') {
+        if (bal == 0) {
+           ok = 0; 
+           break; 
+          } 
+        bal--; 
+        }
     }
     if (!ok || bal != 0) continue;
     snprintf(buf, sizeof(buf), "%s", tmp);
@@ -190,31 +189,6 @@ static void gen_rand_expr() {
   snprintf(buf, sizeof(buf), "1+1");
 }
 
-/* sanitize expression for embedding into C source
-   replace $<name> with a numeric literal '1' to avoid undeclared identifiers
-*/
-// static void sanitize_for_c(const char *src, char *dst, int dstsz) {
-//   const char *p = src;
-//   char *q = dst;
-//   int rem = dstsz;
-//   while (*p && rem > 1) {
-//     if (*p == '$') {
-//       /* skip $ and following alnum */
-//       p++;
-//       while (*p && isalnum((unsigned char)*p)) p++;
-//       /* insert safe non-zero literal */
-//       int n = snprintf(q, rem, "1");
-//       if (n <= 0 || n >= rem) break;
-//       q += n; rem -= n;
-//     } else {
-//       int n = snprintf(q, rem, "%c", *p);
-//       if (n <= 0 || n >= rem) break;
-//       q += n; rem -= n;
-//       p++;
-//     }
-//   }
-//   *q = '\0';
-// }
 
 int main(int argc, char *argv[]) {
   int seed = time(0);
@@ -226,25 +200,15 @@ int main(int argc, char *argv[]) {
   if (argc > 1) {
     sscanf(argv[1], "%d", &loop);
   }
+
   int i;
-  /* write all generated expressions to local file `input` (one per line)
-     and print only the first 10 to stdout */
   FILE *out = fopen("input", "w");
   if (!out) {
     perror("fopen input");
     return 1;
   }
-
-  /* avoid unused-variable warnings for code_buf/code_format */
-  (void)code_buf; (void)code_format;
-
   for (i = 0; i < loop; i ++) {
     gen_rand_expr();
-    // char c_expr[sizeof(buf)];
-    // // /* keep calling sanitize_for_c to mark it as used (silence -Werror=unused-function)
-    // //    but we still write the original expression containing `$` to the file. */
-    // // sanitize_for_c(buf, c_expr, sizeof(c_expr));
-
     fprintf(out, "%s\n", buf);
     if (i < 10) {
       fprintf(stderr, "%s\n", buf);

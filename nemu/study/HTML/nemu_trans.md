@@ -147,102 +147,84 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
 通过递归传递和集中判断，实现了高效、健壮的表达式求值与用户交互逻辑。
 
 <a id="gen-expr"></a>
+
 #### 表达式生成器与验证（从 0 到 1）
 
-**目标与概述**
-- 目标：实现一个能够随机生成合法算术表达式的独立工具，输出格式为每行一个表达式，可直接作为 NEMU 根目录下 `input` 文件用于批量测试 `expr()`。
-- 总体流程：定义复杂度与权重 → 安全字符串追加工具 → 生成原子（十进制/十六进制/寄存器）与运算符 → 递归构造表达式 → 简单语法校验（括号平衡）→ 写文件输出 → （可选）对表达式进行 sanitize 以用于 C 嵌入验证。
+##### 概要
 
-**设计与数据结构**
-- `complexity_t`：控制生成表达式的规模与复杂度，字段通常包括：
-   - `max_depth`：递归深度上限，防止无限递归或过深嵌套。
-   - `max_atoms`：单层操作数（原子）最大个数，用于控制横向复杂度。
-   - `max_length`：表达式字符串最大长度，避免缓冲区溢出。
+本工具目标是随机、安全地生成单行算术表达式（包含十进制/十六进制常数与寄存器 `$name`），将每条表达式写入文件 `input`，用于批量测试和调试 `expr()` 模块。
 
-- `weight_item_t` / `weight_pool_t`：用于参数化概率选择（例如选择十进制/十六进制/寄存器、选择运算符 + - * /）。
-   - `weight_item_t`：{ const char *name; int weight; } 表示单项与其相对权重。
-   - `weight_pool_t`：{ weight_item_t *items; int n; int total; }，`total` 为权重和，`pool_pick` 使用 `rand() % total` 抽样。
+设计原则：
+- 安全写入（统一边界检查）；
+- 可控随机性（权重池参数化）；
+- 局部生成并验证后提交（降低全局污染与失败影响）；
+- 将复杂的运行时语义校验交由表达式求值器处理，只在生成端尽量降低明显错误率（例如直接生成 `$0`、明显的文本除零等）。
 
-- `regs_name[]`：寄存器白名单数组，生成寄存器原子时从中挑选。
+##### 关键数据结构与约定
 
-**辅助函数（安全与字符串构造）**
-- `append_str(char **pp, int *rem, const char *s)`：安全追加字符串。检查剩余空间 `*rem`，使用 `snprintf` 写入并更新指针与剩余长度；若写入会越界，则把 `*rem=0` 表示失败/截断。
-- `append_fmt(char **pp, int *rem, const char *fmt, ...)`：格式化追加（`vsnprintf`），与 `append_str` 同样处理边界与返回值。
-- `append_reg_from_white(char **pp, int *rem)`：从 `regs_name` 随机挑选合法寄存器并以 `$name` 格式追加。验证名字字符合法性（首字符为字母或数字且后续为字母数字）。
+- `complexity_t cfg`：控制 `max_depth`（递归深度）、`max_atoms`（单层原子数）、`max_length`（最大字符串长度）。
+- `weight_item_t` / `weight_pool_t`：表示加权项与权重池，`pool_prepare()` 计算 `total`，`pool_pick()` 基于权重抽样。
+- `regs_name[]`：寄存器白名单，用于随机生成寄存器原子。
 
-这些辅助函数的目的：统一缓冲区边界检查，避免手工 strcat 引发缓冲溢出，并在生成流程中可简单中断或回退。
+缓冲写入约定（不变式）：调用方传入 `char **pp`（写指针）和 `int *rem`（剩余字节），所有字符串写入均通过 `append_str` / `append_fmt` 进行；这两个辅助函数在成功写入时前移指针并减少 `rem`，在溢出或错误时把 `*rem = 0`，作为失败信号向上传播。
 
-**核心生成函数（逐个详述）**
-- `pool_prepare(weight_pool_t *p)`：遍历 `p->items` 累加权重并写入 `p->total`。保证 `p->total >= 1`，避免 `rand() % 0`。在程序初始化时调用一次。
+##### 辅助函数（职责与实现要点）
 
-- `pool_pick(weight_pool_t *p)`：基于 `p->total` 随机抽样获得下标。实现：`r = rand() % p->total; acc=0; for i: acc += weight[i]; if (r < acc) return i;`。时间复杂度 O(n)，n 小则开销微小。
+- `append_str(char **pp, int *rem, const char *s)`：使用 `snprintf` 写入常数字符串并更新 `pp/rem`；写入会导致截断时把 `*rem=0`。
+- `append_fmt(char **pp, int *rem, const char *fmt, ...)`：基于 `vsnprintf` 的格式化写入封装；同样通过 `*rem` 传播失败。
+- `append_reg_from_white(char **pp, int *rem)`：从 `regs_name` 随机选取寄存器名并以 `$name` 格式写入；实现中对输入数组中可能含 `$` 前缀做了统一处理以保证输出格式一致。
 
-- `gen_operand(char **pp, int *rem, int depth)`：生成一个原子（operand）。
-   - 流程：`idx = pool_pick(&op_pool); kind = op_pool.items[idx].name;` 根据 `kind`:
-      - `dec`：`append_fmt(pp, rem, "%d", rand() % 1000);`
-      - `hex`：`append_fmt(pp, rem, "0x%X", rand() % 0x10000);`
-      - `reg`：`append_reg_from_white(pp, rem);`
-   - `depth` 参数保留以便未来根据深度调整分布。
+这些函数把缓冲边界管理集中，简化了递归生成函数的错误处理逻辑。
 
-- `gen_operand_nonzero(char **pp, int *rem, int depth)`：生成保证非零的原子（用于 `/` 的 RHS），尝试多次（如 10 次）选择 `dec/hex/reg` 并确保：
-   - 十进制/十六进制产生 1..N 的非零常数；
-   - 寄存器则避免选择 `$0`；
-   - 若尝试失败则退化为 `1`。注意：不能完全避免子表达式在运行时结果为 0，但能显著降低明显的 `/ 0` 文本或 `$0` 的生成。
+##### 核心生成流程（函数分解）
 
-- `gen_expr_rec(char **pp, int *rem, int depth)`：递归构造表达式片段。
-   - 决定 `atoms = 1 + rand() % cfg.max_atoms;`（每层原子数）。
-   - 生成第一个原子：若 `depth > 0` 且按概率产生子表达式，则写 `(`、递归 `gen_expr_rec(depth-1)`、写 `)`；否则调用 `gen_operand`。
-   - 对后续每个原子：从 `al_pool` 中 pick 运算符并追加 `" %s "`，若运算符是 `/` 则调用 `gen_operand_nonzero`，否则按概率生成子表达式或简单原子。
-   - 每次操作前检查 `*rem`；当剩余空间不足时提前返回。
+1. `pool_prepare(weight_pool_t *p)`：计算权重和 `p->total`，保证 `rand() % total` 有效。
 
-- `gen_rand_expr()`：顶层生成器。
-   - 在局部 `tmp[]` 缓冲上尝试若干次（例如 5 次）：
-      - 清空 `tmp`，`p=tmp`，`rem=sizeof(tmp)`；调用 `gen_expr_rec(&p,&rem,cfg.max_depth)`。
-      - 若 `rem <= 0` 或 `tmp` 为空则视为失败继续尝试。
-      - 做简单括号平衡与合法性检查（遍历字符计数 `(` / `)`），若不合法继续尝试。
-      - 合法则 `snprintf(buf, sizeof(buf), "%s", tmp); return;`。
-   - 若重试结束仍失败则 `snprintf(buf, sizeof(buf), "1+1");` 作为退路。
+2. `pool_pick(weight_pool_t *p)`：基于 `p->total` 做线性加权抽样，返回选中项下标。
 
-- `sanitize_for_c(const char *src, char *dst, int dstsz)`：把 `$name` token 替换为安全字面量（如 `1`），用于把表达式嵌入到临时 C 源做编译检查。
-   - 遍历 `src`，遇到 `$` 就跳过后续字母数字序列并在 `dst` 写入 `1`；其他字符原样复制，确保 `dst` 不越界。
+3. `gen_operand(char **pp, int *rem, int depth)`：生成单个原子（operand）。
+   - 从 `op_pool` 抽样得到 `dec` / `hex` / `reg`；
+   - `dec`：写入十进制常数；`hex`：写入 `0x` 十六进制常数；`reg`：调用 `append_reg_from_white` 输出 `$name`。
 
-以上函数协同工作，提供了可控、参数化、并尽量安全的表达式文本生成能力。
+4. `gen_expr_rec(char **pp, int *rem, int depth)`：递归构造表达式片段（核心构造器）。
+   - 决定当前层 `atoms = 1 + rand() % cfg.max_atoms`；
+   - 为第一个原子 15% 概率生成带括号的子表达式（写 `(`、递归、写 `)`），否则调用 `gen_operand`；
+   - 对后续每个原子：选运算符（`al_pool`），写入 ` " %s "`，根据概率或运算符类型决定生成括号子表达式或调用 `gen_operand`；
+   - 所有写入前后检查 `*rem`，若 `*rem == 0` 直接返回，交由上层重试逻辑处理。
 
-**入口与文件输出**
-- `main(argc, argv)` 行为：
-   - seed 随机数 (`srand(time(0))`)；调用 `pool_prepare`。
-   - 读取命令行参数 `argv[1]` 作为生成数量 `loop`。
-   - 打开 `input` 文件并循环调用 `gen_rand_expr()`：写原始含 `$reg` 的表达式到文件（`fprintf(out, "%s\n", buf);`）。
-   - 打印前 10 条示例用于预览，但注意应输出到 `stderr`（已修复），以免用户将程序的 `stdout` 重定向到 `input` 时把示例也写入文件，导致行数偏大。
+5. `gen_rand_expr()`：顶层生成与验证。
+   - 在局部 `tmp[4096]` 上尝试若干次（当前实现 5 次）：
+     - 初始化 `p = tmp; rem = sizeof(tmp)` 并调用 `gen_expr_rec(&p, &rem, cfg.max_depth)`；
+     - 若 `rem <= 0 || tmp[0] == '\0'`，视为失败并重试；
+     - 对 `tmp` 做简单语法校验（括号平衡）：遍历字符计数 `(` / `)`，遇不匹配则重试；
+     - 成功则 `snprintf(buf, sizeof(buf), "%s", tmp)` 把结果复制到全局 `buf` 并返回；
+   - 若所有尝试均失败，写入保底表达式 `"1+1"`。
 
-**编译与运行示例**
-```bash
-cd tools/gen-expr
-make -j4
-./build/gen-expr 10000   # 生成 10000 条并写入 tools/gen-expr/input
-wc -l tools/gen-expr/input  # 验证行数
-```
+6. `sanitize_for_c(const char *src, char *dst, int dstsz)`（可选）:
+   - 将表达式中的 `$name` 替换为安全的字面量（例如 `1`），用于把表达式嵌入 C 源以做编译或语义检查。
 
-注意：不要用 `./build/gen-expr 10000 > input` 这类把 stdout 重定向到文件的方式（已把示例打印改到 stderr，但仍然推荐直接使用工具写入的文件）。
+##### 从 `main()` 出发的顺序逻辑（调用链与职责划分）
 
-**与 `expr.c` 的验证与协同**
-- 词法/求值模块（`src/monitor/sdb/expr.c`）负责把文本 token 化并计算值。生成器应尽量产生语法正确且不易触发运行时错误的表达式，但运行时仍需健壮：
-   - `expr.c` 要对 `tokens` 容量做边界检查，防止超长表达式导致写越界（已扩容到 256 并加检查）。
-   - `eval` 在除法处应检测除零并通过 `*success=false` 返回错误而不是崩溃（已添加保护）。
-   - 生成器在 `/` 的右侧尽量生成非零原子以减少明显的 `/ 0`。
+1. `main()` 初始化：
+   - `srand(time(0))` 设置随机种子（可改为接受外部种子以便复现）；
+   - 调用 `pool_prepare(&op_pool)` 與 `pool_prepare(&al_pool)` 计算权重和。
 
-**测试策略与健壮性提升建议**
-- 渐进式验证：先生成小样本（100/1000），用 `make_token` 检查词法，然后在 NEMU 中跑前 200 条，观察 `Bad expression` 或 `division by zero` 比例。
-- 如果运行时报错率高：降低 `cfg.max_depth` 和 `cfg.max_atoms`，或提高 `gen_operand_nonzero` 的力度（例如对小子树也进行静态估算）。
-- 可选增强：在生成器内部做一次轻量“静态评估”或调用内嵌的 eval（使用 `sanitize_for_c` 之后的 C 编译/运行）来过滤掉语义上问题较多的表达式，但代价是性能与实现复杂度上升。
+2. 解析参数并打开输出文件：读取生成行数 `loop`（默认 1），并打开 `input` 用以写入。
 
-**小结（设计要点回顾）**
-- 分层与局部缓冲：在局部 `tmp` 上生成并校验后才拷贝到全局 `buf`，降低对全局状态破坏的风险。
-- 参数化权重：通过 `weight_pool` 可轻松调整生成风格（更多寄存器、更多常数、更多除法等）。
-- 安全优先：统一使用 `append_fmt`/`append_str` 做缓冲边界管理；在 `expr.c` 中也做解析时的边界检查与除零保护。
-- 可扩展性：代码模块化、易于增加新原子类型（函数调用、位运算等）或改进抽样算法。
+3. 逐行生成与写入：循环 `i = 0 .. loop-1`：
+   - 调用 `gen_rand_expr()`（返回结果保存在全局 `buf`）；
+   - 用 `fprintf(out, "%s\n", buf)` 写入文件；并在前若干条把结果 `fprintf(stderr, ...)` 打印以便观察。
 
-以上为从 0 到 1 构建表达式生成器与验证流程的完整、分层、可执行的设计与实现要点（与此前讨论内容一致并作技术细节扩展）。
+4. 结束并清理：关闭文件返回。
+
+`main()` 只做配置、调用和消费（写入/打印），具体生成逻辑由 `gen_rand_expr` 与其下游函数承担；这种职责分离使得生成器易于单元测试与独立运行。
+
+
+##### 结论
+
+- 总体架构清晰：`main()` 负责配置与输出，`gen_rand_expr()` 管理重试与验证，`gen_expr_rec()` 做递归构造，`append_*` 负责写入安全性，`pool_*` 提供随机抽样基础。
+- 通过局部生成-校验-提交的模式以及统一的写入契约，生成器在保证安全的同时便于扩展和调优。
+
 
 ### C. 监视点 (`watchpoint.c`)
 
