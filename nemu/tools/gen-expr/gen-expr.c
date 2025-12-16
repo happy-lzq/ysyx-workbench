@@ -121,7 +121,6 @@ static void append_reg_from_white(char **pp, int *rem) {
   append_fmt(pp, rem, "$%s", r);
 }
 
-
   // 操作数选择
 static void gen_operand(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
@@ -142,7 +141,10 @@ static void gen_operand(char **pp, int *rem, int depth) {
 
 static void gen_expr_rec(char **pp, int *rem, int depth) {
   if (*rem <= 0) return;
+  // 确定当前层子表达式个数(第一层至少一个)，
+  // 子表达式的操作符：atoms -1
   int atoms = 1 + rand() % cfg.max_atoms;
+  // depth>0 则存在递归嵌套，将当前第一个操作数以15%的概率成为子表达式，即用()括起来。
   if (depth > 0 && (rand() % 100) < 15) {
     append_str(pp, rem, "(");
     gen_expr_rec(pp, rem, depth - 1);
@@ -182,7 +184,6 @@ static void gen_rand_expr() {
       else if (*q == ')') { if (bal == 0) { ok = 0; break; } bal--; }
     }
     if (!ok || bal != 0) continue;
-    /* copy to global buf */
     snprintf(buf, sizeof(buf), "%s", tmp);
     return;
   }
