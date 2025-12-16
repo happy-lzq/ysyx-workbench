@@ -193,28 +193,28 @@ static void gen_rand_expr() {
 /* sanitize expression for embedding into C source
    replace $<name> with a numeric literal '1' to avoid undeclared identifiers
 */
-static void sanitize_for_c(const char *src, char *dst, int dstsz) {
-  const char *p = src;
-  char *q = dst;
-  int rem = dstsz;
-  while (*p && rem > 1) {
-    if (*p == '$') {
-      /* skip $ and following alnum */
-      p++;
-      while (*p && isalnum((unsigned char)*p)) p++;
-      /* insert safe non-zero literal */
-      int n = snprintf(q, rem, "1");
-      if (n <= 0 || n >= rem) break;
-      q += n; rem -= n;
-    } else {
-      int n = snprintf(q, rem, "%c", *p);
-      if (n <= 0 || n >= rem) break;
-      q += n; rem -= n;
-      p++;
-    }
-  }
-  *q = '\0';
-}
+// static void sanitize_for_c(const char *src, char *dst, int dstsz) {
+//   const char *p = src;
+//   char *q = dst;
+//   int rem = dstsz;
+//   while (*p && rem > 1) {
+//     if (*p == '$') {
+//       /* skip $ and following alnum */
+//       p++;
+//       while (*p && isalnum((unsigned char)*p)) p++;
+//       /* insert safe non-zero literal */
+//       int n = snprintf(q, rem, "1");
+//       if (n <= 0 || n >= rem) break;
+//       q += n; rem -= n;
+//     } else {
+//       int n = snprintf(q, rem, "%c", *p);
+//       if (n <= 0 || n >= rem) break;
+//       q += n; rem -= n;
+//       p++;
+//     }
+//   }
+//   *q = '\0';
+// }
 
 int main(int argc, char *argv[]) {
   int seed = time(0);
@@ -240,10 +240,10 @@ int main(int argc, char *argv[]) {
 
   for (i = 0; i < loop; i ++) {
     gen_rand_expr();
-    char c_expr[sizeof(buf)];
-    /* keep calling sanitize_for_c to mark it as used (silence -Werror=unused-function)
-       but we still write the original expression containing `$` to the file. */
-    sanitize_for_c(buf, c_expr, sizeof(c_expr));
+    // char c_expr[sizeof(buf)];
+    // // /* keep calling sanitize_for_c to mark it as used (silence -Werror=unused-function)
+    // //    but we still write the original expression containing `$` to the file. */
+    // // sanitize_for_c(buf, c_expr, sizeof(c_expr));
 
     fprintf(out, "%s\n", buf);
     if (i < 10) {
