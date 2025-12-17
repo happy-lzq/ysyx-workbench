@@ -41,6 +41,7 @@ typedef struct {
   int total;       
 } weight_pool_t;
 
+// 缓冲区定义
 struct buf_state { 
     char *ptr; 
     int rem; 
@@ -57,7 +58,7 @@ static int regs_name_n = sizeof(regs_name)/sizeof(regs_name[0]);
 static complexity_t cfg = {.max_depth = 3,.max_atoms = 4,.max_length = 4096};
 // 操作数以及权重
 static weight_item_t op_items[]= {
-  {"dec",40},{"hex",10},{"reg",20}
+  {"dec",50},{"hex",30},{"reg",20}
 };
 static weight_pool_t op_pool = {op_items,sizeof(op_items)/sizeof(op_items[0]),0};
 // 操作符以及权重
@@ -118,12 +119,21 @@ static void append_reg_from_white(struct buf_state *s) {
 }
 
   // 操作数选择
-static void gen_operand(struct buf_state *s, int depth) {
+static void gen_operand(struct buf_state *s) {
   if (s->rem <= 0) return;
-  (void)depth;
   int idx = pool_pick(&op_pool);                  // 返回值为随机从操作数池中选择对应的操作数类型标志  
+  switch (idx){
+    case 0 : append_fmt(s, "%d", rand() % 1000); 
+      break;
+    case 1 : append_fmt(s, "0x%X", rand() % 0x10000);
+      break;
+    case 2 : append_reg_from_white(s);
+      break;
+    default: append_fmt(s, "%d", rand() % 1000);
+      break;
+  }
+    /*
   const char *kind = op_pool.items[idx].name;     // 根据返回值参数选定操作数池中的对应的字符串名称
-  // 可以利用op_items[]，使用switch实现，直接避开字符串对比
   if (strcmp(kind, "dec") == 0) {
     append_fmt(s, "%d", rand() % 1000);
   } else if (strcmp(kind, "hex") == 0) {
@@ -133,36 +143,34 @@ static void gen_operand(struct buf_state *s, int depth) {
   } else {
     append_fmt(s, "%d", rand() % 1000);
   }
+    */
 }
-
+  
 static void gen_expr_rec(struct buf_state *s, int depth) {
   if (s->rem <= 0) return;
-  // 确定当前层子表达式个数(第一层至少一个)，
-  // 子表达式的操作符：atoms -1
+  // 每一层的操作数原子至少为1；
   int atoms = 1 + rand() % cfg.max_atoms;
-  // depth>0 则存在递归嵌套，将当前第一个操作数以15%的概率成为子表达式，即用()括起来。
-  if (depth > 0 && (rand() % 100) < 15) {
+  // depth>0 则存在递归嵌套，将当前第一个操作数以45%的概率成为子表达式，即用()括起来。
+  if (depth > 0 && (rand() % 100) < 45) {
     append_str(s, "(");
     gen_expr_rec(s, depth - 1);
     append_str(s, ")");
   } else {
-    gen_operand(s, depth);
+    gen_operand(s);
   }
   for (int i = 1; i < atoms && s->rem > 0; i++) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
     append_fmt(s, " %s ", op);
-    if (depth > 0 && (rand() % 100) < 15) {
+    if (depth > 0 && (rand() % 100) < 40) {
       append_str(s, "(");
       gen_expr_rec(s, depth - 1);
       append_str(s, ")");
     } else {
-      gen_operand(s, depth);
+      gen_operand(s);
     }
   }
 }
-
-
 
 static void gen_rand_expr() {
   char tmp[4096];             // 缓冲区
@@ -170,7 +178,7 @@ static void gen_rand_expr() {
   while (i--) {
     tmp[0] = '\0';
     struct buf_state s = {.ptr = tmp, .rem = (int)sizeof(tmp)};
-    // 二级指针在多层嵌套且需要修改最外层指针时是合适的方法；
+    // 将tmp ,rem 用局部结构体定义，传递结构体指针来利用或者改变其对应值。
     gen_expr_rec(&s, cfg.max_depth);
     if (s.rem <= 0 || tmp[0] == '\0') continue;
    
