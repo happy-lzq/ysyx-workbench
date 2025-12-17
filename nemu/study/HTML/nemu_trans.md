@@ -160,6 +160,59 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
 - 局部生成并验证后提交（降低全局污染与失败影响）；
 - 将复杂的运行时语义校验交由表达式求值器处理，只在生成端尽量降低明显错误率（例如直接生成 `$0`、明显的文本除零等）。
 
+##### 表达式生成示例步骤逻辑
+
+下面按代码执行顺序、函数调用与缓冲写入时序，逐步还原一次具体生成过程。假设随机结果恰好构成表达式：
+
+```
+$s3 * 455 + $a0 + (957 * (15 + 342 * 382))
+```
+
+说明中会指出每一步调用的函数、写入到缓冲区的文本，以及 `*pp`（写指针）和 `*rem`（剩余空间）如何变化。
+
+1. 初始准备
+   - 调用点：`gen_rand_expr()`。
+   - 本地缓冲：`char tmp[4096]; char *p = tmp; int rem = sizeof(tmp);`。
+   - 调用：`gen_expr_rec(&p, &rem, cfg.max_depth)`。此时函数内 `pp` 指向调用者的 `p`，故 `*pp == p == tmp`，`*rem == 4096`。
+
+2. 生成第 1 个原子 `$s3`
+   - 入口：`gen_expr_rec` 决定当前层第一个原子使用 `gen_operand(pp, rem, depth)`。
+   - 内部：`gen_operand` 通过 `pool_pick(&op_pool)` 选中 `reg`，调用 `append_reg_from_white(pp, rem)`。
+   - `append_reg_from_white` 随机从 `regs_name[]` 选到 `"s3"`，执行 `append_fmt(pp, rem, "$%s", r)`。
+   - 写入行为：`snprintf(*pp, *rem, "$s3")` 写入 3 字节；随后 `*pp += 3; *rem -= 3`，写指针移到下一个可写位置。
+
+3. 写入操作符并生成第 2 个原子 ` * 455`
+   - `gen_expr_rec` 在后续循环中调用 `pool_pick(&al_pool)` 选取操作符 `*`，执行 `append_fmt(pp, rem, " %s ", op)`，写入字符串 `" * "`（含空格）。
+   - 随后调用 `gen_operand` 生成右侧原子：`pool_pick(&op_pool)` 选中 `dec`，执行 `append_fmt(pp, rem, "%d", 455)` 写入 `"455"`。
+   - 每次 `append_*` 写入都会读取 `n = snprintf(...)` 的返回值，若 `n < *rem` 则更新 `*pp += n; *rem -= n`。
+
+4. 写第二个操作符并生成第 3 个原子 ` + $a0`
+   - 同上：写入 `" + "`，然后 `gen_operand` 生成寄存器原子并写入 `"$a0"`（通过 `append_reg_from_white`）。
+
+5. 写第三个操作符并决定使用子表达式：` + (`
+   - 写入 `" + "` 后，`gen_expr_rec` 在此处对第 4 个原子执行 15% 的“括号子表达式”分支判断。
+   - 假设随机命中：先执行 `append_str(pp, rem, "(")` 写入左括号，然后递归调用 `gen_expr_rec(pp, rem, depth-1)` 以生成括号内的子表达式 `957 * (15 + 342 * 382)`。
+
+6. 生成子表达式（深度 = 2）：`957 * (15 + 342 * 382)`
+   - 进入新的 `gen_expr_rec(pp, rem, depth=2)`，假设本层 `atoms = 2`。
+   - 第一个原子：调用 `gen_operand` 写入 `"957"`（`dec`）。
+   - 写入操作符 `" * "`。
+   - 第二个原子触发括号分支：写入 `"("` 并递归 `gen_expr_rec(pp, rem, depth=1)` 去生成内层表达式 `15 + 342 * 382`。
+
+7. 内层子表达式（深度 = 1）：`15 + 342 * 382`
+   - 进入 `gen_expr_rec(pp, rem, depth=1)`，假设 `atoms = 3`。
+   - 依次写入原子与操作符：`15`，` + `，`342`，` * `，`382`，每次写入后更新 `*pp` 和 `*rem`。
+   - 内层完成后写入闭括号 `")"`，返回上层；上层再写入自己的闭括号 `")"`，返回顶层。
+
+8. 结束与验证
+   - 顶层 `gen_expr_rec` 返回后，`gen_rand_expr` 检查 `tmp`：若 `rem <= 0` 或 `tmp[0] == '\0'` 则视为失败并重试；否则再做括号平衡检查（遍历字符计数 `(`/`)`）。
+   - 若通过验证，则 `snprintf(buf, sizeof(buf), "%s", tmp)` 把结果复制到全局 `buf` 并返回；最终 `main()` 将其写入文件 `input`。
+
+9. 写入安全性要点
+   - 所有写操作都通过 `append_str` / `append_fmt` 完成，这两个函数用 `snprintf`/`vsnprintf` 返回写入长度 `n`，并在成功时做 `*pp += n; *rem -= n`，在截断/越界时把 `*rem = 0` 作为失败标志，阻止后续写入并触发重试。
+
+该小节旨在把源码函数（`gen_expr_rec`、`gen_operand`、`append_*`）与缓冲区写入时序、递归调用关系一一对应，便于对生成器运行时行为的理解与调试。
+
 ##### 关键数据结构与约定
 
 - `complexity_t cfg`：控制 `max_depth`（递归深度）、`max_atoms`（单层原子数）、`max_length`（最大字符串长度）。

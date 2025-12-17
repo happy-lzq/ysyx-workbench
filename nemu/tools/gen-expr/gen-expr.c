@@ -41,6 +41,11 @@ typedef struct {
   int total;       
 } weight_pool_t;
 
+struct buf_state { 
+    char *ptr; 
+    int rem; 
+};
+
  const char *regs_name[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
   "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
@@ -85,74 +90,74 @@ static int pool_pick(weight_pool_t *p) {
 }
 
 /* safe append helpers */
-static void append_str(char **pp, int *rem, const char *s) {
-  if (*rem <= 0) return;
-  int n = snprintf(*pp, *rem, "%s", s);
-  if (n <= 0 || n >= *rem) { *rem = 0; return; }
-  *pp += n; *rem -= n;
+static void append_str(struct buf_state *s, const char *c) {
+  if (s->rem <= 0) return;
+  int n = snprintf(s->ptr, s->rem, "%s", c);
+  if (n <= 0 || n >= s->rem) { s->rem = 0; return; }
+  s->ptr += n; s->rem -= n;
 }
 
-static void append_fmt(char **pp, int *rem, const char *fmt, ...) {
-  if (*rem <= 0) return;
+static void append_fmt(struct buf_state *s, const char *fmt, ...) {
+  if (s->rem <= 0) return;
   va_list ap;
   va_start(ap, fmt);
-  int n = vsnprintf(*pp, *rem, fmt, ap);
+  int n = vsnprintf(s->ptr, s->rem, fmt, ap);
   va_end(ap);
-  if (n <= 0 || n >= *rem) { *rem = 0; return; }
-  *pp += n; *rem -= n;
+  if (n <= 0 || n >= s->rem) { s->rem = 0; return; }
+  s->ptr += n; s->rem -= n;
 }
 
 // 从寄存器结构体中随机选取寄存器名，并配上表达式引导符号 & 
-static void append_reg_from_white(char **pp, int *rem) {
-  if (*rem <= 0) return;
+static void append_reg_from_white(struct buf_state *s) {
+  if (s->rem <= 0) return;
   const char *r = regs_name[rand() % regs_name_n];
   if (r[0] == '$'){
     r = r + 1;
   } 
-  append_fmt(pp, rem, "$%s", r);
+  append_fmt(s, "$%s", r);
 }
 
   // 操作数选择
-static void gen_operand(char **pp, int *rem, int depth) {
-  if (*rem <= 0) return;
+static void gen_operand(struct buf_state *s, int depth) {
+  if (s->rem <= 0) return;
   (void)depth;
   int idx = pool_pick(&op_pool);                  // 返回值为随机从操作数池中选择对应的操作数类型标志  
   const char *kind = op_pool.items[idx].name;     // 根据返回值参数选定操作数池中的对应的字符串名称
   // 可以利用op_items[]，使用switch实现，直接避开字符串对比
   if (strcmp(kind, "dec") == 0) {
-    append_fmt(pp, rem, "%d", rand() % 1000);
+    append_fmt(s, "%d", rand() % 1000);
   } else if (strcmp(kind, "hex") == 0) {
-    append_fmt(pp, rem, "0x%X", rand() % 0x10000);
+    append_fmt(s, "0x%X", rand() % 0x10000);
   } else if (strcmp(kind, "reg") == 0) {
-    append_reg_from_white(pp, rem);
+    append_reg_from_white(s);
   } else {
-    append_fmt(pp, rem, "%d", rand() % 1000);
+    append_fmt(s, "%d", rand() % 1000);
   }
 }
 
-static void gen_expr_rec(char **pp, int *rem, int depth) {
-  if (*rem <= 0) return;
+static void gen_expr_rec(struct buf_state *s, int depth) {
+  if (s->rem <= 0) return;
   // 确定当前层子表达式个数(第一层至少一个)，
   // 子表达式的操作符：atoms -1
   int atoms = 1 + rand() % cfg.max_atoms;
   // depth>0 则存在递归嵌套，将当前第一个操作数以15%的概率成为子表达式，即用()括起来。
   if (depth > 0 && (rand() % 100) < 15) {
-    append_str(pp, rem, "(");
-    gen_expr_rec(pp, rem, depth - 1);
-    append_str(pp, rem, ")");
+    append_str(s, "(");
+    gen_expr_rec(s, depth - 1);
+    append_str(s, ")");
   } else {
-    gen_operand(pp, rem, depth);
+    gen_operand(s, depth);
   }
-  for (int i = 1; i < atoms && *rem > 0; i++) {
+  for (int i = 1; i < atoms && s->rem > 0; i++) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
-    append_fmt(pp, rem, " %s ", op);
+    append_fmt(s, " %s ", op);
     if (depth > 0 && (rand() % 100) < 15) {
-      append_str(pp, rem, "(");
-      gen_expr_rec(pp, rem, depth - 1);
-      append_str(pp, rem, ")");
+      append_str(s, "(");
+      gen_expr_rec(s, depth - 1);
+      append_str(s, ")");
     } else {
-      gen_operand(pp, rem, depth);
+      gen_operand(s, depth);
     }
   }
 }
@@ -164,10 +169,10 @@ static void gen_rand_expr() {
   int i = 5;
   while (i--) {
     tmp[0] = '\0';
-    char *p = tmp;
-    int rem = sizeof(tmp);
-    gen_expr_rec(&p, &rem, cfg.max_depth);
-    if (rem <= 0 || tmp[0] == '\0') continue;
+    struct buf_state s = {.ptr = tmp, .rem = (int)sizeof(tmp)};
+    // 二级指针在多层嵌套且需要修改最外层指针时是合适的方法；
+    gen_expr_rec(&s, cfg.max_depth);
+    if (s.rem <= 0 || tmp[0] == '\0') continue;
    
     int bal = 0, ok = 1;
     // 循环条件下：字符串指针，作为结束条件时：*q 表示当*q='\0'结束
