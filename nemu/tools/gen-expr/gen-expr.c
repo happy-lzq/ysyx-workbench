@@ -151,7 +151,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
   // 每一层的操作数原子至少为1；
   int atoms = 1 + rand() % cfg.max_atoms;
   // depth>0 则存在递归嵌套，将当前第一个操作数以45%的概率成为子表达式，即用()括起来。
-  if (depth > 0 && (rand() % 100) < 45) {
+  if (depth > 0 && (rand() % 100) < 30) {
     append_str(s, "(");
     gen_expr_rec(s, depth - 1);
     append_str(s, ")");
@@ -162,7 +162,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
     append_fmt(s, " %s ", op);
-    if (depth > 0 && (rand() % 100) < 40) {
+    if (depth > 0 && (rand() % 100) < 25) {
       append_str(s, "(");
       gen_expr_rec(s, depth - 1);
       append_str(s, ")");
@@ -203,24 +203,30 @@ static void gen_rand_expr() {
 }
 
 
-int main(int argc, char *argv[]) {
+int main() {
   int seed = time(0);
   srand(seed);
   // 操作数+操作符权重池初始化
   pool_prepare(&op_pool);
   pool_prepare(&al_pool);
-  int loop = 1;
-  if (argc > 1) {
-    sscanf(argv[1], "%d", &loop);
-  }
 
-  int i;
+  /* 从环境变量 GEN_N 获取生成条数，默认 1 */
+  int gen_n = 1;  
+  // 从进程环境变量中读取值
+  const char *env = getenv("GEN_N");
+  if (env) {
+    char *end = NULL;
+    long v = strtol(env, &end, 10);
+    if (end != env && *end == '\0' && v > 0){ 
+      gen_n = (int)v;
+    }
+  }
   FILE *out = fopen("input", "w");
   if (!out) {
     perror("fopen input");
     return 1;
   }
-  for (i = 0; i < loop; i ++) {
+  for (int i = 0; i < gen_n; i ++) {
     gen_rand_expr();
     fprintf(out, "%s\n", buf);
     if (i < 10) {

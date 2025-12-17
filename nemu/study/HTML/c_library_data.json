@@ -1,5 +1,41 @@
 [
   {
+    "name": "unsetenv",
+    "header": "stdlib.h",
+    "prototype": "int unsetenv(const char *name);",
+    "description": "功能\n从环境表中删除名为 name 的环境变量（若存在）。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空）。",
+    "return_val": "返回值\n成功：返回 0。\n失败：返回 -1，并设置 errno（例如 EINVAL）。\n注意\n删除后 getenv(name) 将返回 NULL。\n与 setenv/putenv 一样，若在多线程中修改环境，需要外部同步。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "putenv",
+    "header": "stdlib.h",
+    "prototype": "int putenv(char *string);",
+    "description": "功能\n把形如 \"NAME=VALUE\" 的字符串加入环境；实现通常直接使用传入指针作为环境项（不做复制）。\n参数\nstring：指向格式为 \"NAME=VALUE\" 的可写 C 字符串。注意是非 const，因实现可能使用该内存。",
+    "return_val": "返回值\n传统实现：成功返回 0，失败返回非 0（或 -1）并设置 errno（平台可能不同）。\n注意\n内存所有权被“转移”到环境表：不能在调用后 free 或让该内存成为栈变量失效（必须保证字符串长期可用，通常用 malloc）。\n对并发与可移植性不如 setenv，可能导致难以追踪的生命周期 bug。\n若传入字符串内容被修改，会直接影响环境变量值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "setenv",
+    "header": "stdlib.h",
+    "prototype": "int setenv(const char *name, const char *value, int overwrite);",
+    "description": "功能：\n设置或新增环境变量 name 的值为 value。若变量已存在，overwrite 控制是否覆盖。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空字符串）。\nvalue：要设置的字符串值（不能为 NULL）。\noverwrite：非零表示即使已存在也覆盖，0 表示存在则不修改。",
+    "return_val": "成功：返回 0。\n失败：返回 -1，并设置 errno（如 EINVAL 名称非法、ENOMEM 内存不足）\n注意\nsetenv 会复制 name/value 到内部环境存储，调用方可释放传入字符串。\n比 putenv 更安全、更易用（不转移内存所有权）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "getenv",
+    "header": "stdlib.h",
+    "prototype": "char *getenv(const char *name);",
+    "description": "按名字查当前进程的环境变量表（environment），找到返回指向值字符串的指针；找不到或参数为 NULL 则返回 NULL。",
+    "return_val": "getenv 返回的指针指向程序内部环境表的字符串；不要 free() 它，也不要修改（除非你非常确定）。",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "snprintf",
     "header": "stdio.h",
     "prototype": "int snprintf(char *str, size_t size, const char *format, ...);",

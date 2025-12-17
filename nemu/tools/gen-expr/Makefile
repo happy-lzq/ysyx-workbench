@@ -1,5 +1,7 @@
 CC := gcc
-CFLAGS := -O2 -Wall -Wextra
+CFLAGS := -Wall -Wextra
+
+gen_n ?= 10
 
 SRC := gen-expr.c
 OUTDIR := build
@@ -16,9 +18,9 @@ $(OUT): $(SRC) | $(OUTDIR)
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
 run: $(OUT)
-	@n=$(n); if [ -z "$$n" ]; then n=1; fi; \
-	./$(OUT) $$n
-
+	@GEN_N=$(gen_n) \
+	./$(OUT)
+# 子进程环境：run 中设置临时变量GEN_N=$(gen_n),然后执行 ./$(out)
 clean:
 	rm -rf $(OUTDIR)
 #***************************************************************************************
