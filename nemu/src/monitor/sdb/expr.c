@@ -44,6 +44,7 @@ static struct rule {
   {"!=", TK_NOTEQ},                       // 不等于     261 （未实现）
   {"$$",TK_AND},                          // 逻辑与     264 （未实现）
   {"\\|\\|",TK_OR},                       // 逻辑或     265 （未实现）
+  {"\\*0[xX][0-9a-fA-F]+",TK_DEREF},               // 地址解引用
   {"\\+", '+'},                            // 加号       43
   {"-", '-'},                              // 减号       45
   {"\\*", '*'},                            // 乘号       42
@@ -142,22 +143,22 @@ static bool make_token(char *e) {
         break;
       }
 
-    if (tokens[i].type == '*'){
-      if (i ==0 ||
-        tokens[i-1].type == '+'       ||
-        tokens[i-1].type == '-'       ||
-        tokens[i-1].type == '*'       ||
-        tokens[i-1].type == '/'       ||
-        tokens[i-1].type == TK_EQ     ||
-        tokens[i-1].type == TK_NOTEQ  ||
-        tokens[i-1].type == TK_AND    ||
-        tokens[i-1].type == TK_OR     ||
-        tokens[i-1].type == '('       ){
-          tokens[i].type = TK_DEREF;    
-      }
-    }
-    }
+    // if (tokens[i].type == '*'){
+    //   if (i ==0 ||
+    //     tokens[i-1].type == '+'       ||
+    //     tokens[i-1].type == '-'       ||
+    //     tokens[i-1].type == '*'       ||
+    //     tokens[i-1].type == '/'       ||
+    //     tokens[i-1].type == TK_EQ     ||
+    //     tokens[i-1].type == TK_NOTEQ  ||
+    //     tokens[i-1].type == TK_AND    ||
+    //     tokens[i-1].type == TK_OR     ||
+    //     tokens[i-1].type == '('       ){
+    //       tokens[i].type = TK_DEREF;    
+    //   }
+    // }
 
+    }
     if (i == NR_REGEX) {
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
@@ -239,12 +240,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      case TK_DEREF : 
-        if (tokens[l+1].type == TK_16NUM){
-          *hex = true;
-          return get_pointer_value(tokens[l+1].str,success);
-        }
-        
+      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l+1].str,success);
       case TK_REG   : * hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
