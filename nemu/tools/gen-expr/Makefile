@@ -18,8 +18,8 @@ $(OUT): $(SRC) | $(OUTDIR)
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
 run: $(OUT)
-	@GEN_N=$(gen_n) \
-	./$(OUT)
+	@GEN_N=$(gen_n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
+	$(OUT)
 # 子进程环境：run 中设置临时变量GEN_N=$(gen_n),然后执行 ./$(out)
 clean:
 	rm -rf $(OUTDIR)

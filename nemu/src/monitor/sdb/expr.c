@@ -19,13 +19,13 @@
 #include <isa.h>
 #include <regex.h>
 #include <stdbool.h>
-
-
-
+#include <memory/vaddr.h> 
+#include <common.h>
+#include <cpu/cpu.h>
 //========================= Token 类型 ====================================//
 enum {
   TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG,
-  TK_NOTEQ, TK_AND, TK_OR,TK_DEREF
+  TK_NOTEQ,TK_AND, TK_OR,TK_DEREF
 
   /* TODO: Add more token types */
 
@@ -42,8 +42,8 @@ static struct rule {
   {"[0-9]+", TK_NUM},                     // 十进制整数  259
   {"\\$([A-Za-z][A-Za-z0-9]*|[0-9]+)", TK_REG},        // 寄存器     260
   {"!=", TK_NOTEQ},                       // 不等于     261 （未实现）
-  {"&&",TK_AND},                          // 逻辑与     262 （未实现）
-  {"\\|\\|",TK_OR},                       // 逻辑或     263 （未实现）
+  {"$$",TK_AND},                          // 逻辑与     264 （未实现）
+  {"\\|\\|",TK_OR},                       // 逻辑或     265 （未实现）
   {"\\+", '+'},                            // 加号       43
   {"-", '-'},                              // 减号       45
   {"\\*", '*'},                            // 乘号       42
@@ -53,7 +53,7 @@ static struct rule {
 
 };
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules结构体数组元素个数
-
+// ==================================自动解析字符串数值================================//
 static word_t parse_num(const char *s, bool *success){
   char *endptr = NULL;
   word_t val = strtoull(s,&endptr,0);
@@ -63,6 +63,18 @@ static word_t parse_num(const char *s, bool *success){
     return 0;
   } 
   return val;
+}
+// ===================================指针对地址解引用=================================//
+static word_t get_pointer_value(const char *s, bool *success){
+  word_t data;
+  addr_max = parse_num("0xffffffff",success);
+  word_t addr = parse_num(s,success);
+  if (addr < 80000000 || addr >=addr_max){
+    printf("输入解析地址不在地址范围内！请检查输入");
+    *success = false;
+    return 0;
+  }
+  return data = vaddr_read(addr,sizeof(int));
 }
 
 //============== 编译 rules[] Tokens 与正则表达式一一对应 ==============================//
@@ -177,15 +189,15 @@ int check_parentheses(int l, int r) {
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
   switch (type){
-    case TK_EQ    : return 0;
+    case TK_EQ : return 0;
     case TK_NOTEQ : return 0;
-    case      '+' : return 1;
-    case      '-' : return 1;
-    case      '*' : return 2;
-    case      '/' : return 2;
-    case   TK_AND : return 3;
-    case   TK_OR  : return 4;
-    default       : return 20;   // 非运算符
+    case   '+' : return 1;
+    case   '-' : return 1;
+    case   '*' : return 2;
+    case   '/' : return 2;
+    case TK_AND : return 3;
+    case TK_OR  : return 4;
+    default    : return 20;   // 非运算符
   }
 }
 int find_main_operator(int l, int r,bool *success){
@@ -223,11 +235,16 @@ word_t eval(int l,int r,bool *success,bool *hex){
     *success =false;
     return 0;
   } else if (l == r){
-    // l==r ：数字类型，寄存器类型，16进制数类型
+    // l==r ：数字类型，寄存器类型
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      // case TK_DEREF : 
+      case TK_DEREF : 
+        if (tokens[l+1].type == TK_16NUM){
+          *hex = true;
+          return get_pointer_value(tokens[l+1].str,success);
+        }
+        
       case TK_REG   : * hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
@@ -242,7 +259,6 @@ word_t eval(int l,int r,bool *success,bool *hex){
       if (*success == false) return 0;
       val1 = eval(l,op-1,success,hex);
       val2 = eval(op+1,r,success,hex);
-  // 根据主运算符类型进行逻辑计算
       switch (tokens[op].type) {
         case '+': return val1 + val2;
         case '-': return val1 - val2;
@@ -250,15 +266,11 @@ word_t eval(int l,int r,bool *success,bool *hex){
         case '/':
           if (val2 == 0) {
             printf("division by zero\n");
-            *success = false; 
+            *success = false;
             return 0;
           }
           return val1 / val2;
-    // val1,val2根据逻辑运算符运算返回0或1
-        case     TK_AND: return val1 && val2;
-        case      TK_OR: return val1 || val2;
-        case      TK_EQ: return val1 == val2;
-        case   TK_NOTEQ: return val1 != val2;
+        case TK_EQ: return val1 == val2;
         // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
         default: assert(0); // 未知类型直接报错
     }

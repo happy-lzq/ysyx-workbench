@@ -7,10 +7,11 @@
 - [3. 运行流程分析 (Execution Flow)](#3-运行流程分析-execution-flow)
 - [4. 简易调试器 (SDB) 开发准备](#4-简易调试器-sdb-开发准备)
   - [A. 命令解析框架 (sdb.c)](#a-命令解析框架-sdbc)
-   - [B. 表达式求值 (expr.c)](#b-表达式求值-exprc)
-      - [词法分析与递归求值详细处理过程](#词法分析与递归求值详细处理过程)
-      - [表达式求值与 SDB 集成中的 bool success 设计总结](#表达式求值与-sdb-集成中的-bool-success-设计总结)
-      - [表达式生成器与验证（从 0 到 1）](#gen-expr)
+     - [B. 表达式求值 (expr.c)](#b-表达式求值-exprc)
+        - [词法分析与递归求值详细处理过程](#词法分析与递归求值详细处理过程)
+        - [表达式求值与 SDB 集成中的 bool success 设计总结](#表达式求值与-sdb-集成中的-bool-success-设计总结)
+        - [Makefile 与运行时环境变量交互](#makefile-env)
+        - [表达式生成器与验证（从 0 到 1）](#gen-expr)
   - [C. 监视点 (watchpoint.c)](#c-监视点-watchpointc)
   - [D. 寄存器访问 (isa.h / reg.c)](#d-寄存器访问-isah--regc)
 
@@ -18,17 +19,11 @@
 
 # NEMU 项目设计与架构分析
 
-## 1. 整体架构概览
-
-NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。整个模拟器主要由以下几个部分组成：
-
 *   **Monitor (监控器)**: 相当于模拟器的“外壳”或“操作系统”。它负责初始化、加载程序、提供用户交互界面（SDB）。
 *   **CPU (中央处理器)**: 负责取指、译码、执行。这是模拟器的核心。
-*   **Memory (存储器)**: 模拟物理内存和虚拟内存。
 *   **Device (设备)**: 模拟外设（如串口、时钟、VGA等）。
 
 ## 2. 代码目录结构与功能
-
 关键目录及其功能如下：
 
 *   `src/nemu-main.c`: **入口函数**。程序的起点。
@@ -39,13 +34,11 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
         *   `expr.c`: 表达式求值模块（用于 `p` 命令）。
         *   `watchpoint.c`: 监视点池管理（用于 `w` 命令）。
 *   `src/cpu/`: **CPU 模拟**。
-    *   `cpu-exec.c`: 指令执行的主循环 (`cpu_exec`)。
 *   `src/engine/`: 模拟引擎（解释器模式）。
 *   `include/`: 头文件，定义了各种数据结构和接口。
     *   `isa.h`: 定义了 ISA 相关的接口（如寄存器结构）。
 
 ## 3. 运行流程分析 (Execution Flow)
-
 程序的生命周期如下：
 
 1.  **启动 (`src/nemu-main.c`)**:
@@ -55,7 +48,6 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
 2.  **初始化 (`src/monitor/monitor.c`)**:
     *   解析参数（如 `-l` 日志, `-b` 批处理模式）。
     *   `load_img()`: 将客户程序（Guest Program）镜像加载到模拟内存中。
-    *   `init_sdb()`: 初始化调试器相关结构（如正则引擎、监视点池）。
 
 3.  **进入主循环 (`src/monitor/sdb/sdb.c` -> `engine_start`)**:
     *   如果是批处理模式，直接运行。
@@ -145,6 +137,67 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
 **总结：**  
 `bool success` 是表达式求值模块与 SDB 命令行集成的关键标志，保证了表达式分析、计算和错误处理的完整性与一致性。  
 通过递归传递和集中判断，实现了高效、健壮的表达式求值与用户交互逻辑。
+
+<a id="makefile-env"></a>
+#### Makefile 与运行时环境变量交互
+
+为方便批量生成测试样本，`tools/gen-expr/Makefile` 会在运行 `gen-expr` 可执行文件时，通过环境变量把配置信息传递给程序，程序端通过标准库函数 `getenv()` 读取这些值并据此调整行为。常见变量：
+
+- `GEN_N`：生成条数（整数）。`gen-expr.c` 中通过 `getenv("GEN_N")` 读取字符串并用 `strtol()` 解析为整数；若不存在或解析失败则使用默认值（示例中为 `1`）。
+- `GEN_OUT`：输出文件路径（字符串），程序调用 `getenv("GEN_OUT")`；若未设置则默认写入当前工作目录下的 `input` 文件。
+
+Makefile 端示例（`tools/gen-expr/Makefile` 的 `run` 目标）：
+
+```makefile
+run: $(OUT)
+	@GEN_N=$(gen_n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
+	$(OUT)
+```
+
+使用说明与常见误解：
+
+- 在 Makefile 中，覆盖变量要使用 Makefile 定义的名称（示例中为 `gen_n`），例如：`make -C tools/gen-expr run gen_n=100`。直接使用 `make run n=100` 不会生效，除非 Makefile 对 `n` 做了映射。
+- 程序通常把前若干条（如前 10 条）打印到 `stderr` 作为预览，但 `GEN_OUT` 文件中会包含完整的 `GEN_N` 条目。
+
+下面列出程序常用的环境相关 C 标准库函数及简要用法，方便理解 Makefile ↔ 程序的交互实现。
+
+##### C 库：环境相关函数（常用）
+
+- `char *getenv(const char *name);`
+   - 功能：读取环境变量 `name` 的值，返回指向值字符串的指针；若变量不存在返回 `NULL`。
+   - 注意：返回的指针指向进程环境区的内存，不应由调用者释放；该内存可被后续 `setenv`/`putenv` 修改。
+   - 示例：
+      ```c
+      const char *v = getenv("GEN_N");
+      if (v) {
+         char *end = NULL;
+         long n = strtol(v, &end, 10);
+         if (end != v && *end == '\0' && n > 0) gen_n = (int)n;
+      }
+      ```
+
+- `int setenv(const char *name, const char *value, int overwrite);`
+   - 功能：在环境中设置或修改 `name` 的值为 `value`。
+   - 参数：`overwrite` 为非零时允许覆盖已存在的变量；返回 `0` 成功，返回 `-1` 出错并设置 `errno`。
+   - 示例：`setenv("GEN_OUT", "/path/to/input", 1);`
+
+- `int putenv(char *string);`
+   - 功能：将形如 `"NAME=VALUE"` 的字符串直接加入环境；环境保留对该字符串的指针（实现可能不复制），因此传入的字符串不能在之后被释放或修改。
+   - 返回 `0` 成功，`-1` 出错。
+   - 注意：`putenv` 与 `setenv` 行为不同，使用时需注意内存所有权。
+
+- `int unsetenv(const char *name);`
+   - 功能：从环境中删除变量 `name`。返回 `0` 成功，`-1` 出错并设置 `errno`。
+
+- `long strtol(const char *nptr, char **endptr, int base);`
+   - 功能：把字符串 `nptr` 按 `base`（通常为 10）解析为 `long`。`endptr` 指向首个不能转换的字符（可为 `NULL`）。用于把 `getenv` 得到的字符串解析为整数。
+
+注意事项：
+
+- 多线程与环境变量：对环境的修改（`setenv`/`putenv`/`unsetenv`）通常不是线程安全的；读取（`getenv`）在 POSIX 系统上通常是线程安全的，但仍建议在线程间谨慎使用环境修改。
+- 程序应对 `getenv` 返回值做严格校验（空指针、非数字字符等），以免产生解析错误。
+
+该独立小节与 `#### 表达式生成器与验证（从 0 到 1）` 并列，方便开发者既能看到生成器实现细节，也能快速理解 Makefile ↔ 程序的运行时交互契约。
 
 <a id="gen-expr"></a>
 

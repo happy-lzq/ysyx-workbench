@@ -22,7 +22,8 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-
+#define FIRST_PROBABILITY 20  // 控制递归表达式生成概率
+#define SECOND_PROBABILITY 15 // 控制递归表达式生成概率
 static char buf[65536] = {};
 typedef struct {
   int max_depth;      // 递归嵌套深度
@@ -63,7 +64,7 @@ static weight_item_t op_items[]= {
 static weight_pool_t op_pool = {op_items,sizeof(op_items)/sizeof(op_items[0]),0};
 // 操作符以及权重
 static weight_item_t al_items[]= {
-  {"+",30}, {"-",30}, {"*",25}, {"/",15},{"!=",15},{"==",20},{"&&",10},{"||",15}
+  {"+",30}, {"-",30}, {"*",25}, {"/",15},{"!=",15},{"==",20},{"&&",20},{"||",20}
 };
 static weight_pool_t al_pool = { al_items, sizeof(al_items)/sizeof(al_items[0]), 0 };
 
@@ -152,7 +153,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
   // 每一层的操作数原子至少为1；
   int atoms = 1 + rand() % cfg.max_atoms;
   // depth>0 则存在递归嵌套，将当前第一个操作数以45%的概率成为子表达式，即用()括起来。
-  if (depth > 0 && (rand() % 100) < 30) {
+  if (depth > 0 && (rand() % 100) < FIRST_PROBABILITY) {
     append_str(s, "(");
     gen_expr_rec(s, depth - 1);
     append_str(s, ")");
@@ -163,7 +164,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
     append_fmt(s, " %s ", op);
-    if (depth > 0 && (rand() % 100) < 25) {
+    if (depth > 0 && (rand() % 100) < SECOND_PROBABILITY) {
       append_str(s, "(");
       gen_expr_rec(s, depth - 1);
       append_str(s, ")");
@@ -222,9 +223,11 @@ int main() {
       gen_n = (int)v;
     }
   }
-  FILE *out = fopen("input", "w");
+  const char *out_path = getenv("GEN_OUT");
+  if (!out_path) out_path = "input";
+  FILE *out = fopen(out_path, "w");
   if (!out) {
-    perror("fopen input");
+    perror(out_path);
     return 1;
   }
   for (int i = 0; i < gen_n; i ++) {
