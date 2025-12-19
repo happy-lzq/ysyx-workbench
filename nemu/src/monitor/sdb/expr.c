@@ -67,7 +67,7 @@ static word_t parse_num(const char *s, bool *success){
 // ===================================指针对地址解引用=================================//
 static word_t get_pointer_value(const char *s, bool *success){
   word_t data;
-  word_t addr = parse_num(s+1,success);
+  word_t addr = parse_num(s,success);
   if (addr < 0x80000000 || addr >=0xffffffff){
     printf("输入解析地址不在地址范围内！请检查输入");
     *success = false;
@@ -238,7 +238,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l+1].str,success);
+      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l].str,success);
       case TK_REG   : *hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
