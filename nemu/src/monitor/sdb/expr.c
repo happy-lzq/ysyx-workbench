@@ -261,6 +261,10 @@ word_t eval(int l,int r,bool *success,bool *hex){
         case '+': return val1 + val2;
         case '-': return val1 - val2;
         case '*': return val1 * val2;
+        case TK_EQ    : return (word_t) (val1 == val2 ? 1 : 0); 
+        case TK_NOTEQ : return (word_t) (val1 != val2 ? 1 : 0); 
+        case TK_AND   : return (word_t) (val1 && val2 );
+        case TK_OR    : return (word_t) (val1 || val2 );
         case '/':
           if (val2 == 0) {
             printf("division by zero\n");
