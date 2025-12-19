@@ -141,18 +141,18 @@ static bool make_token(char *e) {
         break;
       }
 
-    if (tokens[i].type == '*'){
-      if (i ==0 ||
-        tokens[i-1].type == '+'       ||
-        tokens[i-1].type == '-'       ||
-        tokens[i-1].type == '*'       ||
-        tokens[i-1].type == '/'       ||
-        tokens[i-1].type == TK_EQ     ||
-        tokens[i-1].type == TK_NOTEQ  ||
-        tokens[i-1].type == TK_AND    ||
-        tokens[i-1].type == TK_OR     ||
-        tokens[i-1].type == '('       ){
-          tokens[i].type = TK_DEREF;    
+    if (tokens[nr_token].type == '*'){
+      if (nr_token ==0 ||
+        tokens[nr_token-1].type == '+'       ||
+        tokens[nr_token-1].type == '-'       ||
+        tokens[nr_token-1].type == '*'       ||
+        tokens[nr_token-1].type == '/'       ||
+        tokens[nr_token-1].type == TK_EQ     ||
+        tokens[nr_token-1].type == TK_NOTEQ  ||
+        tokens[nr_token-1].type == TK_AND    ||
+        tokens[nr_token-1].type == TK_OR     ||
+        tokens[nr_token-1].type == '('       ){
+          tokens[nr_token].type = TK_DEREF;    
       }
     }
 
