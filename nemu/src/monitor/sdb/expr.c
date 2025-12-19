@@ -41,9 +41,9 @@ static struct rule {
   {"0[xX][0-9a-fA-F]+",TK_16NUM},         // 16进制     258
   {"[0-9]+", TK_NUM},                     // 十进制整数  259
   {"\\$([A-Za-z][A-Za-z0-9]*|[0-9]+)", TK_REG},        // 寄存器     260
-  {"!=", TK_NOTEQ},                       // 不等于     261 （未实现）
-  {"$$",TK_AND},                          // 逻辑与     264 （未实现）
-  {"\\|\\|",TK_OR},                       // 逻辑或     265 （未实现）
+  {"!=", TK_NOTEQ},                       // 不等于     261 
+  {"&&",TK_AND},                          // 逻辑与     264 
+  {"\\|\\|",TK_OR},                       // 逻辑或     265 
   {"\\+", '+'},                            // 加号       43
   {"-", '-'},                              // 减号       45
   {"\\*", '*'},                            // 乘号       42
@@ -249,6 +249,10 @@ word_t eval(int l,int r,bool *success,bool *hex){
   } else {        
     // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
       int op = find_main_operator(l,r,success);
+      if (tokens[op].type == TK_DEREF){
+        word_t addr = eval(l+1,r,success,hex);
+        return vaddr_read(addr,sizeof(int));
+      } else {
       // 利用*success 检查主运算符
       if (*success == false) return 0;
       val1 = eval(l,op-1,success,hex);
@@ -264,16 +268,12 @@ word_t eval(int l,int r,bool *success,bool *hex){
             return 0;
           }
           return val1 / val2;
-
-        case TK_DEREF: 
-          word_t addr = eval(l+1,r,success,hex);
-          return vaddr_read(addr,sizeof(int));
-
         // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
         default: assert(0); // 未知类型直接报错
+      }
+     }
     }
   }
-}
 
 word_t expr(char *e, bool *success, bool *hex) {
   if (!make_token(e)) {
