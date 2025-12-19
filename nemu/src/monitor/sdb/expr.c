@@ -65,16 +65,16 @@ static word_t parse_num(const char *s, bool *success){
   return val;
 }
 // ===================================指针对地址解引用=================================//
-static word_t get_pointer_value(const char *s, bool *success){
-  word_t data;
-  word_t addr = parse_num(s,success);
-  if (addr < 0x80000000 || addr >=0xffffffff){
-    printf("输入解析地址不在地址范围内！请检查输入");
-    *success = false;
-    return 0;
-  }
-  return data = vaddr_read(addr,sizeof(int));
-}
+// static word_t get_pointer_value(const char *s, bool *success){
+//   word_t data;
+//   word_t addr = parse_num(s,success);
+//   if (addr < 0x80000000 || addr >=0xffffffff){
+//     printf("输入解析地址不在地址范围内！请检查输入");
+//     *success = false;
+//     return 0;
+//   }
+//   return data = vaddr_read(addr,sizeof(int));
+// }
 
 //============== 编译 rules[] Tokens 与正则表达式一一对应 ==============================//
 static regex_t re[NR_REGEX] = {}; // re[] 是一个regex_t 结构体数组，每个 regex_t 结构体代表一个已编译的正则表达式。
@@ -140,7 +140,7 @@ static bool make_token(char *e) {
         }
         break;
       }
-
+ // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
     if (tokens[nr_token].type == '*'){
       if (nr_token ==0 ||
         tokens[nr_token-1].type == '+'       ||
@@ -196,6 +196,7 @@ int get_priortiy(int type){
     case   '/' : return 2;
     case TK_AND : return 3;
     case TK_OR  : return 4;
+    case TK_DEREF : return 5;
     default    : return 20;   // 非运算符
   }
 }
@@ -238,7 +239,6 @@ word_t eval(int l,int r,bool *success,bool *hex){
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l+1].str,success);
       case TK_REG   : *hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
@@ -264,7 +264,11 @@ word_t eval(int l,int r,bool *success,bool *hex){
             return 0;
           }
           return val1 / val2;
-        case TK_EQ: return val1 == val2;
+
+        case TK_DEREF: 
+          word_t addr = eval(l+1,r,success,hex);
+          return vaddr_read(addr,sizeof(int));
+
         // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
         default: assert(0); // 未知类型直接报错
     }
