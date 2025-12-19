@@ -239,7 +239,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
-      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l+1].str,success);
+      case TK_DEREF : *hex = true;return get_pointer_value(tokens[l].str,success);
       case TK_REG   : *hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
