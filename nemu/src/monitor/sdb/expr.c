@@ -134,36 +134,36 @@ static bool make_token(char *e) {
             tokens[nr_token].type = rules[i].token_type;
             int copy_len = substr_len < (int)sizeof(tokens[nr_token].str) - 1 ? substr_len : (int)sizeof(tokens[nr_token].str) - 1;
             strncpy(tokens[nr_token].str, substr_start, copy_len);
+            
             tokens[nr_token].str[copy_len] = '\0';
             nr_token++;
             break;
         }
         break;
       }
- // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
-    if (tokens[nr_token].type == '*'){
-      if (nr_token ==0 ||
-        tokens[nr_token-1].type == '+'       ||
-        tokens[nr_token-1].type == '-'       ||
-        tokens[nr_token-1].type == '*'       ||
-        tokens[nr_token-1].type == '/'       ||
-        tokens[nr_token-1].type == TK_EQ     ||
-        tokens[nr_token-1].type == TK_NOTEQ  ||
-        tokens[nr_token-1].type == TK_AND    ||
-        tokens[nr_token-1].type == TK_OR     ||
-        tokens[nr_token-1].type == '('       ){
-          tokens[nr_token].type = TK_DEREF;    
-      }
-    }
-
     }
     if (i == NR_REGEX) {
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
     }
   }
-
-
+  for ( i = 0; i < nr_token; i++){
+ // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
+    if (tokens[i].type == '*'){
+      if (i ==0                       ||
+        tokens[i-1].type == '+'       ||
+        tokens[i-1].type == '-'       ||
+        tokens[i-1].type == '*'       ||
+        tokens[i-1].type == '/'       ||
+        tokens[i-1].type == TK_EQ     ||
+        tokens[i-1].type == TK_NOTEQ  ||
+        tokens[i-1].type == TK_AND    ||
+        tokens[i-1].type == TK_OR     ||
+        tokens[i-1].type == '('       ){
+          tokens[i].type = TK_DEREF;    
+      }
+    }
+  }
   return true;
 }
 
