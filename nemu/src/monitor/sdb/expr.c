@@ -42,7 +42,7 @@ static struct rule {
   {"[0-9]+", TK_NUM},                     // 十进制整数  259
   {"\\$([A-Za-z][A-Za-z0-9]*|[0-9]+)", TK_REG},        // 寄存器     260
   {"!=", TK_NOTEQ},                       // 不等于     261 （未实现）
-  {"$$",TK_AND},                          // 逻辑与     262 （未实现）
+  {"&&",TK_AND},                          // 逻辑与     262 （未实现）
   {"\\|\\|",TK_OR},                       // 逻辑或     263 （未实现）
   {"\\+", '+'},                            // 加号       43
   {"-", '-'},                              // 减号       45
@@ -254,6 +254,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
             return 0;
           }
           return val1 / val2;
+    // val1,val2根据逻辑运算符运算返回0或1
         case     TK_AND: return val1 && val2;
         case      TK_OR: return val1 || val2;
         case      TK_EQ: return val1 == val2;
