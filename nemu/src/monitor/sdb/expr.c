@@ -188,15 +188,15 @@ int check_parentheses(int l, int r) {
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
   switch (type){
-    case   '+' : return 1;
-    case   '-' : return 1;
-    case   '*' : return 2;
-    case   '/' : return 2;
-    case TK_EQ : return 3;
-    case TK_NOTEQ : return 3;
-    case TK_AND : return 4;
-    case TK_OR  : return 5;
-    case TK_DEREF : return 6;
+    case TK_AND : return 0;
+    case TK_OR  : return 1;
+    case TK_EQ : return 2;
+    case TK_NOTEQ : return 2;
+    case   '+' : return 3;
+    case   '-' : return 3;
+    case   '*' : return 4;
+    case   '/' : return 4;
+    case TK_DEREF : return 5;
     default    : return 20;   // 非运算符
   }
 }
