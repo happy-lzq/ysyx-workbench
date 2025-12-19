@@ -67,7 +67,7 @@ static word_t parse_num(const char *s, bool *success){
 // ===================================指针对地址解引用=================================//
 static word_t get_pointer_value(const char *s, bool *success){
   word_t data;
-  addr_max = parse_num("0xffffffff",success);
+  word_t addr_max = parse_num("0xffffffff",success);
   word_t addr = parse_num(s,success);
   if (addr < 80000000 || addr >=addr_max){
     printf("输入解析地址不在地址范围内！请检查输入");
