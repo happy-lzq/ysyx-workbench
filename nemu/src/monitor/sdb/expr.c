@@ -188,8 +188,8 @@ int check_parentheses(int l, int r) {
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
   switch (type){
-    case TK_AND : return 0;
-    case TK_OR  : return 1;
+    case TK_OR : return 0;
+    case TK_AND: return 1;
     case TK_EQ : return 2;
     case TK_NOTEQ : return 2;
     case   '+' : return 3;
