@@ -63,7 +63,7 @@ static weight_item_t op_items[]= {
 static weight_pool_t op_pool = {op_items,sizeof(op_items)/sizeof(op_items[0]),0};
 // 操作符以及权重
 static weight_item_t al_items[]= {
-  {"+",30}, {"-",30}, {"*",25}, {"/",15}
+  {"+",30}, {"-",30}, {"*",25}, {"/",15},{"!=",15},{"==",20},{"&&",10},{"||",15}
 };
 static weight_pool_t al_pool = { al_items, sizeof(al_items)/sizeof(al_items[0]), 0 };
 
