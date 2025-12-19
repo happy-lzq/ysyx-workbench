@@ -35,32 +35,32 @@ int main(int argc, char *argv[]) {
 
   /* If an input file exists, run expressions from it and exit. */
   //表达式求值输入文件验证
-  // {
-  //   FILE *f = fopen("input", "r");
-  //   if (f) {
-  //     char line[4096];
-  //     while (fgets(line, sizeof(line), f)) {
-  //       /* strip newline */
-  //       char *p = line;
-  //       while (*p && (*p == ' ' || *p == '\t')) p++; /* skip leading ws */
-  //       char *end = p + strlen(p);
-  //       while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t')) end--;
-  //       *end = '\0';
-  //       if (*p == '\0') continue;
-  //       bool success = false; bool ishex = false;
-  //       printf("\ncurrent expr: %s\n",p);
-  //       word_t val = expr(p, &success, &ishex);
-  //       if (success) {
-  //         if (ishex) printf("value: 0x%08" PRIx32 "\n", val);
-  //         else printf("value: %u\n", (unsigned)val);
-  //       } else {
-  //         printf("Bad expression: %s\n", p);
-  //       }
-  //     }
-  //     fclose(f);
-  //     return 0;
-  //   }
-  // }
+  {
+    FILE *f = fopen("input", "r");
+    if (f) {
+      char line[4096];
+      while (fgets(line, sizeof(line), f)) {
+        /* strip newline */
+        char *p = line;
+        while (*p && (*p == ' ' || *p == '\t')) p++; /* skip leading ws */
+        char *end = p + strlen(p);
+        while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t')) end--;
+        *end = '\0';
+        if (*p == '\0') continue;
+        bool success = false; bool ishex = false;
+        printf("\ncurrent expr: %s\n",p);
+        word_t val = expr(p, &success, &ishex);
+        if (success) {
+          if (ishex) printf("value: 0x%08" PRIx32 "\n", val);
+          else printf("value: %u\n", (unsigned)val);
+        } else {
+          printf("Bad expression: %s\n", p);
+        }
+      }
+      fclose(f);
+      return 0;
+    }
+  }
 
   /* Start engine. */
   engine_start();
