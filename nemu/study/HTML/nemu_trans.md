@@ -168,40 +168,40 @@ NEMU (NJU Emulator) 的设计遵循 **"程序 = 状态机"** 的核心思想。�
 $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
 ```
 
-说明中会指出每一步调用的函数、写入到缓冲区的文本，以及 `*pp`（写指针）和 `*rem`（剩余空间）如何变化。
+说明中会指出每一步调用的函数、写入到缓冲区的文本，以及 `s.ptr`（写指针）和 `s.rem`（剩余空间）如何变化（`s` 为 `struct buf_state`）。
 
 1. 初始准备
    - 调用点：`gen_rand_expr()`。
-   - 本地缓冲：`char tmp[4096]; char *p = tmp; int rem = sizeof(tmp);`。
-   - 调用：`gen_expr_rec(&p, &rem, cfg.max_depth)`。此时函数内 `pp` 指向调用者的 `p`，故 `*pp == p == tmp`，`*rem == 4096`。
+   - 本地缓冲：`char tmp[4096];`。
+   - 初始化缓冲状态：`struct buf_state s = {.ptr = tmp, .rem = (int)sizeof(tmp)};` 并调用 `gen_expr_rec(&s, cfg.max_depth)`。
 
 2. 生成第 1 个原子 `$s3`
-   - 入口：`gen_expr_rec` 决定当前层第一个原子使用 `gen_operand(pp, rem, depth)`。
-   - 内部：`gen_operand` 通过 `pool_pick(&op_pool)` 选中 `reg`，调用 `append_reg_from_white(pp, rem)`。
-   - `append_reg_from_white` 随机从 `regs_name[]` 选到 `"s3"`，执行 `append_fmt(pp, rem, "$%s", r)`。
-   - 写入行为：`snprintf(*pp, *rem, "$s3")` 写入 3 字节；随后 `*pp += 3; *rem -= 3`，写指针移到下一个可写位置。
+   - 入口：`gen_expr_rec` 决定当前层第一个原子使用 `gen_operand(s)`。
+   - 内部：`gen_operand` 通过 `pool_pick(&op_pool)` 选中 `reg`，调用 `append_reg_from_white(s)`。
+   - `append_reg_from_white` 随机从 `regs_name[]` 选到 `"s3"`，执行 `append_fmt(s, "$%s", r)`。
+   - 写入行为：`snprintf(s.ptr, s.rem, "$s3")` 写入 3 字节；随后 `s.ptr += 3; s.rem -= 3`，写指针移到下一个可写位置。
 
 3. 写入操作符并生成第 2 个原子 ` * 455`
-   - `gen_expr_rec` 在后续循环中调用 `pool_pick(&al_pool)` 选取操作符 `*`，执行 `append_fmt(pp, rem, " %s ", op)`，写入字符串 `" * "`（含空格）。
-   - 随后调用 `gen_operand` 生成右侧原子：`pool_pick(&op_pool)` 选中 `dec`，执行 `append_fmt(pp, rem, "%d", 455)` 写入 `"455"`。
-   - 每次 `append_*` 写入都会读取 `n = snprintf(...)` 的返回值，若 `n < *rem` 则更新 `*pp += n; *rem -= n`。
+   - `gen_expr_rec` 在后续循环中调用 `pool_pick(&al_pool)` 选取操作符 `*`，执行 `append_fmt(s, " %s ", op)`，写入字符串 `" * "`（含空格）。
+   - 随后调用 `gen_operand` 生成右侧原子：`pool_pick(&op_pool)` 选中 `dec`，执行 `append_fmt(s, "%d", 455)` 写入 `"455"`。
+   - 每次 `append_*` 写入都会读取 `n = snprintf(...)` 的返回值，若 `n < s.rem` 则更新 `s.ptr += n; s.rem -= n`。
 
 4. 写第二个操作符并生成第 3 个原子 ` + $a0`
    - 同上：写入 `" + "`，然后 `gen_operand` 生成寄存器原子并写入 `"$a0"`（通过 `append_reg_from_white`）。
 
 5. 写第三个操作符并决定使用子表达式：` + (`
    - 写入 `" + "` 后，`gen_expr_rec` 在此处对第 4 个原子执行 15% 的“括号子表达式”分支判断。
-   - 假设随机命中：先执行 `append_str(pp, rem, "(")` 写入左括号，然后递归调用 `gen_expr_rec(pp, rem, depth-1)` 以生成括号内的子表达式 `957 * (15 + 342 * 382)`。
+   - 假设随机命中：先执行 `append_str(s, "(")` 写入左括号，然后递归调用 `gen_expr_rec(s, depth-1)` 以生成括号内的子表达式 `957 * (15 + 342 * 382)`。
 
 6. 生成子表达式（深度 = 2）：`957 * (15 + 342 * 382)`
-   - 进入新的 `gen_expr_rec(pp, rem, depth=2)`，假设本层 `atoms = 2`。
+   - 进入新的 `gen_expr_rec(s, depth=2)`，假设本层 `atoms = 2`。
    - 第一个原子：调用 `gen_operand` 写入 `"957"`（`dec`）。
    - 写入操作符 `" * "`。
-   - 第二个原子触发括号分支：写入 `"("` 并递归 `gen_expr_rec(pp, rem, depth=1)` 去生成内层表达式 `15 + 342 * 382`。
+   - 第二个原子触发括号分支：写入 `"("` 并递归 `gen_expr_rec(s, depth=1)` 去生成内层表达式 `15 + 342 * 382`。
 
 7. 内层子表达式（深度 = 1）：`15 + 342 * 382`
-   - 进入 `gen_expr_rec(pp, rem, depth=1)`，假设 `atoms = 3`。
-   - 依次写入原子与操作符：`15`，` + `，`342`，` * `，`382`，每次写入后更新 `*pp` 和 `*rem`。
+   - 进入 `gen_expr_rec(s, depth=1)`，假设 `atoms = 3`。
+   - 依次写入原子与操作符：`15`，` + `，`342`，` * `，`382`，每次写入后更新 `s.ptr` 和 `s.rem`（或在函数内部以 `s->ptr`/`s->rem` 访问）。
    - 内层完成后写入闭括号 `")"`，返回上层；上层再写入自己的闭括号 `")"`，返回顶层。
 
 8. 结束与验证
@@ -209,7 +209,7 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
    - 若通过验证，则 `snprintf(buf, sizeof(buf), "%s", tmp)` 把结果复制到全局 `buf` 并返回；最终 `main()` 将其写入文件 `input`。
 
 9. 写入安全性要点
-   - 所有写操作都通过 `append_str` / `append_fmt` 完成，这两个函数用 `snprintf`/`vsnprintf` 返回写入长度 `n`，并在成功时做 `*pp += n; *rem -= n`，在截断/越界时把 `*rem = 0` 作为失败标志，阻止后续写入并触发重试。
+   - 所有写操作都通过 `append_str` / `append_fmt` 完成，这两个函数用 `snprintf`/`vsnprintf` 返回写入长度 `n`，并在成功时更新缓冲状态（例如 `s.ptr` / `s.rem` 或 `s->ptr` / `s->rem`），在截断/越界时把 `s.rem`（或 `s->rem`）置为 `0` 作为失败标志，阻止后续写入并触发重试。
 
 该小节旨在把源码函数（`gen_expr_rec`、`gen_operand`、`append_*`）与缓冲区写入时序、递归调用关系一一对应，便于对生成器运行时行为的理解与调试。
 
@@ -219,13 +219,13 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
 - `weight_item_t` / `weight_pool_t`：表示加权项与权重池，`pool_prepare()` 计算 `total`，`pool_pick()` 基于权重抽样。
 - `regs_name[]`：寄存器白名单，用于随机生成寄存器原子。
 
-缓冲写入约定（不变式）：调用方传入 `char **pp`（写指针）和 `int *rem`（剩余字节），所有字符串写入均通过 `append_str` / `append_fmt` 进行；这两个辅助函数在成功写入时前移指针并减少 `rem`，在溢出或错误时把 `*rem = 0`，作为失败信号向上传播。
+缓冲写入约定（不变式）：调用方以 `struct buf_state *s` 传递缓冲状态（包含写指针 `ptr` 与剩余字节 `rem`），所有字符串写入均通过 `append_str` / `append_fmt` 进行；这两个辅助函数在成功写入时更新 `s->ptr` 与 `s->rem`，在溢出或错误时把 `s->rem = 0`，作为失败信号向上传播。
 
 ##### 辅助函数（职责与实现要点）
 
-- `append_str(char **pp, int *rem, const char *s)`：使用 `snprintf` 写入常数字符串并更新 `pp/rem`；写入会导致截断时把 `*rem=0`。
-- `append_fmt(char **pp, int *rem, const char *fmt, ...)`：基于 `vsnprintf` 的格式化写入封装；同样通过 `*rem` 传播失败。
-- `append_reg_from_white(char **pp, int *rem)`：从 `regs_name` 随机选取寄存器名并以 `$name` 格式写入；实现中对输入数组中可能含 `$` 前缀做了统一处理以保证输出格式一致。
+- `append_str(struct buf_state *s, const char *c)`：使用 `snprintf` 写入常数字符串并更新 `s->ptr` / `s->rem`；写入在截断时把 `s->rem = 0`。
+- `append_fmt(struct buf_state *s, const char *fmt, ...)`：基于 `vsnprintf` 的格式化写入封装；同样通过 `s->rem` 传播失败。
+- `append_reg_from_white(struct buf_state *s)`：从 `regs_name` 随机选取寄存器名并以 `$name` 格式写入；实现中对输入数组中可能含 `$` 前缀做了统一处理以保证输出格式一致。
 
 这些函数把缓冲边界管理集中，简化了递归生成函数的错误处理逻辑。
 
@@ -235,26 +235,24 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
 
 2. `pool_pick(weight_pool_t *p)`：基于 `p->total` 做线性加权抽样，返回选中项下标。
 
-3. `gen_operand(char **pp, int *rem, int depth)`：生成单个原子（operand）。
+3. `gen_operand(buffer_t *buf, int depth)`：生成单个原子（operand）。
    - 从 `op_pool` 抽样得到 `dec` / `hex` / `reg`；
    - `dec`：写入十进制常数；`hex`：写入 `0x` 十六进制常数；`reg`：调用 `append_reg_from_white` 输出 `$name`。
 
-4. `gen_expr_rec(char **pp, int *rem, int depth)`：递归构造表达式片段（核心构造器）。
+4. `gen_expr_rec(buffer_t *buf, int depth)`：递归构造表达式片段（核心构造器）。
    - 决定当前层 `atoms = 1 + rand() % cfg.max_atoms`；
    - 为第一个原子 15% 概率生成带括号的子表达式（写 `(`、递归、写 `)`），否则调用 `gen_operand`；
    - 对后续每个原子：选运算符（`al_pool`），写入 ` " %s "`，根据概率或运算符类型决定生成括号子表达式或调用 `gen_operand`；
-   - 所有写入前后检查 `*rem`，若 `*rem == 0` 直接返回，交由上层重试逻辑处理。
+   - 所有写入前后检查 `buf->rem`，若 `buf->rem == 0` 直接返回，交由上层重试逻辑处理。
 
 5. `gen_rand_expr()`：顶层生成与验证。
    - 在局部 `tmp[4096]` 上尝试若干次（当前实现 5 次）：
-     - 初始化 `p = tmp; rem = sizeof(tmp)` 并调用 `gen_expr_rec(&p, &rem, cfg.max_depth)`；
+   - 初始化缓冲状态：`struct buf_state s = {.ptr = tmp, .rem = (int)sizeof(tmp)}` 并调用 `gen_expr_rec(&s, cfg.max_depth)`；
      - 若 `rem <= 0 || tmp[0] == '\0'`，视为失败并重试；
      - 对 `tmp` 做简单语法校验（括号平衡）：遍历字符计数 `(` / `)`，遇不匹配则重试；
      - 成功则 `snprintf(buf, sizeof(buf), "%s", tmp)` 把结果复制到全局 `buf` 并返回；
    - 若所有尝试均失败，写入保底表达式 `"1+1"`。
 
-6. `sanitize_for_c(const char *src, char *dst, int dstsz)`（可选）:
-   - 将表达式中的 `$name` 替换为安全的字面量（例如 `1`），用于把表达式嵌入 C 源以做编译或语义检查。
 
 ##### 从 `main()` 出发的顺序逻辑（调用链与职责划分）
 
@@ -262,7 +260,7 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
    - `srand(time(0))` 设置随机种子（可改为接受外部种子以便复现）；
    - 调用 `pool_prepare(&op_pool)` 與 `pool_prepare(&al_pool)` 计算权重和。
 
-2. 解析参数并打开输出文件：读取生成行数 `loop`（默认 1），并打开 `input` 用以写入。
+2. 解析参数并打开输出文件：从环境变量 `GEN_N`（通过 `getenv`）读取生成条数，使用 `strtol` 解析为正整数，若解析失败或未设置则默认 `gen_n = 1`；随后打开 `input` 用以写入。
 
 3. 逐行生成与写入：循环 `i = 0 .. loop-1`：
    - 调用 `gen_rand_expr()`（返回结果保存在全局 `buf`）；

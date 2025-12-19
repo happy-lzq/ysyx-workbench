@@ -24,7 +24,8 @@
 
 //========================= Token 类型 ====================================//
 enum {
-  TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG
+  TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG,
+  TK_NOTEQ, TK_AND, TK_OR,TK_DEREF
 
   /* TODO: Add more token types */
 
@@ -39,13 +40,16 @@ static struct rule {
   {"==",TK_EQ},                           // 等于       257
   {"0[xX][0-9a-fA-F]+",TK_16NUM},         // 16进制     258
   {"[0-9]+", TK_NUM},                     // 十进制整数  259
-  {"\\$([A-Za-z][A-Za-z0-9]*|[0-9]+)", TK_REG},
-  {"\\+", '+'},                           // 加号       43
-  {"-", '-'},                             // 减号       45
-  {"\\*", '*'},                           // 乘号       42
-  {"/", '/'},                             // 除号       47
-  {"\\(", '('},                           // 左括号     40
-  {"\\)", ')'}                            // 右括号     41
+  {"\\$([A-Za-z][A-Za-z0-9]*|[0-9]+)", TK_REG},        // 寄存器     260
+  {"!=", TK_NOTEQ},                       // 不等于     261 （未实现）
+  {"$$",TK_AND},                          // 逻辑与     262 （未实现）
+  {"\\|\\|",TK_OR},                       // 逻辑或     263 （未实现）
+  {"\\+", '+'},                            // 加号       43
+  {"-", '-'},                              // 减号       45
+  {"\\*", '*'},                            // 乘号       42
+  {"/", '/'},                              // 除号       47
+  {"\\(", '('},                            // 左括号     40
+  {"\\)", ')'}                             // 右括号     41
 
 };
 #define NR_REGEX ARRLEN(rules)    // 自动计算rules结构体数组元素个数
@@ -125,6 +129,21 @@ static bool make_token(char *e) {
         }
         break;
       }
+
+    if (tokens[i].type == '*'){
+      if (i ==0 ||
+        tokens[i-1].type == '+'       ||
+        tokens[i-1].type == '-'       ||
+        tokens[i-1].type == '*'       ||
+        tokens[i-1].type == '/'       ||
+        tokens[i-1].type == TK_EQ     ||
+        tokens[i-1].type == TK_NOTEQ  ||
+        tokens[i-1].type == TK_AND    ||
+        tokens[i-1].type == TK_OR     ||
+        tokens[i-1].type == '('       ){
+          tokens[i].type = TK_DEREF;    
+      }
+    }
     }
 
     if (i == NR_REGEX) {
@@ -132,6 +151,7 @@ static bool make_token(char *e) {
       return false;
     }
   }
+
 
   return true;
 }
@@ -157,12 +177,15 @@ int check_parentheses(int l, int r) {
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
   switch (type){
-    case TK_EQ : return 0;
-    case   '+' : return 1;
-    case   '-' : return 1;
-    case   '*' : return 2;
-    case   '/' : return 2;
-    default    : return 20;   // 非运算符
+    case TK_EQ    : return 0;
+    case TK_NOTEQ : return 0;
+    case      '+' : return 1;
+    case      '-' : return 1;
+    case      '*' : return 2;
+    case      '/' : return 2;
+    case   TK_AND : return 3;
+    case   TK_OR  : return 4;
+    default       : return 20;   // 非运算符
   }
 }
 int find_main_operator(int l, int r,bool *success){
@@ -200,10 +223,11 @@ word_t eval(int l,int r,bool *success,bool *hex){
     *success =false;
     return 0;
   } else if (l == r){
-    // l==r ：数字类型，寄存器类型
+    // l==r ：数字类型，寄存器类型，16进制数类型
     switch (tokens[l].type){
       case TK_16NUM : return parse_num(tokens[l].str,success);
       case TK_NUM   : return parse_num(tokens[l].str,success);
+      // case TK_DEREF : 
       case TK_REG   : * hex = true ;return isa_reg_str2val(tokens[l].str,success); 
       default: 
       *success = false; return 0;
@@ -218,6 +242,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
       if (*success == false) return 0;
       val1 = eval(l,op-1,success,hex);
       val2 = eval(op+1,r,success,hex);
+  // 根据主运算符类型进行逻辑计算
       switch (tokens[op].type) {
         case '+': return val1 + val2;
         case '-': return val1 - val2;
@@ -225,11 +250,14 @@ word_t eval(int l,int r,bool *success,bool *hex){
         case '/':
           if (val2 == 0) {
             printf("division by zero\n");
-            *success = false;
+            *success = false; 
             return 0;
           }
           return val1 / val2;
-        case TK_EQ: return val1 == val2;
+        case     TK_AND: return val1 && val2;
+        case      TK_OR: return val1 || val2;
+        case      TK_EQ: return val1 == val2;
+        case   TK_NOTEQ: return val1 != val2;
         // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
         default: assert(0); // 未知类型直接报错
     }

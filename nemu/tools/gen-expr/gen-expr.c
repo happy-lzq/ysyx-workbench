@@ -91,13 +91,14 @@ static int pool_pick(weight_pool_t *p) {
 }
 
 /* safe append helpers */
+// append_str 将常量字符串到缓冲区
 static void append_str(struct buf_state *s, const char *c) {
   if (s->rem <= 0) return;
   int n = snprintf(s->ptr, s->rem, "%s", c);
   if (n <= 0 || n >= s->rem) { s->rem = 0; return; }
   s->ptr += n; s->rem -= n;
 }
-
+// append_fmt 将格式化字符串到缓冲区
 static void append_fmt(struct buf_state *s, const char *fmt, ...) {
   if (s->rem <= 0) return;
   va_list ap;
