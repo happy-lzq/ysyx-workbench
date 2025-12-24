@@ -187,22 +187,27 @@ int check_parentheses(int l, int r) {
 }
 // 利用运算法规则寻找主运算法即是最低等级运算符位置
 int get_priortiy(int type){
+  /* 新约定：返回值越小表示优先级越高（binding 越强），越大表示优先级越低（更容易成为主运算符）。
+     映射基于常见 C 运算符优先级（此处列出当前实现需要的运算符等级）。
+     小数值 = 高优先级（先计算）；大数值 = 低优先级（更可能被选为主运算符）。
+  */
   switch (type){
-    case TK_OR : return 0;
-    case TK_AND: return 1;
-    case TK_EQ : return 2;
-    case TK_NOTEQ : return 2;
-    case   '+' : return 3;
-    case   '-' : return 3;
-    case   '*' : return 4;
-    case   '/' : return 4;
-    case TK_DEREF : return 5;
-    default    : return 20;   // 非运算符
+    case TK_DEREF : return 1;   /* 一元解引用/一元运算：最高优先级（最强绑定） */
+    case   '*'    : return 4;
+    case   '/'    : return 4;
+    case   '+'    : return 5;
+    case   '-'    : return 5;
+    case TK_EQ    : return 8;
+    case TK_NOTEQ : return 9;
+    case TK_AND   : return 12;   /* 逻辑与 */
+    case TK_OR    : return 13;   /* 逻辑或，最低优先级（最弱绑定） */
+    default       : return 20;  /* 非运算符，视为非常高的数值（不会被选为主运算符）*/
   }
 }
+
 int find_main_operator(int l, int r,bool *success){
   int paren_level = 0;
-  int min_priority = 20;
+  int max_priority = -1;
   int op = -1;
   for ( int i = l; i <= r; i++){
     if (tokens[i].type == '('){
@@ -210,16 +215,18 @@ int find_main_operator(int l, int r,bool *success){
     } else if (tokens[i].type == ')'){
       paren_level--;
     } else if (paren_level == 0){
-  // 逐个扫描获取非括号内的运算符等级
+      /* 逐个扫描获取非括号内的运算符等级。
+         新逻辑：选取区间内优先级数值最大的运算符作为主运算符（数值越大＝优先级越低＝成为主运算符的可能性越大）。*/
       int pri = get_priortiy(tokens[i].type);
-  // 设计逻辑：逐个比较等级：等级低的覆盖等级大的，同一等级的，位于表达式更后面的覆盖前面的作为主运算符
-      if (pri < min_priority || (pri == min_priority && i > op)){
-        min_priority = pri;
+      /* 设计逻辑：当 pri > max_priority 时更新；若 pri==max_priority，保留右侧靠后的运算符（i>op），
+         以保持左结合的默认行为（与之前实现一致）。 */
+      if (pri > max_priority || (pri == max_priority && i > op)) {
+        max_priority = pri;
         op = i;
       }
     }
   }
-  // op 未变 找不到主运算符则算法表达式错误，传出success = false  
+  /* op 未变 找不到主運算符则算法表达式错误，传出success = false  */
   if (op == -1) {
     *success = false;
     printf("No main operator found\n");
