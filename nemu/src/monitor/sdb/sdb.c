@@ -237,7 +237,7 @@ static int cmd_d(char *args){
   }
   char *endptr;
   int no = (int)strtoul(args,&endptr,10);
-  if (endptr == args || *endptr !='\0' || no <= 0){
+  if (endptr == args || *endptr !='\0'){
     printf("Invalid number of instructions: %s\n", args);
     return 0;
   }
