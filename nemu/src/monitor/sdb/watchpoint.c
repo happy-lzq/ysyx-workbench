@@ -96,7 +96,7 @@ void unlink_init(WP* wp){
 
 void unlink_wp(wp_list *l,int no){
   if (!l || !l->head){
-    printf("error: blank list !");
+    printf("error: blank list !\n");
     return ;
   }
   WP* wp_curr = l->head;
@@ -128,9 +128,10 @@ void unlink_wp(wp_list *l,int no){
 }
 
 // ================================= 监视点查看 ==============================================//
+/*                                  监视点全局遍历                                             */
 void watchpoint_list(wp_list * l){
   if (!l || !l->head){
-    printf("error: blank list !");
+    printf("error: blank list !\n");
     return ;
   }
   printf("NO  Address/Expression     Value\n");
@@ -142,6 +143,7 @@ void watchpoint_list(wp_list * l){
   }
 }
 
+/*                                  监视点 add                                             */
 
 /* TODO: Implement the functionality of watchpoint */
 

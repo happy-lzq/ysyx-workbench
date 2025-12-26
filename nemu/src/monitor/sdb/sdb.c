@@ -38,6 +38,7 @@ static int cmd_si(char *args);
 static int cmd_info(char *args);
 static int cmd_x(char *args);
 static int cmd_p(char *args);
+static int cmd_w(char *args);
 
 //================================ Command table ================================//
 static struct {
@@ -51,7 +52,8 @@ static struct {
   {"si", "Step execute",cmd_si},
   {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
   {"x","read memery from addr (x n 0x80000000)",cmd_x},
-  {"p","parse expression",cmd_p}
+  {"p","parse expression",cmd_p},
+  {"w","watchpoint add (w <expr>)",cmd_w}
   /* TODO: Add more commands */
 
 };
@@ -106,7 +108,6 @@ static int cmd_c(char *args) {
 
   // cmd_q 退出程序的命令处理函数
 static int cmd_q(char *args) {
-
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
@@ -206,6 +207,17 @@ static int cmd_info(char *args){
     }
     return 0;
   }
+
+//============================= watchpoint add expr  =================================//
+static int cmd_w(char *args){
+  if (args == NULL){
+    printf("Usage: w expr\n");
+    return 0;
+  }
+  new_wp(args);
+  return 0;
+}
+
 
 //============================= SDB main loop ========================================//
 void sdb_set_batch_mode() {
