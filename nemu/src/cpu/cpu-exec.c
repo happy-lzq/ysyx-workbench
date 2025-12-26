@@ -83,7 +83,6 @@ static void execute(uint64_t n) {
     if (check_watchpoint(&used_list) > 0){
       nemu_state.state = NEMU_STOP;
     }
-    
     if (nemu_state.state != NEMU_RUNNING) break;
     IFDEF(CONFIG_DEVICE, device_update());
   }
