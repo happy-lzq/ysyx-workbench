@@ -140,7 +140,6 @@ static int cmd_info(char *args){
     isa_reg_display();
   } else if (strcmp(arg,"w") == 0){
     watchpoint_list(&used_list);
-    printf("Watchpoint info is not implemented yet.\n");
   } else{
     printf("Unknown argument '%s'. Usage: info [r|w]\n", args);
     return 0;

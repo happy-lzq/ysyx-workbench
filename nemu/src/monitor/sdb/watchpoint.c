@@ -134,11 +134,11 @@ void watchpoint_list(wp_list * l){
     printf("error: blank list !\n");
     return ;
   }
-  printf("NO  Address/Expression     Value\n");
+  printf("NO  Address/Expression                        Value\n");
   WP* curr = l->head;
   while (curr != NULL)
   {
-    printf("%-3d %-22s 0x%08x\n", curr->NO, curr->exp, curr->prev_value);
+    printf("%-3d %-22s                0x%08x\n", curr->NO, curr->exp, curr->prev_value);
     curr = curr->next;
   }
 }
