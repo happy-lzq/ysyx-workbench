@@ -17,7 +17,23 @@
 #define __SDB_H__
 
 #include <common.h>
+#define NR_WP 32
+// 链表节点定义
+typedef struct watchpoint {
+  int NO;
+  char exp[256];
+  word_t prev_value;
+  struct watchpoint *next;
+} WP;
+
+typedef struct wp_list
+{
+  WP* head;
+  WP* tail;
+  int size;
+}wp_list;
+
 
 word_t expr(char *e, bool *success,bool *hex);
-
+void inserttail(wp_list *l, WP* wp);
 #endif

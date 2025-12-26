@@ -331,28 +331,121 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
 
 
 ### C. 监视点 (`watchpoint.c`)
+**监视点（Watchpoint）实现笔记**
 
-**实现过程设计思路：**
+本文档目标：以可实现、可测试的方式概述 `watchpoint.c` 的设计与实现要点，包含数据结构、核心接口、执行流程、错误处理与与 CPU/表达式求值模块的集成点。
 
-1. **监视点池管理**
-   - 预分配一组监视点结构体（如数组），通过链表维护空闲和已用监视点。
-   - 提供 `new_wp(expr)` 分配新监视点，保存表达式字符串和当前值。
-   - 提供 `free_wp(wp)` 释放监视点，回收到空闲链表。
+概览：
+- 监视点以固定大小池（`wp_pool[NR_WP]`）预分配，使用两个链表管理：`free_list`（空闲）与 `used_list`（已启用）。
+- 每个监视点保存：编号 `NO`、表达式字符串 `expr[]`、上次计算值 `prev_value`、链表指针 `next` 等。
 
-2. **监视点添加与删除**
-   - `w expr` 命令解析表达式，调用 `new_wp(expr)` 创建监视点，并初始化当前值。
-   - `d N` 命令根据编号查找监视点，调用 `free_wp(wp)` 删除。
+1) 数据结构（建议）
 
-3. **监视点检测机制**
-   - 在 `cpu_exec` 每次指令执行后，遍历所有已用监视点。
-   - 对每个监视点，调用表达式求值模块，获取新值。
-   - 若新值与旧值不同，则输出变化信息，暂停 CPU 执行。
+```c
+// watchpoint.h (示例)
+#define NR_WP 32
+typedef struct WP {
+   int NO;
+   char expr[128];
+   word_t prev_value; // 与 cpu 相关的 word_t（uint32/64）
+   struct WP *next;
+} WP;
 
-4. **信息展示接口**
-   - `info w` 命令遍历所有已用监视点，输出编号、表达式和当前值。
+typedef struct { WP *head, *tail; int size; } wp_list_t;
 
-5. **与表达式求值模块结合**
-   - 监视点的表达式求值依赖 `expr.c`，每次检测都调用表达式求值接口。
+extern WP wp_pool[NR_WP];
+extern wp_list_t free_list, used_list;
+```
+
+2) 核心接口（必实现函数）
+
+- `void init_wp_pool(void);`
+   - 初始化 `wp_pool`，把所有节点加入 `free_list`，清空 `used_list`。
+
+- `WP* new_wp(const char *expr, bool *success);`
+   - 从 `free_list` 取节点；复制 `expr`（截断保护）；调用 `expr(expr, &ok)` 计算当前值；若 `ok==false` 或池空则回滚并返回 `NULL`（或通过 `success` 报错）；否则将节点加入 `used_list` 并返回指针。
+
+- `void free_wp(int no);`
+   - 在 `used_list` 中按 `NO` 查找并移除，清理后追加回 `free_list`。
+
+- `bool check_watchpoints(void);`
+   - 遍历 `used_list`，对每个 `wp` 调用 `expr(wp->expr, &ok)` 得到 `val`；若 `ok==false` 则记录/跳过该监视点（或按策略决定）；若 `val != wp->prev_value` 则打印变更信息并更新 `prev_value`，函数返回 `true`（表示触发，需要暂停 CPU）。否则返回 `false`。
+
+- `void info_wp(void);`
+   - 列出 `used_list` 中所有监视点 `NO`、`expr`、`prev_value`，供 `info w` 命令使用。
+
+3) 创建监视点的详细流程（`new_wp`）
+
+- 检查 `free_list.head` 是否等于NULL，若无空闲节点返回错误给用户。
+- 取第一个空闲节点 `p = free_list.head`，调整 `free_list.head`/`tail`/`size`。
+- 使用 `strncpy(p->expr, expr, sizeof p->expr - 1)` 并确保以 `\0` 终止。
+- 调用 `expr(p->expr, &ok)`：
+   - 若 `ok == false`：将 `p` 放回 `free_list`（恢复），并把 `*success = false` 返回；
+   - 否则 `p->prev_value = val`，把 `p` 插入到 `used_list`（维护 head/tail/size），设置 `*success = true` 并返回 `p`。
+
+4) 删除监视点（`free_wp` / `free_wp(int no)`）
+
+- 在线性遍历 `used_list` 查找 `NO == no`（记录前驱节点以便移除）。
+- 移除时注意处理删除头节点、尾节点以及唯一节点的边界情况。
+- 释放后把节点追加到 `free_list`（清空 `expr` 与 `prev_value` 可选）。
+
+5) 检测流程与集成点（`check_watchpoints`）
+
+- 集成点：建议在 `cpu_exec` 的主循环中每条指令后或每 N 条指令后调用 `check_watchpoints()`；当其返回 `true` 时暂停执行、切换回 SDB 主循环。
+- 检测实现注意：表达式求值函数 `expr()` 的语义是无副作用的（仅读取 CPU 状态/内存），并以 `bool success` 报告计算是否成功。
+- 实现细节：
+   - 对每个 `wp`：调用 `val = expr(wp->expr, &ok)`；若 `ok==false` 则打印 `Bad expression` 或在调试输出中标记该 watchpoint（按策略）；
+   - 若 `val != wp->prev_value`：打印触发信息，例如：
+
+```
+Watchpoint %d triggered: %s
+   old value = 0x%lx
+   new value = 0x%lx
+```
+
+   - 更新 `wp->prev_value = val`；记录至少一个触发则返回 `true`。
+
+6) 错误处理与边界条件
+
+- 池耗尽：用户应收到清晰错误信息（例如："No free watchpoint"）。
+- 表达式求值失败：创建时拒绝并告知用户；检测时打印警告并跳过该监视点的触发判断（或按配置决定是否删除）。
+- 链表维护：在增删时须同时更新 `head`/`tail`/`size`，避免悬挂指针。
+
+7) 性能与策略建议
+
+- 频率控制：若每次指令后都评估所有监视点会较慢，可提供按需检查（如仅在单步模式、断点附近或每 N 条指令检查）。
+- 表达式缓存：对于复杂表达式可考虑缓存解析结果（token 列表）以减少重复词法分析费用，但需权衡内存与实现复杂度。
+
+8) 与 SDB 命令的映射示例
+
+- `w <expr>`：调用 `new_wp(expr, &success)` 并在成功时打印分配的 `NO`。
+- `d <no>`：调用 `free_wp(no)`，并打印结果。
+- `info w`：调用 `info_wp()` 列出当前监视点。
+
+9) 简单示例（伪代码）
+
+```c
+WP *new_wp(const char *expr, bool *success) {
+   if (free_list.size == 0) { *success = false; return NULL; }
+   WP *p = pop_free();
+   strncpy(p->expr, expr, sizeof p->expr - 1);
+   p->expr[sizeof p->expr - 1] = '\0';
+   bool ok = true;
+   word_t v = expr_eval(p->expr, &ok);
+   if (!ok) { push_free(p); *success = false; return NULL; }
+   p->prev_value = v;
+   push_used(p);
+   *success = true;
+   return p;
+}
+```
+
+10) 测试建议
+
+- 单元测试：模拟 `expr()` 返回已知值的场景，测试 `new_wp`/`free_wp`/`check_watchpoints` 的链表维护与边界条件。
+- 集成测试：在解释器中设置一个监视点，运行若干条指令，验证当寄存器/内存变化时能触发并暂停。
+
+小结：按照上文接口与流程实现 `watchpoint.c` 中的增删查改与定期检测，并在 `cpu_exec` 合适位置调用 `check_watchpoints()`，即可得到一个稳健且易于调试的监视点功能。
 
 
 ---
