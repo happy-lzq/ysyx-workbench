@@ -205,7 +205,6 @@ static int cmd_info(char *args){
     bool success = false;
     bool hex = false;
     word_t result = expr(args,&success,&hex);
-
     if (success){
       if (hex == true){
         printf("0x%08" PRIx32 "\n", result);

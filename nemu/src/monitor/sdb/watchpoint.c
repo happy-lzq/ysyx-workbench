@@ -17,6 +17,7 @@
 // ======================== 数据定义与初始化 =========================================//
 
 WP wp_pool[NR_WP] = {};
+ChangedInfo changed_list[NR_WP] = {};
 wp_list used_list = {NULL, NULL, 0};
 wp_list free_list = {NULL, NULL, 0};
 
@@ -133,7 +134,6 @@ void watchpoint_list(wp_list *l) {
     printf("No watchpoints.\n");
     return;
   }
-
   // 1. 预扫描：寻找最长表达式的长度
   int max_len = 10; // 设定一个最小基础宽度（对应 "Expression" 的长度）
   WP *curr = l->head;
@@ -158,6 +158,44 @@ void watchpoint_list(wp_list *l) {
   }
 }
 // ================================= 监视点值变检测 ==============================================//
-
-
+int check_watchpoint(wp_list *l){
+  if (!l || !l->head) {
+    printf("No watchpoints.\n");
+    return -1;
+  }
+  WP* curr = l->head;
+  word_t curr_value = 0;
+  int num = 0;
+  int max_expr_len = 10;
+  bool success = false;
+  bool hex = false;
+  while (curr)
+  {
+    curr_value = expr(curr->exp,&success,&hex);
+    if (curr_value != curr->prev_value && success){
+      changed_list[num].NO = curr->NO;
+      strncpy(changed_list[num].expr,curr->exp,255);
+      changed_list[num].old_value = curr->prev_value;
+      changed_list[num].new_value = curr_value;
+      int len = strlen(curr->exp);
+      if (len > max_expr_len){
+        max_expr_len = len;
+      }
+      curr->prev_value = curr_value;
+      num++;
+    }
+    curr = curr->next;
+  }
+  if (num > 0){
+    printf("\n Hint: Watchpoint(s) value changed \n");
+    printf("%-3s  %-*s  %-12s  %-12s\n", "NO", max_expr_len, "Expression", "Old Value", "New Value");
+    for (int i = 0; i < num; i++){
+    printf("%-3d  %-*s  0x%08x    0x%08x\n", 
+               changed_list[i].NO, max_expr_len, changed_list[i].expr, 
+               changed_list[i].old_value, changed_list[i].new_value);
+    }
+    return 1;
+  } 
+  return -1;
+}
 
