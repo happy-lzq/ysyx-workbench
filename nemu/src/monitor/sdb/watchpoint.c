@@ -129,20 +129,21 @@ void unlink_wp(wp_list *l,int no){
 
 // ================================= 监视点查看 ==============================================//
 /*                                  监视点全局遍历                                             */
-void watchpoint_list(wp_list * l){
-  if (!l || !l->head){
-    printf("error: blank list !\n");
-    return ;
+void watchpoint_list(wp_list *l) {
+  if (!l || !l->head) {
+    printf("No watchpoints.\n");
+    return;
   }
-  printf("NO  Address/Expression                        Value\n");
+  // 使用 \t 分隔表头
+  printf("NO\tExpression\t\tValue\n");
+  
   WP* curr = l->head;
-  while (curr != NULL)
-  {
-    printf("%-3d %-22s                0x%08x\n", curr->NO, curr->exp, curr->prev_value);
+  while (curr != NULL) {
+    // 在 NO 和 exp 之间，以及 exp 和 Value 之间加入 \t
+    printf("%d\t%-22s\t0x%08x\n", curr->NO, curr->exp, curr->prev_value);
     curr = curr->next;
   }
 }
-
 /*                                  监视点 add                                             */
 
 /* TODO: Implement the functionality of watchpoint */
