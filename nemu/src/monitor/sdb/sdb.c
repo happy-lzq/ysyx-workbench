@@ -39,6 +39,7 @@ static int cmd_info(char *args);
 static int cmd_x(char *args);
 static int cmd_p(char *args);
 static int cmd_w(char *args);
+static int cmd_d(char *args);
 
 //================================ Command table ================================//
 static struct {
@@ -53,7 +54,8 @@ static struct {
   {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
   {"x","read memery from addr (x n 0x80000000)",cmd_x},
   {"p","parse expression",cmd_p},
-  {"w","watchpoint add (w <expr>)",cmd_w}
+  {"w","watchpoint add (w <expr>)",cmd_w},
+  {"d","watchpoint delete (d < no>)",cmd_d}
   /* TODO: Add more commands */
 
 };
@@ -210,12 +212,29 @@ static int cmd_info(char *args){
 //============================= watchpoint add expr  =================================//
 static int cmd_w(char *args){
   if (args == NULL){
-    printf("Usage: w expr\n");
+    printf("Usage: w <expr>\n");
     return 0;
   }
   new_wp(args);
   return 0;
 }
+
+// //============================= watchpoint delete expr  =================================//
+static int cmd_d(char *args){
+  if (args == NULL){
+    printf("Usage: d <no>\n");
+    return 0;
+  }
+  char *endptr;
+  int no = (int)strtoul(args,&endptr,10);
+  if (endptr == args || *endptr !='\0' || no <= 0){
+    printf("Invalid number of instructions: %s\n", args);
+    return 0;
+  }
+  unlink_wp(&used_list,no);
+  return 0;
+}
+
 
 
 //============================= SDB main loop ========================================//
