@@ -41,7 +41,16 @@ static int cmd_p(char *args);
 static int cmd_w(char *args);
 static int cmd_d(char *args);
 
-//================================ Command table ================================//
+// ======================= SDB 简易调试器表达式求值与监视点初始化==============================// 
+void init_sdb() {
+  /* Compile the regular expressions. */
+  init_regex();
+
+  /* Initialize the watchpoint pool. */
+  init_wp_pool();
+}
+
+//================================== Command table ====================================//
 static struct {
   const char *name;
   const char *description;
@@ -279,12 +288,4 @@ void sdb_mainloop() {
 
     if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
   }
-}
-// ======================= SDB 简易调试器表达式求值与监视点初始化==============================// 
-void init_sdb() {
-  /* Compile the regular expressions. */
-  init_regex();
-
-  /* Initialize the watchpoint pool. */
-  init_wp_pool();
 }

@@ -128,7 +128,6 @@ void unlink_wp(wp_list *l,int no){
 }
 
 // ================================= 监视点查看 ==============================================//
-/*                                  监视点全局遍历                                             */
 void watchpoint_list(wp_list *l) {
   if (!l || !l->head) {
     printf("No watchpoints.\n");
@@ -158,7 +157,7 @@ void watchpoint_list(wp_list *l) {
     curr = curr->next;
   }
 }
+// ================================= 监视点值变检测 ==============================================//
 
 
-/* TODO: Implement the functionality of watchpoint */
 
