@@ -37,6 +37,7 @@ extern wp_list used_list;
 extern wp_list free_list;
 extern WP wp_pool[NR_WP];
 
+int eval_input_file(const char *path) ;
 
 void init_wp_pool();
 word_t expr(char *e, bool *success,bool *hex);

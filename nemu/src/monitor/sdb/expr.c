@@ -303,3 +303,36 @@ word_t expr(char *e, bool *success, bool *hex) {
   return eval(0,nr_token-1,success,hex);
   }
 }
+
+
+int eval_input_file(const char *path) {
+  if (!path) return -1;
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return -1; // 打不开文件，caller 可决定是否报错
+  }
+
+  char line[4096];
+  while (fgets(line, sizeof(line), f)) {
+    /* strip newline & leading/trailing whitespace */
+    char *p = line;
+    while (*p && (*p == ' ' || *p == '\t')) p++; /* skip leading ws */
+    char *end = p + strlen(p);
+    while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t')) end--;
+    *end = '\0';
+    if (*p == '\0') continue;
+
+    bool success = false;
+    bool ishex = false;
+    printf("\ncurrent expr: %s\n", p);
+    word_t val = expr(p, &success, &ishex);
+    if (success) {
+      if (ishex) printf("value: 0x%08" PRIx32 "\n", (uint32_t)val);
+      else printf("value: %u\n", (unsigned)val);
+    } else {
+      printf("Bad expression: %s\n", p);
+    }
+  }
+  fclose(f);
+  return 0 ;
+}
