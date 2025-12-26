@@ -15,11 +15,10 @@
 
 #include "sdb.h"
 // ======================== 数据定义与初始化 =========================================//
-static wp_list used_list = {NULL,NULL,0};
-static wp_list free_list = {NULL,NULL,0};
-// 利用结构体数组来表示监视点池，监视点池由两个链表组成：一个是空闲链表free，一个是使用中链表head
-static WP wp_pool[NR_WP] = {};
 
+WP wp_pool[NR_WP] = {};
+wp_list used_list = {NULL, NULL, 0};
+wp_list free_list = {NULL, NULL, 0};
 
 void init_wp_pool() {
   int i;
@@ -128,6 +127,20 @@ void unlink_wp(wp_list *l,int no){
   inserttail(&free_list,wp_curr);
 }
 
+// ================================= 监视点查看 ==============================================//
+void watchpoint_list(wp_list * l){
+  if (!l || !l->head){
+    printf("error: blank list !");
+    return ;
+  }
+  printf("NO  Address/Expression     Value\n");
+  WP* curr = l->head;
+  while (curr != NULL)
+  {
+    printf("%-3d %-22s 0x%08x\n", curr->NO, curr->exp, curr->prev_value);
+    curr = curr->next;
+  }
+}
 
 
 /* TODO: Implement the functionality of watchpoint */
