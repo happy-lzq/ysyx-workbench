@@ -162,7 +162,6 @@ void watchpoint_list(wp_list *l) {
 // ================================= 监视点值变检测 ==============================================//
 int check_watchpoint(wp_list *l){
   if (!l || !l->head) {
-    printf("No watchpoints.\n");
     return -1;
   }
   WP* curr = l->head;
