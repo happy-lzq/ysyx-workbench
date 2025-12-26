@@ -211,11 +211,13 @@ static int cmd_info(char *args){
 
 //============================= watchpoint add expr  =================================//
 static int cmd_w(char *args){
+
   if (args == NULL){
     printf("Usage: w <expr>\n");
     return 0;
   }
   new_wp(args);
+  watchpoint_list(&used_list);
   return 0;
 }
 
@@ -232,6 +234,7 @@ static int cmd_d(char *args){
     return 0;
   }
   unlink_wp(&used_list,no);
+  watchpoint_list(&used_list);
   return 0;
 }
 
