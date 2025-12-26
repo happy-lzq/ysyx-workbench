@@ -12,8 +12,10 @@
 *
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
-
+#include <cpu/cpu.h>
 #include "sdb.h"
+#include <isa.h>   /* <- 新增：为使用全局 cpu 变量和 CPU_state 声明 */
+
 // ======================== 数据定义与初始化 =========================================//
 
 WP wp_pool[NR_WP] = {};
@@ -175,6 +177,7 @@ int check_watchpoint(wp_list *l){
     if (curr_value != curr->prev_value && success){
       changed_list[num].NO = curr->NO;
       strncpy(changed_list[num].expr,curr->exp,255);
+      changed_list[num].expr[255] = '\0';
       changed_list[num].old_value = curr->prev_value;
       changed_list[num].new_value = curr_value;
       int len = strlen(curr->exp);
@@ -186,16 +189,16 @@ int check_watchpoint(wp_list *l){
     }
     curr = curr->next;
   }
-  if (num > 0){
-    printf("\n Hint: Watchpoint(s) value changed \n");
+  if (num > 0) {
+    printf("\nWatchpoint(s) triggered at pc = " FMT_WORD "\n", cpu.pc);
     printf("%-3s  %-*s  %-12s  %-12s\n", "NO", max_expr_len, "Expression", "Old Value", "New Value");
-    for (int i = 0; i < num; i++){
-    printf("%-3d  %-*s  0x%08x    0x%08x\n", 
-               changed_list[i].NO, max_expr_len, changed_list[i].expr, 
-               changed_list[i].old_value, changed_list[i].new_value);
+    for (int i = 0; i < num; i++) {
+      printf("%-3d  %-*s  0x%08x    0x%08x\n", 
+             changed_list[i].NO, max_expr_len, changed_list[i].expr, 
+             changed_list[i].old_value, changed_list[i].new_value);
     }
     return 1;
-  } 
+  }
   return -1;
 }
 
