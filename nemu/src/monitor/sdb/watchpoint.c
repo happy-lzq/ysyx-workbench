@@ -134,13 +134,27 @@ void watchpoint_list(wp_list *l) {
     printf("No watchpoints.\n");
     return;
   }
-  // 使用 \t 分隔表头
-  printf("NO\tExpression\t\tValue\n");
-  
-  WP* curr = l->head;
+
+  // 1. 预扫描：寻找最长表达式的长度
+  int max_len = 10; // 设定一个最小基础宽度（对应 "Expression" 的长度）
+  WP *curr = l->head;
   while (curr != NULL) {
-    // 在 NO 和 exp 之间，以及 exp 和 Value 之间加入 \t
-    printf("%d\t%-22s\t0x%08x\n", curr->NO, curr->exp, curr->prev_value);
+    int cur_exp_len = strlen(curr->exp);
+    if (cur_exp_len > max_len) {
+      max_len = cur_exp_len;
+    }
+    curr = curr->next;
+  }
+
+  // 2. 打印表头
+  // %-*s 表示左对齐，宽度由参数 max_len 动态决定
+  printf("%-4s  %-*s  %s\n", "NO", max_len, "Expression", "Value");
+
+  // 3. 遍历打印内容
+  curr = l->head;
+  while (curr != NULL) {
+    // 使用 * 动态传入宽度 max_len
+    printf("%-4d  %-*s  0x%08x\n", curr->NO, max_len, curr->exp, curr->prev_value);
     curr = curr->next;
   }
 }
