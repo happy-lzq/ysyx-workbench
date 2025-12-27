@@ -78,12 +78,12 @@ static void execute(uint64_t n) {
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-
-    // // check_watchpoint 插入 ；检测到值变更新，并且打印所有值变表达式，同时改变nemu_state.state
-    // if (check_watchpoint(&used_list) > 0){
-    //   nemu_state.state = NEMU_STOP;
-    // }
     if (nemu_state.state != NEMU_RUNNING) break;
+    
+    // check_watchpoint 插入 ；检测到值变更新，并且打印所有值变表达式，同时改变nemu_state.state
+    if (check_watchpoint(&used_list) > 0){
+      nemu_state.state = NEMU_STOP;
+    }
     IFDEF(CONFIG_DEVICE, device_update());
   }
 }
