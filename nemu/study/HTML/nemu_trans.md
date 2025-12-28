@@ -7,12 +7,12 @@
 - [3. 运行流程分析 (Execution Flow)](#3-运行流程分析-execution-flow)
 - [4. 简易调试器 (SDB) 开发准备](#4-简易调试器-sdb-开发准备)
   - [A. 命令解析框架 (sdb.c)](#a-命令解析框架-sdbc)
-     - [B. 表达式求值 (expr.c)](#b-表达式求值-exprc)
+  - [B. 表达式求值 (expr.c)](#b-表达式求值-exprc)
         - [词法分析与递归求值详细处理过程](#词法分析与递归求值详细处理过程)
         - [表达式求值与 SDB 集成中的 bool success 设计总结](#表达式求值与-sdb-集成中的-bool-success-设计总结)
         - [Makefile 与运行时环境变量交互](#makefile-env)
         - [表达式生成器与验证（从 0 到 1）](#gen-expr)
-  - [C. 监视点 (watchpoint.c)](#c-监视点-watchpointc)
+  - [C. 监视点系统实现总结 (watchpoint.c & cpu-exec.c)](#c-监视点系统实现总结)
   - [D. 寄存器访问 (isa.h / reg.c)](#d-寄存器访问-isah--regc)
 
 ---
@@ -69,13 +69,63 @@
    - 所有命令在 `cmd_table[]` 注册，包含命令名、描述、处理函数指针。
    - 主循环读取用户输入，分割为命令和参数，遍历 `cmd_table` 查找并调用对应处理函数。
 
-2. **命令处理函数实现**  
-   - 每个命令对应 `cmd_xxx(char *args)` 实现，负责参数解析和功能调用。
-   - 例如：
-     - `si`：解析步数参数，调用 `cpu_exec(n)`。
-     - `info`：判断参数 `r` 或 `w`，分别调用寄存器显示或监视点显示。
-     - `x`：解析显示数量和起始地址，循环调用内存读接口并格式化输出。
-     - `p`：解析表达式字符串，调用表达式求值模块，输出结果。
+2. **命令处理函数实现**
+
+    每个调试命令对应一个 `static int cmd_xxx(char *args)` 实现，负责从 `args` 字符串中提取参数并调用底层接口完成功能。
+
+    以下按命令逐条说明常见实现要点与示例解析逻辑（函数名以 NEMU 中常见接口命名）：
+
+    - `c` (Continue)
+       - 函数原型：`static int cmd_c(char *args)`。
+       - 解析：`args` 可忽略，命令直接继续执行。
+       - 执行：调用 `cpu_exec(-1)`。传入 `-1` 会被隐式转换为无符号最大值，使 CPU 持续执行直到程序结束或被中断。
+
+    - `si` (Step Instruction)
+       - 函数原型：`static int cmd_si(char *args)`。
+       - 解析：使用 `strtoul(args, NULL, 10)` 解析步数 `n`。若 `args` 为空或仅空白，则默认 `n = 1`。
+       - 校验：解析出的 `n` 必须为正整数；若为 0 或解析失败，应打印错误信息并返回。
+       - 执行：调用 `cpu_exec(n)`。
+
+    - `info` (Information)
+       - 函数原型：`static int cmd_info(char *args)`。
+       - 解析：通常先用 `char *arg = strtok(NULL, " ")` 或手动跳过空格取得子参数。
+       - 执行：根据子参数选择显示内容：
+          - 若 `arg` 为 `"r"`，调用 `isa_reg_display()` 显示所有寄存器状态（对应 `info r`）。
+          - 若 `arg` 为 `"w"`，調用 `watchpoint_list(&used_list)` 显示当前活跃监视点（对应 `info w`）。
+          - 其它子参数打印用法提示（`Unknown subcommand`）。
+
+    - `x` (Scan Memory)
+       - 函数原型：`static int cmd_x(char *args)`。
+       - 解析：先用 `strtok` 或 `sscanf` 提取显示长度 `n`（十进制整数），剩余部分作为地址表达式字符串 `expr_str`。
+          - 例如：`x 10 0x1000` 或 `x 4 $sp`。
+       - 求值：调用 `expr(expr_str, &success, &hex)` 将表达式求值为地址 `addr`（`vaddr_t`）。如果 `success==false` 则打印 "Bad expression" 并返回。
+       - 读取：循环 `i = 0 .. n-1`，在每次迭代中调用 `vaddr_read(addr + i*4, 4)` 读取 4 字节值并以十六进制格式输出，通常每行显示一个地址与对应数据。
+
+    - `p` (Print Expression)
+       - 函数原型：`static int cmd_p(char *args)`。
+       - 解析：`args` 即为待求值的表达式字符串（不做额外分割，直接传给表达式求值模块）。
+       - 执行：调用 `word_t val = expr(args, &success, &hex)`：
+          - 若 `success == true`，打印计算结果（可根据 `hex` 标志选择十六进制或十进制输出）。
+          - 若失败，打印 `Bad expression`。
+
+    - `w` (Watchpoint Add)
+       - 函数原型：`static int cmd_w(char *args)`。
+       - 解析：`args` 为要监视的表达式字符串（整个剩余字符串均作为表达式，不要再用 `strtok(NULL, " ")` 截断）。
+       - 执行：调用 `new_wp(args)` 将该表达式加入监视点池；若 `new_wp` 内部验证失败，应输出错误信息（例如表达式非法或监视点池已满）。
+       - 反馈：成功后可调用 `watchpoint_list(&used_list)` 打印当前监视点列表。
+
+    - `d` (Watchpoint Delete)
+       - 函数原型：`static int cmd_d(char *args)`。
+       - 解析：使用 `strtoul(args, NULL, 10)` 解析要删除的监视点编号 `no`。
+       - 执行：调用 `unlink_wp(&used_list, no)` 从活跃列表删除并回收监视点；删除成功或失败均应给出相应提示。
+
+    其它实现要点：
+    - 所有 `cmd_xxx` 通常返回 `0` 表示继续命令循环，返回非零表示退出调试器循环（视 `sdb` 的主循环约定）。
+    - 对 `args` 的空指针与空白字符串要健壮处理，避免对 `NULL` 调用 `strtok` 或 `strtoul` 导致未定义行为。
+    - 表达式求值函数 `expr()` 通常以 `bool *success` 传出是否成功，调用方必须检查该标志再使用返回值。
+    - 内存读取（`vaddr_read`）与寄存器访问（`isa_reg_str2val` / `isa_reg_display`）应兼顾 RV32/RV64 的 `word_t` 宽度，使用项目中统一的格式化宏（例如 `FMT_WORD`）以保证可移植性。
+
+    小结：通过在 `cmd_table[]` 中注册这些 `cmd_xxx` 函数，调试器主循环读取用户命令后，根据命令名调用相应处理函数，处理函数负责解析 `args` 并调用 `cpu_exec`、`expr`、`vaddr_read`、`new_wp`、`unlink_wp`、`isa_reg_display`、`watchpoint_list` 等后端接口完成具体功能。
 
 3. **扩展性**  
    - 新命令只需在 `cmd_table` 注册并实现对应处理函数，易于维护和扩展。
@@ -330,122 +380,93 @@ $s3 * 455 + $a0 + (957 * (15 + 342 * 382))
 - 通过局部生成-校验-提交的模式以及统一的写入契约，生成器在保证安全的同时便于扩展和调优。
 
 
-### C. 监视点 (`watchpoint.c`)
-**监视点（Watchpoint）实现笔记**
+<a id="c-监视点系统实现总结"></a>
+### C. 监视点系统实现总结 (watchpoint.c & cpu-exec.c)
 
-本文档目标：以可实现、可测试的方式概述 `watchpoint.c` 的设计与实现要点，包含数据结构、核心接口、执行流程、错误处理与与 CPU/表达式求值模块的集成点。
+监视点（Watchpoint）是 SDB 的核心高级功能。它通过在指令执行循环中引入“差分检测”机制，实现对任意表达式值的动态监控。下面按结构、接口与执行时序给出完整实现要点和设计权衡，便于把理论转成代码。
 
-概览：
-- 监视点以固定大小池（`wp_pool[NR_WP]`）预分配，使用两个链表管理：`free_list`（空闲）与 `used_list`（已启用）。
-- 每个监视点保存：编号 `NO`、表达式字符串 `expr[]`、上次计算值 `prev_value`、链表指针 `next` 等。
+**1. 核心数据结构设计**
 
-1) 数据结构（建议）
+系统采用“静态分配内存，动态单链表链接”的方案，确保了模拟器在高速运行过程中的内存稳定性：
 
-```c
-// watchpoint.h (示例)
-#define NR_WP 32
-typedef struct WP {
-   int NO;
-   char expr[128];
-   word_t prev_value; // 与 cpu 相关的 word_t（uint32/64）
-   struct WP *next;
-} WP;
+- `WP` (监视点结构体)：
+  - `int NO`：监视点唯一编号。
+  - `char exp[256]`：存储监控表达式的字符串快照（可直接传给 `expr()`）。
+  - `word_t prev_value`：存储“上一次”求值结果，用于差分对比。
+  - `struct watchpoint *next`：单链表指针，指向下一个节点。
 
-typedef struct { WP *head, *tail; int size; } wp_list_t;
+- `wp_list` (链表管理头)：包含 `head` 和 `tail` 指针与 `size` 字段。
 
-extern WP wp_pool[NR_WP];
-extern wp_list_t free_list, used_list;
-```
+- 全局池：
+  - `free_list`：存储 32 个待使用的空闲节点。
+  - `used_list`：存储当前用户正在监控的活跃节点。
 
-2) 核心接口（必实现函数）
+- `ChangedInfo`（触发瞬间快照数组）：专门用于 `check_watchpoint()` 中临时记录多路触发信息，保证表格打印时数据一致性（old/new 均为同一检测轮次的快照）。
 
-- `void init_wp_pool(void);`
-   - 初始化 `wp_pool`，把所有节点加入 `free_list`，清空 `used_list`。
+**2. 主要函数设计逻辑与参数说明**
 
-- `WP* new_wp(const char *expr, bool *success);`
-   - 从 `free_list` 取节点；复制 `expr`（截断保护）；调用 `expr(expr, &ok)` 计算当前值；若 `ok==false` 或池空则回滚并返回 `NULL`（或通过 `success` 报错）；否则将节点加入 `used_list` 并返回指针。
+A. 资源流转与单链表管理
 
-- `void free_wp(int no);`
-   - 在 `used_list` 中按 `NO` 查找并移除，清理后追加回 `free_list`。
+- `void init_wp_pool()`
+  - 作用：系统初始化时将静态数组 `wp_pool` 串联成初始的 `free_list`。
 
-- `bool check_watchpoints(void);`
-   - 遍历 `used_list`，对每个 `wp` 调用 `expr(wp->expr, &ok)` 得到 `val`；若 `ok==false` 则记录/跳过该监视点（或按策略决定）；若 `val != wp->prev_value` 则打印变更信息并更新 `prev_value`，函数返回 `true`（表示触发，需要暂停 CPU）。否则返回 `false`。
+- `WP* fetch_wp(wp_list *l)`
+  - 参数：`l`（空闲池指针）。
+  - 作用：从池中申请一个闲置节点（pop head），并保证 `head/tail/size` 一致性。
 
-- `void info_wp(void);`
-   - 列出 `used_list` 中所有监视点 `NO`、`expr`、`prev_value`，供 `info w` 命令使用。
+- `void inserttail(wp_list *l, WP *wp)`
+  - 参数：`l`（目标链表），`wp`（待插入节点）。
+  - 作用：将节点插入单链表尾部，维持 FIFO 顺序。
 
-3) 创建监视点的详细流程（`new_wp`）
+- `void unlink_wp(wp_list *l, int no)`
+  - 参数：`l`（活跃链表），`no`（监视点编号）。
+  - 设计逻辑：实现单链表删除（prev/curr 双指针），移除后把节点 `inserttail(&free_list, node)` 回收。
 
-- 检查 `free_list.head` 是否等于NULL，若无空闲节点返回错误给用户。
-- 取第一个空闲节点 `p = free_list.head`，调整 `free_list.head`/`tail`/`size`。
-- 使用 `strncpy(p->expr, expr, sizeof p->expr - 1)` 并确保以 `\0` 终止。
-- 调用 `expr(p->expr, &ok)`：
-   - 若 `ok == false`：将 `p` 放回 `free_list`（恢复），并把 `*success = false` 返回；
-   - 否则 `p->prev_value = val`，把 `p` 插入到 `used_list`（维护 head/tail/size），设置 `*success = true` 并返回 `p`。
+B. 用户交互与显示接口
 
-4) 删除监视点（`free_wp` / `free_wp(int no)`）
+- `void new_wp(char *expr)`
+  - 参数：`expr`（用户输入字符串）。
+  - 逻辑：先调用 `expr()` 校验合法性（`bool success`）；若成功，从 `free_list` 申请节点，复制表达式，记录 `prev_value`，插入 `used_list`。
 
-- 在线性遍历 `used_list` 查找 `NO == no`（记录前驱节点以便移除）。
-- 移除时注意处理删除头节点、尾节点以及唯一节点的边界情况。
-- 释放后把节点追加到 `free_list`（清空 `expr` 与 `prev_value` 可选）。
+- `void watchpoint_list(wp_list *l)`
+  - 作用：实现 `info w`。通过预扫描计算最长表达式长度，配合 `%-*s` 实现对齐打印（表格化显示 `NO/Expression/Value`）。
 
-5) 检测流程与集成点（`check_watchpoints`）
+C. 核心监测逻辑
 
-- 集成点：建议在 `cpu_exec` 的主循环中每条指令后或每 N 条指令后调用 `check_watchpoints()`；当其返回 `true` 时暂停执行、切换回 SDB 主循环。
-- 检测实现注意：表达式求值函数 `expr()` 的语义是无副作用的（仅读取 CPU 状态/内存），并以 `bool success` 报告计算是否成功。
-- 实现细节：
-   - 对每个 `wp`：调用 `val = expr(wp->expr, &ok)`；若 `ok==false` 则打印 `Bad expression` 或在调试输出中标记该 watchpoint（按策略）；
-   - 若 `val != wp->prev_value`：打印触发信息，例如：
+- `int check_watchpoint(wp_list *l)`
+  - 返回值：触发变化的监视点数量（>0 表示触发）。
+  - 逻辑：遍历 `used_list` → 对每个 `wp` 调用 `expr(wp->exp, &ok, &hex)` → 若 `ok` 且 `val != wp->prev_value` 则把该条目写入 `ChangedInfo` 快照数组并立刻更新 `wp->prev_value` → 最后统一打印触发表格并返回触发数。
 
-```
-Watchpoint %d triggered: %s
-   old value = 0x%lx
-   new value = 0x%lx
-```
+**3. 函数间的拓扑关联性（调用链）**
 
-   - 更新 `wp->prev_value = val`；记录至少一个触发则返回 `true`。
+- 资源流转：`init_wp_pool()` → `new_wp()`（消费）→ `unlink_wp()`（回收）。
+- 求值联动：`check_watchpoint()` 是 `expr()` 的高频调用者，表达式求值的正确性直接决定监视点的可靠性。 
+- 执行流反馈：SDB 的 `c/si` 命令调用 `cpu_exec()`；`cpu_exec()` 在每次执行单条指令或若干条指令后（由实现决定）调用 `check_watchpoint()`；若检测到触发，则切换到调试器交互态。
 
-6) 错误处理与边界条件
+**4. 状态机优先级设计逻辑（针对 ebreak 冲突）**
 
-- 池耗尽：用户应收到清晰错误信息（例如："No free watchpoint"）。
-- 表达式求值失败：创建时拒绝并告知用户；检测时打印警告并跳过该监视点的触发判断（或按配置决定是否删除）。
-- 链表维护：在增删时须同时更新 `head`/`tail`/`size`，避免悬挂指针。
+在 `execute()` 循环中，监视点检测的时序决定了拦截优先级。设计采用 “首部检测值变，尾部检查状态” 的策略：
 
-7) 性能与策略建议
+- 当循环到达某条指令（如 `ebreak`）时，`exec_once()` 完成指令执行并可能把 `nemu_state` 置为 `NEMU_END`；循环尾部看到该状态并终止；通常 `check_watchpoint()` 安放在循环首部或每条指令后，但若放在尾部，`NEMU_END` 的优先级会先被处理，从而保证程序自然结束或异常（如 `NEMU_ABORT`）不会被监视点暂停覆盖。
 
-- 频率控制：若每次指令后都评估所有监视点会较慢，可提供按需检查（如仅在单步模式、断点附近或每 N 条指令检查）。
-- 表达式缓存：对于复杂表达式可考虑缓存解析结果（token 列表）以减少重复词法分析费用，但需权衡内存与实现复杂度。
+结论：该设计确保系统保留对模拟器终止或异常的语义优先级，不会因为监视点触发而错误地阻止正常结束或报错处理。
 
-8) 与 SDB 命令的映射示例
+**5. 实现细节与谨慎点**
 
-- `w <expr>`：调用 `new_wp(expr, &success)` 并在成功时打印分配的 `NO`。
-- `d <no>`：调用 `free_wp(no)`，并打印结果。
-- `info w`：调用 `info_wp()` 列出当前监视点。
+- `expr()` 接口要求传入可写字符串（`char *`），因此 `wp->exp` 必须保存表达式快照，不能持有对调用者缓冲区的引用。 
+- 打印格式：对 `word_t` 的输出请使用项目提供的格式化宏（如 `FMT_WORD`）以兼容 RV32/RV64。
+- 并发：NEMU 常为单线程，若未来并行需要，应在访问 `used_list`/`free_list` 时加锁。
 
-9) 简单示例（伪代码）
+**6. 测试与验证建议**
 
-```c
-WP *new_wp(const char *expr, bool *success) {
-   if (free_list.size == 0) { *success = false; return NULL; }
-   WP *p = pop_free();
-   strncpy(p->expr, expr, sizeof p->expr - 1);
-   p->expr[sizeof p->expr - 1] = '\0';
-   bool ok = true;
-   word_t v = expr_eval(p->expr, &ok);
-   if (!ok) { push_free(p); *success = false; return NULL; }
-   p->prev_value = v;
-   push_used(p);
-   *success = true;
-   return p;
-}
-```
+- 单元测试：对 `new_wp`/`unlink_wp`/`fetch_wp` 做边界测试（池耗尽、删除头、删除尾、唯一节点删除）。
+- 集成测试：设置若干监视点（寄存器/内存），运行若干条指令，验证 `check_watchpoint()` 能在寄存器/内存变化时正确触发并打印快照。
 
-10) 测试建议
+**7. 公开的 SDB 命令映射（示例）**
 
-- 单元测试：模拟 `expr()` 返回已知值的场景，测试 `new_wp`/`free_wp`/`check_watchpoints` 的链表维护与边界条件。
-- 集成测试：在解释器中设置一个监视点，运行若干条指令，验证当寄存器/内存变化时能触发并暂停。
-
-小结：按照上文接口与流程实现 `watchpoint.c` 中的增删查改与定期检测，并在 `cpu_exec` 合适位置调用 `check_watchpoints()`，即可得到一个稳健且易于调试的监视点功能。
+- `w <expr>`：创建监视点（调用 `new_wp`），并打印分配编号。
+- `d <no>`：删除监视点（调用 `unlink_wp`/`free_wp`）。
+- `info w`：列出所有活跃监视点（调用 `watchpoint_list`）。
 
 
 ---
