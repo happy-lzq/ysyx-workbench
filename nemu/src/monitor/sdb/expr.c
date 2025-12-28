@@ -202,7 +202,7 @@ int get_priortiy(int type){
     case TK_NOTEQ : return 9;
     case TK_AND   : return 12;   /* 逻辑与 */
     case TK_OR    : return 13;   /* 逻辑或，最低优先级（最弱绑定） */
-    default       : return -1;  /* 非运算符，返回 -1 表示不是运算符，find_main_operator 会忽略 */
+    default       : return -1;   /* 非运算符，返回 -1 表示不是运算符，find_main_operator 会忽略 */
   }
 }
 

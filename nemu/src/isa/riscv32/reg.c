@@ -49,9 +49,9 @@ word_t isa_reg_str2val(const char *s, bool *success) {
     return cpu.pc;
   }
   for (int i = 0; i < 32; i++){
-    if (strncmp(s,"$0",1) == 0 ){
+    if (strncmp(s,"$0",2) == 0 ){
       return cpu.gpr[i];
-    } else if (strcmp(s+1,regs[i]) == 0){
+    } else if (strncmp(s+1,regs[i],strlen(regs[i])) == 0){
       return cpu.gpr[i];
     } 
   }
