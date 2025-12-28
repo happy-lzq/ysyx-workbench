@@ -199,8 +199,11 @@ static int cmd_info(char *args){
     //======================== 表达式求值 cmd_p p $t1===================================//
   static int cmd_p(char *args){
     if (args == NULL){
-      printf("Usage: p expr\n");
+      printf("Usage: p <expr>  OR  p <filename>\n");
       return 0;
+    }
+    if(eval_input_file(args) != 0){
+      fprintf(stderr, "Failed to read input file\n");
     }
     bool success = false;
     bool hex = false;

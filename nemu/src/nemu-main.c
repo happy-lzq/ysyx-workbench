@@ -35,11 +35,6 @@ int main(int argc, char *argv[]) {
   init_monitor(argc, argv);
 #endif
 
-  /* If an input file exists, run expressions from it and exit. */
-  if(eval_input_file("input") != 0){
-    fprintf(stderr, "Failed to read input file\n");
-  }
-
   /* Start engine. */
   engine_start();
 
