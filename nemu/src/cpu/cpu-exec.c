@@ -81,12 +81,10 @@ static void execute(uint64_t n) {
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-    if (check_watchpoint(&used_list) > 0){
-      nemu_state.state = NEMU_STOP;
-      // break;
-    }
     if (nemu_state.state != NEMU_RUNNING) break;
-
+    if (check_watchpoint(&used_list) > 0){
+    nemu_state.state = NEMU_STOP;
+    }
     IFDEF(CONFIG_DEVICE, device_update());
   }
 }
