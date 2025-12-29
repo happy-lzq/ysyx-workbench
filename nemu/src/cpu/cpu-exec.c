@@ -75,16 +75,20 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
-    // 进入循环就开始检查，因为pc的变化是从进入exec_once进入取值之后就反馈pc= pc+4;
-    // 即是进入第二次循环pc值已经改变了，所以循环初进行值变检测。在执行下一isa前设定nemu_state.state
-
+    if (check_watchpoint(&used_list) > 0){
+      nemu_state.state = NEMU_STOP;
+      return ;
+    }
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-        if (check_watchpoint(&used_list) > 0){
-    nemu_state.state = NEMU_STOP;
-    }
+    /* 监视点放置最佳位置，由于当前非法指令的中断并未实现，则利用循环前检查监视点，一旦发现立即进行return /break 处理来防止迭代后续代码功能
+      if (check_watchpoint(&used_list) > 0){
+        nemu_state.state = NEMU_STOP;
+      }
+    */
     if (nemu_state.state != NEMU_RUNNING) break;
+
     IFDEF(CONFIG_DEVICE, device_update());
   }
 }
