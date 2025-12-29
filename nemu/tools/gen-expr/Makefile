@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -Wall -Wextra
-
-gen_n ?= 10
+include $(NEMU_HOME)/scripts/build.mk
+n ?= 10
 
 SRC := gen-expr.c
 OUTDIR := build
@@ -18,9 +18,9 @@ $(OUT): $(SRC) | $(OUTDIR)
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
 run: $(OUT)
-	@GEN_N=$(gen_n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
+	@GEN_N=$(n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
 	$(OUT)
-# 子进程环境：run 中设置临时变量GEN_N=$(gen_n),然后执行 ./$(out)
+# 子进程环境：run 中设置临时变量GEN_N=$(n),然后执行 ./$(out)
 clean:
 	rm -rf $(OUTDIR)
 #***************************************************************************************
@@ -38,8 +38,5 @@ clean:
 # See the Mulan PSL v2 for more details.
 #**************************************************************************************/
 
-NAME = gen-expr
-SRCS = gen-expr.c
-include $(NEMU_HOME)/scripts/build.mk
 
 
