@@ -42,11 +42,11 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 }
 
 static void exec_once(Decode *s, vaddr_t pc) {
+  s->pc = pc;
+  s->snpc = pc;
   if (check_watchpoint(&used_list) > 0){
     nemu_state.state = NEMU_STOP;
   }
-  s->pc = pc;
-  s->snpc = pc;
   isa_exec_once(s);   // 由具体的指令集实现
   cpu.pc = s->dnpc;
 #ifdef CONFIG_ITRACE
