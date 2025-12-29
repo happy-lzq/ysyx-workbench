@@ -202,6 +202,7 @@ static int cmd_info(char *args){
       printf("Usage: p <expr>  OR  p <filename>\n");
       return 0;
     }
+    // 表达式尾文件地址，即处理表达式文件
     FILE* f = fopen(args,"r");
     if (f !=NULL){
       fclose(f);
