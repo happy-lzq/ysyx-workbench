@@ -202,8 +202,10 @@ static int cmd_info(char *args){
       printf("Usage: p <expr>  OR  p <filename>\n");
       return 0;
     }
-    if(eval_input_file(args) != 0){
-      fprintf(stderr, "Failed to read input file\n");
+    FILE* f = fopen(args,"r");
+    if (f !=NULL){
+      fclose(f);
+      eval_input_file(args);
     }
     bool success = false;
     bool hex = false;
