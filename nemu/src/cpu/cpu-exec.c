@@ -75,17 +75,15 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
+    // 进入循环就开始检查，因为pc的变化是从进入exec_once进入取值之后就反馈pc= pc+4;
+    // 即是进入第二次循环pc值已经改变了，所以循环初进行值变检测。在执行下一isa前设定nemu_state.state
+    if (check_watchpoint(&used_list) > 0){
+      nemu_state.state = NEMU_STOP;
+      break;
+    }
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-
-    /* 检查监视点放在执行指令之后，这样当某个指令改变了监视表达式（例如 `$pc`）
-     * 时，会在执行该指令后停止，而不会在检测到改变后仍继续执行下一条指令。
-     */
-    if (check_watchpoint(&used_list) > 0) {
-      nemu_state.state = NEMU_STOP;
-    }
-
     if (nemu_state.state != NEMU_RUNNING) break;
 
     IFDEF(CONFIG_DEVICE, device_update());
