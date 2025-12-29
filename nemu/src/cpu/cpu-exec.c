@@ -77,9 +77,9 @@ static void execute(uint64_t n) {
   for (int i =0; i<n ; i++) {
     // 进入循环就开始检查，因为pc的变化是从进入exec_once进入取值之后就反馈pc= pc+4;
     // 即是进入第二次循环pc值已经改变了，所以循环初进行值变检测。在执行下一isa前设定nemu_state.state
-    if (check_watchpoint(&used_list) > 0){
-      nemu_state.state = NEMU_STOP;
-    }
+    // if (check_watchpoint(&used_list) > 0){
+    //   nemu_state.state = NEMU_STOP;
+    // }
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);

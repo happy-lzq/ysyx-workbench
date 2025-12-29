@@ -174,7 +174,6 @@ int check_watchpoint(wp_list *l){
   {
     curr_value = expr(curr->exp,&success,&hex);
     if (curr_value != curr->prev_value && success){
-      printf("DEBUG: WP %d changed from %x to %x\n", curr->NO, curr->prev_value, curr_value);
       changed_list[num].NO = curr->NO;
       strncpy(changed_list[num].expr,curr->exp,255);
       changed_list[num].expr[255] = '\0';
