@@ -1,5 +1,14 @@
 [
   {
+    "name": "abspath",
+    "header": "happy.h",
+    "prototype": "$(abspath name) \n\n$(realpath name) \n",
+    "description": "利用字符串拼接绝对路径。\n\n举例：$(abspath $(CURDIR)/../..)/input\nCURDIR：当前makefile脚本文件的绝对路径：/home/user/project/nemu/tools/gen-expr\n”/..\" ：返回上一目录结构    \"/../..\" ：返回上两级目录\n$(abspath $(CURDIR)/../..) ：/home/user/project/nemu\n拼接结果+input共同构成：/home/user/project/nemu/input",
+    "return_val": "abspath：仅仅是对路径进行拼接，并不验证最后文件：input是否存在？\n\nrealpath：拼接逻辑与abspath一致，但是会检查文件是否存在，若不存在，返回空字符串",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "unsetenv",
     "header": "stdlib.h",
     "prototype": "int unsetenv(const char *name);",
@@ -50,7 +59,7 @@
     "prototype": "int fprintf(FILE *stream, const char *format, ...);",
     "description": "功能描述: 按照 format 指定的格式，把格式化后的文本写入 stream（任意 FILE*，例如 stdout、stderr 或文件）。其行为与 printf 类似，但目标是指定的 FILE 流。\n参数:\nstream: 目标 FILE *（已打开的流）。\nformat: 格式字符串，含普通字符与格式控制（如 %s, %d, %u, %x, %p, %f 等）。\n...: 与格式串对应的参数列表。",
     "return_val": "返回值:\n成功时返回写入的字符数（非负整数，不包括隐含的终止 NUL）；\n失败时返回负值（并通常设置 errno 来表明错误原因，如磁盘已满、流无效等）。\n副作用/注意事项:\n若 format 与随后的参数不匹配，会导致未定义行为。避免把不受信任的字符串直接作为 format（防止格式字符串注入），如要输出用户字符串应使用 fprintf(stream, \"%s\", userstr)。\n输出先进入 FILE 的缓冲区，未必立即写入底层设备；如需立即写入，请使用 fflush(stream) 或关闭流。\n检查返回值可以发现写失败（例如 IO 错误）。",
-    "example": "",
+    "example": "  for (int i = 0; i < gen_n; i ++) {\n    gen_rand_expr();\n    fprintf(out, \"%s\\n\", buf);\n    if (i < 10) {\n      fprintf(stderr, \"%s\\n\", buf);\n    }\n  }\n\n将前10行表达式以stderr流输出打印在终端屏幕",
     "modes": []
   },
   {
@@ -361,8 +370,9 @@
     "name": "fopen",
     "header": "stdio.h",
     "prototype": "FILE *fopen(const char *filename, const char *mode);",
-    "description": "使用给定的模式 mode 打开 filename 所指向的文件。",
+    "description": "使用给定的模式 mode 打开 filename 所指向的文件。\n\n举例说明：FILE *f = fopen(const char *filename,\"r\")\n在相对路径下：filename 是基于工作目录下搜索地址，比如在nemu工作目录下：\n filename,对于f而言实际是对：nemu/filename  做文件打开处理。\n如果不用相对路径(相对工作目录)，就需要输入的是文件在系统中的绝对路径，一般来说都是利用数组将绝对路径字符串放置其中，然后用指针指向该数组来索引。",
     "return_val": "如果文件成功打开，则返回一个指向 FILE 对象的指针。否则返回 NULL。",
+    "example": "FILE *fp;\nfp = fopen(\"file.txt\", \"w+\");\nfprintf(fp, \"%s %s\", \"Hello\", \"World\");\nfclose(fp);",
     "modes": [
       {
         "code": "\"r\"",
@@ -388,8 +398,7 @@
         "code": "\"a+\"",
         "detail": "追加/更新：打开一个文件进行更新，所有输出操作都会将数据写入文件末尾。"
       }
-    ],
-    "example": "FILE *fp;\nfp = fopen(\"file.txt\", \"w+\");\nfprintf(fp, \"%s %s\", \"Hello\", \"World\");\nfclose(fp);"
+    ]
   },
   {
     "name": "fgets",

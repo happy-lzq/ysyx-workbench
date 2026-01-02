@@ -219,6 +219,7 @@ static int cmd_info(char *args){
       eval_input_file(args);
       return 0;
     }
+  // 4. 如果不是文件，则当作普通表达式处理
     bool success = false;
     bool hex = false;
     word_t result = expr(args,&success,&hex);

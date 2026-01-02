@@ -224,7 +224,7 @@ int main() {
     }
   }
   const char *out_path = getenv("GEN_OUT");
-  if (!out_path) out_path = "input";
+  if (!out_path) out_path = "input";          // 相当于给该环境地址贴上一个标签，用input来标识
   FILE *out = fopen(out_path, "w");
   if (!out) {
     perror(out_path);
