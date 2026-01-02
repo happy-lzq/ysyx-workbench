@@ -200,13 +200,12 @@ Makefile 端示例（`tools/gen-expr/Makefile` 的 `run` 目标）：
 
 ```makefile
 run: $(OUT)
-	@GEN_N=$(gen_n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
+	@GEN_N=$(n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
 	$(OUT)
 ```
 
 使用说明与常见误解：
-
-- 在 Makefile 中，覆盖变量要使用 Makefile 定义的名称（示例中为 `gen_n`），例如：`make -C tools/gen-expr run gen_n=100`。直接使用 `make run n=100` 不会生效，除非 Makefile 对 `n` 做了映射。
+- 该方式通过环境变量传递配置，避免了命令行参数解析的复杂性。
 - 程序通常把前若干条（如前 10 条）打印到 `stderr` 作为预览，但 `GEN_OUT` 文件中会包含完整的 `GEN_N` 条目。
 
 下面列出程序常用的环境相关 C 标准库函数及简要用法，方便理解 Makefile ↔ 程序的交互实现。

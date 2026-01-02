@@ -7,8 +7,6 @@ SRC := gen-expr.c
 OUTDIR := build
 OUT := $(OUTDIR)/gen-expr
 
-.PHONY: all clean run
-
 all: $(OUT)
 
 $(OUTDIR):
@@ -18,11 +16,18 @@ $(OUT): $(SRC) | $(OUTDIR)
 	$(CC) $(CFLAGS) -o $@ $(SRC)
 
 run: $(OUT)
-	@GEN_N=$(n) GEN_OUT=$(abspath $(CURDIR)/../..)/input \
+	@GEN_N=$(n) GEN_OUT=$(abspath $(CURDIR)/build)/input \
 	$(OUT)
+# abspath ：$(abspath names...) 的主要功能是为 names 中的每个路径名返回一个绝对路径。
+# CURDIR ：代表当前makefile所在的绝对路径
 # 子进程环境：run 中设置临时变量GEN_N=$(n),然后执行 ./$(out)
 clean:
 	rm -rf $(OUTDIR)
+
+.PHONY: all clean run
+
+
+
 #***************************************************************************************
 # Copyright (c) 2014-2024 Zihao Yu, Nanjing University
 #
