@@ -202,11 +202,22 @@ static int cmd_info(char *args){
       printf("Usage: p <expr>  OR  p <filename>\n");
       return 0;
     }
-    // 表达式尾文件地址，即处理表达式文件
+  // 1. 尝试在nemu/ 目录下打开用户指定的文件路径：input
     FILE* f = fopen(args,"r");
+    char fallpath[1024]= {0};
+  // 2. nemu/ 目录下无，则进入gen-expr下的build目录下拼接搜索。
+    if (f == NULL){
+      snprintf(fallpath,sizeof(fallpath),"tools/gen-expr/build/%s",args);
+      f = fopen(fallpath,"r");
+      if (f !=NULL){
+        args = fallpath;
+      }
+    }
+  // 3. 再次判断 f 是否可打开存在，，并执行对应文件处理方式
     if (f !=NULL){
       fclose(f);
       eval_input_file(args);
+      return 0;
     }
     bool success = false;
     bool hex = false;
