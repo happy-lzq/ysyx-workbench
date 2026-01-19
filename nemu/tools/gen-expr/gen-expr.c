@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+// ================================ 数据结构与权重池初始化 =================================//
 #define FIRST_PROBABILITY 20  // 控制递归表达式生成概率
 #define SECOND_PROBABILITY 15 // 控制递归表达式生成概率
 static char buf[65536] = {};
@@ -30,12 +31,13 @@ typedef struct {
   int max_atoms;      // 单层操作数
   int max_length;     // 最终表达式字符串长度
 } complexity_t;
-
+// 操作数/操作符结构体
 typedef struct {
   const char *name; 
   int weight;       
 } weight_item_t;
 
+// 操作数、操作符池以及权重
 typedef struct {
   weight_item_t *items;
   int n;
@@ -44,8 +46,8 @@ typedef struct {
 
 // 缓冲区定义
 struct buf_state { 
-    char *ptr; 
-    int rem; 
+    char *ptr;       // 缓冲区当前写入地址
+    int rem;         // 缓冲区可用字节数
 };
 
  const char *regs_name[] = {
@@ -68,7 +70,8 @@ static weight_item_t al_items[]= {
 };
 static weight_pool_t al_pool = { al_items, sizeof(al_items)/sizeof(al_items[0]), 0 };
 
-// 权重池准备与抽样
+// ==================== 权重总和与随机数随机生成对应权重下的操作数、操作符函数 ===============//
+// 权重池权重总数准备
 static void pool_prepare(weight_pool_t *p) {
   int sum = 0;
   for (int i = 0; i < p->n; i++) {
@@ -78,8 +81,8 @@ static void pool_prepare(weight_pool_t *p) {
   }
   p->total = (sum > 0) ? sum : 1;
 }
-// 利用随机生成一个权重总和为0~total之间的随机数，每次循环acc等于权重累加，
-// 利用r与acc关系，当r<acc时，即是r随机数处于当前i对应的权重位。
+// 生成一个 0 到 total 之间的随机数 r，通过累加权重并比较 r < acc，实现按概率抽取
+// 例如：r 落在 0-49 选 dec，50-79 选 hex 。
 static int pool_pick(weight_pool_t *p) {
   if (p->n <= 0) return -1;
   int r = rand() % p->total;
@@ -91,25 +94,27 @@ static int pool_pick(weight_pool_t *p) {
   return p->n - 1;
 }
 
-/* safe append helpers */
-// append_str 将常量字符串到缓冲区
+// ============================== 安全字符串拼接 ===================================//
+// append_str 将常量字符串到缓冲区  主要用于构造表达式结构
 static void append_str(struct buf_state *s, const char *c) {
   if (s->rem <= 0) return;
   int n = snprintf(s->ptr, s->rem, "%s", c);
   if (n <= 0 || n >= s->rem) { s->rem = 0; return; }
   s->ptr += n; s->rem -= n;
 }
-// append_fmt 将格式化字符串到缓冲区
+// append_fmt 将格式化字符串到缓冲区  处理随机生成的操作符或操作数
 static void append_fmt(struct buf_state *s, const char *fmt, ...) {
   if (s->rem <= 0) return;
-  va_list ap;
-  va_start(ap, fmt);
-  int n = vsnprintf(s->ptr, s->rem, fmt, ap);
+  va_list ap;          // 可变参数列表指针
+  va_start(ap, fmt);   
+  int n = vsnprintf(s->ptr, s->rem, fmt, ap);   // 返回实际写入缓冲区的字节数
   va_end(ap);
   if (n <= 0 || n >= s->rem) { s->rem = 0; return; }
   s->ptr += n; s->rem -= n;
 }
 
+
+// ============================== 寄存器表达式处理 ===================================//
 // 从寄存器结构体中随机选取寄存器名，并配上表达式引导符号 & 
 static void append_reg_from_white(struct buf_state *s) {
   if (s->rem <= 0) return;
@@ -120,7 +125,8 @@ static void append_reg_from_white(struct buf_state *s) {
   append_fmt(s, "$%s", r);
 }
 
-  // 操作数选择
+
+// ============================== 操作数选择 =======================================//
 static void gen_operand(struct buf_state *s) {
   if (s->rem <= 0) return;
   int idx = pool_pick(&op_pool);                  // 返回值为随机从操作数池中选择对应的操作数类型标志  
@@ -134,25 +140,14 @@ static void gen_operand(struct buf_state *s) {
     default: append_fmt(s, "%d", rand() % 1000);
       break;
   }
-    /*
-  const char *kind = op_pool.items[idx].name;     // 根据返回值参数选定操作数池中的对应的字符串名称
-  if (strcmp(kind, "dec") == 0) {
-    append_fmt(s, "%d", rand() % 1000);
-  } else if (strcmp(kind, "hex") == 0) {
-    append_fmt(s, "0x%X", rand() % 0x10000);
-  } else if (strcmp(kind, "reg") == 0) {
-    append_reg_from_white(s);
-  } else {
-    append_fmt(s, "%d", rand() % 1000);
-  }
-    */
 }
-  
+
+// ============================= 递归生成表达式 ====================================//
 static void gen_expr_rec(struct buf_state *s, int depth) {
   if (s->rem <= 0) return;
   // 每一层的操作数原子至少为1；
   int atoms = 1 + rand() % cfg.max_atoms;
-  // depth>0 则存在递归嵌套，将当前第一个操作数以45%的概率成为子表达式，即用()括起来。
+  // depth>0 则存在递归嵌套，将当前第一个操作数以设定的概率成为子表达式，即用()括起来。
   if (depth > 0 && (rand() % 100) < FIRST_PROBABILITY) {
     append_str(s, "(");
     gen_expr_rec(s, depth - 1);
@@ -160,10 +155,12 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
   } else {
     gen_operand(s);
   }
+  // 循环生成后续的“运算符 + 操作数”
   for (int i = 1; i < atoms && s->rem > 0; i++) {
     int opi = pool_pick(&al_pool);
     const char *op = al_pool.items[opi].name;
     append_fmt(s, " %s ", op);
+  // 第二个操作数生成逻辑与第一个操作数生成逻辑一致
     if (depth > 0 && (rand() % 100) < SECOND_PROBABILITY) {
       append_str(s, "(");
       gen_expr_rec(s, depth - 1);
@@ -174,6 +171,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
   }
 }
 
+// ============================ 递归表达式 写入缓冲区 ==============================//
 static void gen_rand_expr() {
   char tmp[4096];             // 缓冲区
   int i = 5;
@@ -183,9 +181,9 @@ static void gen_rand_expr() {
     // 将tmp ,rem 用局部结构体定义，传递结构体指针来利用或者改变其对应值。
     gen_expr_rec(&s, cfg.max_depth);
     if (s.rem <= 0 || tmp[0] == '\0') continue;
-   
+     
+    // 检查每个表达式的括号对是否合理
     int bal = 0, ok = 1;
-    // 循环条件下：字符串指针，作为结束条件时：*q 表示当*q='\0'结束
     for (char *q = tmp; *q; q++) {
       if (*q == '(') {
         bal++;

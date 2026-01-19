@@ -1,5 +1,113 @@
 [
   {
+    "name": "patsubst",
+    "header": "makefile",
+    "prototype": "$(patsubst <pattern>, <replacement>, <text>)\n全称： Pattern Substitute\n含义： 按照指定的模式，替换列表中的单词。",
+    "description": "\n1. 核心机制：神奇的 %\n理解这个函数的关键在于理解 % (通配符)：\n查找时 (<pattern>)： % 代表任意长度的非空字符串（我们称之为“茎 (stem)”）。\n替换时 (<replacement>)： % 会把刚才匹配到的那个“茎”原封不动地放回去。\n2. 最经典的用法：从 .c 生成 .o\n这是 patsubst 90% 的使用场景。假设你有源文件列表，想生成对应的 .o 文件列表。",
+    "return_val": "SRCS := a.c b.c c.c\n\n# 写法 A：使用函数（标准）\nOBJS_A := $(patsubst %.c, %.o, $(SRCS))\n\n# 写法 B：使用替换引用（简写，强烈推荐）\nOBJS_B := $(SRCS:%.c=%.o)\n\n# OBJS_A 和 OBJS_B 是完全一样的",
+    "example": "# 1. 原始文本 (通常来自 wildcard)\nSRCS := main.c utils.c src/config.c\n\n# 2. 执行 patsubst\n# 意思是：找到以 .c 结尾的单词，把 .c 换成 .o，前面的部分保持不变\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\n# 3. 结果\n# OBJS 的值变为: main.o utils.o src/config.o",
+    "modes": []
+  },
+  {
+    "name": "wildcard",
+    "header": "makefile",
+    "prototype": "\n语法： $(wildcard <pattern>)\n",
+    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
+    "return_val": "",
+    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
+    "modes": []
+  },
+  {
+    "name": "wildcard",
+    "header": "maekfile",
+    "prototype": "\n语法： $(wildcard <pattern>)\n",
+    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
+    "return_val": "",
+    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
+    "modes": []
+  },
+  {
+    "name": "shell",
+    "header": "makefile",
+    "prototype": "\n语法： $(shell <command>)",
+    "description": "含义： 这是 Makefile 与系统交互的桥梁。它会调用系统的 Shell 运行命令，并将标准输出作为函数的返回值。",
+    "return_val": "",
+    "example": "# 获取当前日期\nBUILD_DATE := $(shell date +%Y-%m-%d)\n# 获取所有的 .c 文件（类似于 wildcard，但使用系统的 find 命令）\nALL_C_FILES := $(shell find . -name \"*.c\")",
+    "modes": []
+  },
+  {
+    "name": "notdir",
+    "header": "makefile",
+    "prototype": "\n语法： $(notdir <names...>)",
+    "description": "含义： 去掉路径信息，只保留文件名部分。",
+    "return_val": "",
+    "example": "FILES := src/gui/window.c /usr/include/stdio.h\nNAMES := $(notdir $(FILES))\n# 结果 NAMES 为: window.c stdio.h",
+    "modes": []
+  },
+  {
+    "name": "dir",
+    "header": "makefile",
+    "prototype": "\n语法： $(dir <names...>)",
+    "description": "含义： 从文件路径中提取出目录部分（包括最后的斜杠 /）。",
+    "return_val": "注意：如果没有路径，它会返回 ./。\n用途： 当你需要获取源文件所在的文件夹路径时使用。",
+    "example": "FILES := src/gui/window.c main.c\nDIRS := $(dir $(FILES))\n# 结果 DIRS 为: src/gui/ ./",
+    "modes": []
+  },
+  {
+    "name": "basename",
+    "header": "makefile",
+    "prototype": "语法： $(basename <names...>)",
+    "description": "注意（易混淆点）： Makefile 中的 basename 和 Linux Shell 命令中的 basename 含义不同！\nShell 中： basename /usr/bin/sort -> sort (去掉路径，留文件名)\nMakefile 中： basename src/foo.c -> src/foo (去掉文件扩展名，保留路径)\n功能： 取出文件名中最后一个点 . 之前的所有内容。",
+    "return_val": "",
+    "example": "FILES := src/main.c include/header.h\nBASE := $(basename $(FILES))\n# 结果 BASE 为: src/main include/header",
+    "modes": []
+  },
+  {
+    "name": "suffprefix",
+    "header": "makefile",
+    "prototype": "$(addsuffix <suffix>, <names...>)",
+    "description": "为列表中的每一个变量添加一个后缀",
+    "return_val": "",
+    "example": "NAMES := main app\n# 给名字加上 .o 后缀\nOBJS := $(addsuffix .o, $(NAMES))\n# 结果 OBJS 为: main.o app.o",
+    "modes": []
+  },
+  {
+    "name": "addprefix",
+    "header": "makefile",
+    "prototype": "$(addprefix <prefix>, <names...>)",
+    "description": "为列表中每一个变量添加前缀\n",
+    "return_val": "",
+    "example": "FILES := main.c utils.c\n# 给所有文件加上 src/ 目录前缀\nSRC_FILES := $(addprefix src/, $(FILES))\n# 结果 SRC_FILES 为: src/main.c src/utils.c",
+    "modes": []
+  },
+  {
+    "name": "abspath",
+    "header": "makefile",
+    "prototype": "$(abspath <names...>)",
+    "description": "功能： 它会自动处理路径中的 . (当前目录) 和 .. (上级目录)，将其解析为最终的物理路径。",
+    "return_val": "",
+    "example": "PATH_VAR := src/../include/config.h\nREAL_PATH := $(abspath $(PATH_VAR))\n# 假设当前目录是 /home/user/project\n# 结果 REAL_PATH 会是: /home/user/project/include/config.h",
+    "modes": []
+  },
+  {
+    "name": "oprator",
+    "header": "makefile",
+    "prototype": "makefile 脚本常用运算符",
+    "description": "=        递归赋值，可迭代\n:=       立即赋值，所见即所得。当makefile进行时刻所见所得的赋值意义\n?=        条件赋值，一版作为默认赋值，后遇条件则重新赋值\n+=        追加赋值符号",
+    "return_val": "",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "$+",
+    "header": "makefile",
+    "prototype": "makefile脚本常用自动变量\n",
+    "description": "$@   构建的目标文件\n$<    构建目标文件的第一个依赖文件\n$^    构建目标文件的所有依赖文件\n$*    去除目标文件的后缀\n$?    代表比目标文件更新的最新所有依赖文件",
+    "return_val": "",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "abspath",
     "header": "happy.h",
     "prototype": "$(abspath name) \n\n$(realpath name) \n",
@@ -30,7 +138,7 @@
     "name": "setenv",
     "header": "stdlib.h",
     "prototype": "int setenv(const char *name, const char *value, int overwrite);",
-    "description": "功能：\n设置或新增环境变量 name 的值为 value。若变量已存在，overwrite 控制是否覆盖。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空字符串）。\nvalue：要设置的字符串值（不能为 NULL）。\noverwrite：非零表示即使已存在也覆盖，0 表示存在则不修改。",
+    "description": "功能：\n设置或新增进程临时环境变量 name 的值为 value。若变量已存在，overwrite 控制是否覆盖。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空字符串）。\nvalue：要设置的字符串值（不能为 NULL）。\noverwrite：非零表示即使已存在也覆盖，0 表示存在则不修改。",
     "return_val": "成功：返回 0。\n失败：返回 -1，并设置 errno（如 EINVAL 名称非法、ENOMEM 内存不足）\n注意\nsetenv 会复制 name/value 到内部环境存储，调用方可释放传入字符串。\n比 putenv 更安全、更易用（不转移内存所有权）。",
     "example": "",
     "modes": []
@@ -515,6 +623,105 @@
     "description": "功能：\n比较字符串 s1 和 s2 的最多前 n 个字符，用于在限制长度下判断字符串的字典序关系（常用于前缀比较或避免越界读取）。\n\n参数：\n- s1：指向第一个待比较的 C 字符串（以 '\\0' 终止）。\n- s2：指向第二个待比较的 C 字符串。\n- n：要比较的最大字符数（类型为 size_t）。函数最多比较 n 个字符；若在比较过程中遇到 '\\0' 则停止。\n\n实现细节：\n- 比较是按每字节的无符号值（即按 (unsigned char)）进行，而不是按 locale 或多字节字符集语义。\n- 当 n == 0 时，函数不会访问 s1/s2 的内容，直接返回 0。\n- 该函数适用于比较前缀或在不确定字符串是否以 '\\0' 结尾但知道最大长度时使用；若需要比较固定长度的内存块（可能包含 '\\0'），请使用 memcmp。\n- 注意避免传入 NULL 指针（未定义行为），并确保在比较的长度范围内内存是可读的。",
     "return_val": "返回一个整数：\n- < 0：在比较的范围内 s1 小于 s2（按无符号字节值比较）。\n- 0：在最多 n 个字符内两字符串相等（包括 n == 0 时）。\n- > 0：在比较的范围内 s1 大于 s2。",
     "example": "/* strncmp 示例 */\n#include <stdio.h>\n#include <string.h>\n\nint main() {\n  if (strncmp(\"hello\", \"heaven\", 2) == 0) {\n    printf(\"前两个字符相等\\n\");\n  }\n  if (strncmp(\"abc\", \"abd\", 3) < 0) {\n    printf(\"\"abc\" < \"abd\" 在前 3 个字符比较下\n\");\n  }\n  return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "fputc",
+    "header": "stdio.h",
+    "prototype": "int fputc(int c, FILE *stream);",
+    "description": "向指定的文件流写入一个字符（以 unsigned char 转换后写入）。通常用于逐字符输出或实现基于字符的输出抽象。",
+    "return_val": "成功时返回写入的字符（作为无符号字符转换后的 int）；出错时返回 EOF 并设置 errno。",
+    "example": "FILE *f = fopen(\"out.txt\", \"w\");\nif (f) { fputc('A', f); fclose(f); }",
+    "modes": []
+  },
+  {
+    "name": "fgetc",
+    "header": "stdio.h",
+    "prototype": "int fgetc(FILE *stream);",
+    "description": "从指定的文件流读取下一个字符，返回该字符（作为无符号字符转换后的 int）。常用于逐字符读取文本或二进制数据。",
+    "return_val": "成功时返回读取的字符（0..UCHAR_MAX 作为 int）；到达 EOF 或出错时返回 EOF（可结合 feof/ferror 判断原因）。",
+    "example": "FILE *f = fopen(\"in.txt\", \"r\");\nint c; while ((c = fgetc(f)) != EOF) putchar(c); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fread",
+    "header": "stdio.h",
+    "prototype": "size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);",
+    "description": "从文件流中读取最多 nmemb 个元素，每个元素 size 字节，存入 ptr 指向的缓冲区。常用于高效块读取二进制数据。",
+    "return_val": "返回成功读取的元素数量（不是字节数）。若返回值 < nmemb，可通过 feof/ferror 判定是到达 EOF 还是发生错误。",
+    "example": "FILE *f = fopen(\"data.bin\", \"rb\");\nchar buf[256]; size_t n = fread(buf, 1, sizeof(buf), f); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fwrite",
+    "header": "stdio.h",
+    "prototype": "size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);",
+    "description": "向文件流写入 nmemb 个元素，每个元素 size 字节，数据来自 ptr 指向的缓冲区。常用于一次性写入块数据以提高效率。",
+    "return_val": "返回成功写入的元素数量（不是字节数）。若返回值 < nmemb，表示发生写入错误（可检查 ferror）。",
+    "example": "FILE *f = fopen(\"out.bin\", \"wb\");\nconst char buf[] = \"hello\"; fwrite(buf, 1, sizeof(buf), f); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fseek",
+    "header": "stdio.h",
+    "prototype": "int fseek(FILE *stream, long offset, int whence);",
+    "description": "在文件流中移动文件位置指针。whence 可取 SEEK_SET（文件开头）、SEEK_CUR（当前偏移）或 SEEK_END（文件末尾）。用于随机访问文件内容。",
+    "return_val": "成功返回 0；出错返回非 0（通常 -1）并设置 errno。",
+    "example": "fseek(f, 0, SEEK_END); long len = ftell(f); fseek(f, 0, SEEK_SET);",
+    "modes": []
+  },
+  {
+    "name": "ftell",
+    "header": "stdio.h",
+    "prototype": "long ftell(FILE *stream);",
+    "description": "返回文件流当前的文件位置（以字节为单位，相对于文件开头）。常与 fseek 配合用于测量或保存当前位置。",
+    "return_val": "成功返回当前偏移（long）；出错返回 -1L 并设置 errno。",
+    "example": "long pos = ftell(f);",
+    "modes": []
+  },
+  {
+    "name": "fgetpos",
+    "header": "stdio.h",
+    "prototype": "int fgetpos(FILE *stream, fpos_t *pos);",
+    "description": "将当前文件位置保存到由 pos 指向的对象（fpos_t）。可用于保存并在后续使用 fsetpos 恢复位置（能够保存更多实现相关状态）。",
+    "return_val": "成功返回 0；出错返回非 0 并设置 errno。",
+    "example": "fpos_t p; fgetpos(f, &p); /* ... */ fsetpos(f, &p);",
+    "modes": []
+  },
+  {
+    "name": "fsetpos",
+    "header": "stdio.h",
+    "prototype": "int fsetpos(FILE *stream, const fpos_t *pos);",
+    "description": "将文件位置设置为先前由 fgetpos 存储的 pos。用于可靠恢复复杂流位置（实现可包含额外状态）。",
+    "return_val": "成功返回 0；出错返回非 0 并设置 errno。",
+    "example": "fpos_t p; fgetpos(f, &p); /* ... */ fsetpos(f, &p);",
+    "modes": []
+  },
+  {
+    "name": "feof",
+    "header": "stdio.h",
+    "prototype": "int feof(FILE *stream);",
+    "description": "测试给定文件流的 EOF 指示器是否已被设置（例如上一次读取达到了文件结尾）。通常与 fread/fgetc 的返回值配合使用以判定是否到达 EOF。",
+    "return_val": "若 EOF 指示器被设置返回非 0，否则返回 0。",
+    "example": "if (feof(f)) printf(\"reached EOF\n\");",
+    "modes": []
+  },
+  {
+    "name": "ferror",
+    "header": "stdio.h",
+    "prototype": "int ferror(FILE *stream);",
+    "description": "测试给定文件流的错误指示器是否被设置（例如读取或写入出错）。在检测到错误后，可使用 clearerr 清除错误状态并继续操作。",
+    "return_val": "若错误指示器被设置返回非 0，否则返回 0。",
+    "example": "if (ferror(f)) { perror(\"IO error\"); clearerr(f); }",
+    "modes": []
+  },
+  {
+    "name": "fflush",
+    "header": "stdio.h",
+    "prototype": "int fflush(FILE *stream);",
+    "description": "刷新指定流的输出缓冲区，将缓冲数据写入底层文件或设备。若 stream 为 NULL，则刷新所有输出流。常用于确保重要输出立即落盘或发送。",
+    "return_val": "成功返回 0；出错返回 EOF 并设置 errno。",
+    "example": "fprintf(stdout, \"status\"); fflush(stdout);",
     "modes": []
   }
 ]
