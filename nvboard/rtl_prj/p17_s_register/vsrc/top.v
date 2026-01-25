@@ -10,14 +10,11 @@ module top (
     output                        data_out;
 
 
-    wire                    clk,rst,data_s; 
-    wire              [2:0]           mode;
-    wire              [7:0]        data_in;
+    wire                    clk,rst,data_s;  // BTNC BTNU
+    wire              [2:0]           mode;  // sw[2 :0]
+    wire              [7:0]        data_in;  // sw[15:8]
     reg               [7:0]       data_out;
     reg               [31:0]         count;
-/* verilator lint_off UNUSEDPARAM */
-    localparam CLEAR      = 3'b000;  // 清0
-/* verilator lint_on UNUSEDPARAM */
 
     localparam LOAD       = 3'b001;  // 置数
     localparam SRL        = 3'b010;  // 逻辑右移
@@ -33,10 +30,8 @@ always @(posedge clk or posedge rst ) begin
     if (rst)
         data_out <= 8'h0;
     else begin
-        // led_check_clk <= ~led_check_clk;
         if(count == 0) begin
         case (mode)
-            // CLEAR     : data_out <= 8'b0                     ;
             LOAD      : data_out <= data_in                     ;
             SRL       : data_out <= {1'b0,data_out[7:1]}        ;
             SLL       : data_out <= {data_out[6:0],1'b0}        ;

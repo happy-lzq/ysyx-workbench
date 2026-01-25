@@ -1,10 +1,10 @@
 module lfsr (
      clk
     ,rst
+    ,stop
     ,dout
-
 );
-    input                       clk,rst;
+    input                       clk,rst,stop;
     output      reg [7:0]          dout;
     wire                       feedback;
 
@@ -13,7 +13,10 @@ module lfsr (
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             dout <= 8'b0000_0001;
-        end else 
+        end else if (stop) begin
+            dout <= dout; 
+        end else begin
             dout <= {feedback,dout[7:1]};
+        end
     end
 endmodule

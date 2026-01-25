@@ -1,47 +1,39 @@
 module vga_top(
-     clk
-    ,sys_rst_n
-    ,hsync
-    ,vsync
-    ,rgb
+    input clk,
+    input rst,
+    output VGA_HSYNC,
+    output VGA_VSYNC,
+    output VGA_BLANK_N,
+    output [7:0] VGA_R,
+    output [7:0] VGA_G,
+    output [7:0] VGA_B
 );
-    input   wire   clk, sys_rst_n;
-    output  wire  hsync,vsync;
-    output  wire  [15:0]  rgb;
+wire [9:0] h_addr;
+    /* verilator lint_off UNUSEDSIGNAL */
+wire [9:0] v_addr;
+    /* verilator lint_on UNUSEDSIGNAL */
+wire [23:0] vga_data;
 
-    wire        vga_clk,rst_n;
-    wire    [9:0] pix_x,pix_y;
-    wire    [15:0]   pix_data;
-    wire               locked;
-    
-    assign rst_n = sys_rst_n && locked;
-
-    pll_div2 u_pll_div2 (
-	 .areset   (!sys_rst_n)
-    ,.inclk0   (clk)
-    ,.c0       (vga_clk)
-    ,.locked   (locked)
-);
-
-
-
-    vga_pic u_vga_pic (
-    .vga_clk     (vga_clk),
-    .rst_n       (rst_n),
-    .pix_x       (pix_x),
-    .pix_y       (pix_y),
-    .pix_data    (pix_data)
+vga_ctrl my_vga_ctrl(
+    .pclk(clk),
+    .reset(rst),
+    .vga_data(vga_data),
+    .h_addr(h_addr),
+    .v_addr(v_addr),
+    .hsync(VGA_HSYNC),
+    .vsync(VGA_VSYNC),
+    .valid(VGA_BLANK_N),
+    .vga_r(VGA_R),
+    .vga_g(VGA_G),
+    .vga_b(VGA_B)
 );
 
-    vga_ctrl u_vga_ctrl (
-    .vga_clk     (vga_clk),
-    .rst_n       (rst_n),
-    .pix_data    (pix_data),
-    .pix_x       (pix_x),
-    .pix_y       (pix_y),
-    .hsync       (hsync),
-    .vsync       (vsync),
-    .rgb         (rgb)
+
+vga_pic U_vga_pic(
+    .h_addr(h_addr),
+    .v_addr(v_addr[8:0]),
+    .vga_data(vga_data)
 );
+
 
 endmodule

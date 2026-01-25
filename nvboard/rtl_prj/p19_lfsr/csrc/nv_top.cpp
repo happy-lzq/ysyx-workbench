@@ -5,6 +5,11 @@
 static Vtop *dut= new Vtop;
 void nvboard_bind_all_pins(Vtop *top);
 
+static void single_cycle() {
+  dut->clk = 0; dut->eval();
+  dut->clk = 1; dut->eval();
+}
+
 int main(){
     printf("=== nvboard simulation start===");
     nvboard_bind_all_pins(dut);
@@ -12,8 +17,8 @@ int main(){
     while (1)
     {
         nvboard_update();
-        //single_cycle();
-        dut->eval();    }
+        single_cycle();
+    }
     
     dut->final();
     delete dut;

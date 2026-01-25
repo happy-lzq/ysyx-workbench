@@ -1,6 +1,7 @@
 module top (
      clk
     ,rst
+    ,stop
     ,dout
     ,seg0
     ,seg1
@@ -11,13 +12,16 @@ module top (
     ,seg6
     ,seg7
 );
-    input                                                   clk,rst;
+    input                                              stop,clk,rst;
     output          [7:0]   seg0,seg1,seg2,seg3,seg4,seg5,seg6,seg7;
     output  wire    [7:0]                                      dout;
 
+    reg [24:0] count;
+    always @(posedge clk) count <= count + 1;
 
     lfsr u_lfsr (
-    .clk        (clk),
+    .stop       (stop),
+    .clk        (count[20]),
     .rst        (rst),
     .dout       (dout)
 );

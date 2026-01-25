@@ -22,9 +22,9 @@
 # Verilator 在 --build 阶段会把这些转为实际的编译/链接命令
 # ===============================================
 
-PROJ        ?= prj_2         
+PROJ        ?= prj_2
 TOP_MODULE  ?= test
-MODE		?= nv                  
+MODE		?= nv
 
 # ================= 目录布局 =================#
 PROJ_DIR    := $(PROJ)
@@ -41,6 +41,7 @@ CSRC_FILE   := $(wildcard $(CSRC_DIR)/$(MODE)_*.cpp)
 
 # 绑定约束文件
 NXDC_FILES  := $(PROJ_DIR)/constr/$(TOP_MODULE).nxdc
+SDC_FILES   := $(PROJ_DIR)/constr/$(TOP_MODULE).sdc
 SRC_AUTO_BIND := $(OBJ_DIR)/auto_bind.cpp
 
 # 目标文件
@@ -103,6 +104,15 @@ $(YOSYS_REPORT): $(VSRC_FILE) | $(OBJ_DIR)
 				stat -width;\
 				check" > $@
 	@echo "yosys 综合报名已生成：$@"
+
+# yosys 时序报告
+yosys-sta: $(VSRC_FILE) | $(OBJ_DIR)
+	@echo "yosys 时序报告..."
+	make -C /home/l/yosys-sta sta \
+		DESIGN=$(TOP_MODULE) SDC_FILE=$(abspath $(SDC_FILES)) \
+		RTL_FILES="$(abspath $(VSRC_FILE))"
+	@echo "yosys 综合报名已生成：$@"
+
 # yosys 综合网表
 $(YOSYS_NETLIST): $(VSRC_FILE) | $(OBJ_DIR)
 	@echo "yosys 综合网表..."
@@ -122,7 +132,7 @@ $(YOSYS_SCHEMATIC): $(VSRC_FILE) | $(YOSYS_DIR)
 					read_verilog $(VSRC_FILE);\
 					synth;\
 					show -format svg -prefix $(OBJ_DIR)/$$MODULE $$MODULE" 2>/dev/null && \
-					echo "成功" || "失败";\
+					echo "成功" || echo "失败";\
 	done
 	@echo "电路图生成完成"
 
