@@ -16,11 +16,11 @@
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
+#include <common.h>
 #include <isa.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <memory/vaddr.h> 
-#include <common.h>
 #include <cpu/cpu.h>
 //========================= Token 类型 ====================================//
 enum {
