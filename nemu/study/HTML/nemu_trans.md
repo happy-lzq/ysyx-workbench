@@ -446,22 +446,36 @@ C. 核心监测逻辑
 
 在 `execute()` 循环中，监视点检测的时序与状态管理至关重要。设计不当会导致模拟器状态异常。
 
-*   **陷阱现象**：若将 `check_watchpoint` 放置在指令执行函数 `exec_once` 之后（例如集成在 `trace_and_difftest` 中），且未进行状态守护，可能引发严重 Bug。
-    *   **场景**：程序执行到最后一条 `ebreak` 或非法指令（导致 `isa_exec_once` 将状态设为 `NEMU_END` 或 `NEMU_ABORT`）。
-    *   **冲突**：此时 `nemu_state` 应为终止状态。但若在此刻调用 `check_watchpoint`（例如 `$pc` 更新导致触发），且代码无条件执行 `nemu_state.state = NEMU_STOP`，则**终止状态被暂停状态覆盖**。
-    *   **后果**：用户看到程序只是“暂停”，输入 `c` 继续后，模拟器尝试执行下一条（通常是未定义或非法的）内存数据，最终导致无效指令异常（Invalid Opcode）或反汇编断言失败崩溃。
+*   **错误流程案例分析（ebreak 与 Watchpoint 冲突）**：
+    若将 `check_watchpoint` 无条件放置在指令执行函数之后（例如集成在 `trace_and_difftest` 中），会引发严重 bug。以下是实际发生的错误流程：
+    1.  **执行 ebreak**：程序执行到 `ebreak` 指令，模拟器调用 `set_nemu_state(NEMU_END, ...)` 将状态设为 `NEMU_END`。
+    2.  **错误点（无条件的 Watchpoint 检查）**：紧接着执行 `check_watchpoint`。因为指令执行完毕后 PC 发生了变化（指向了下一条指令），监视点表达式（如 `$pc`）值改变从而触发。
+    3.  **状态被篡改**：监视点触发逻辑强制执行 `nemu_state.state = NEMU_STOP`。此时 CPU 状态从正确的“已经结束”（`NEMU_END`）变成了错误的“暂时停下”（`NEMU_STOP`）。
+    4.  **灾难发生**：
+        *   用户看到的是 `Watchpoint triggered`，误以为只是普通暂停。
+        *   用户输入 `c` (Continue)。
+        *   `cpu_exec()` 检查当前状态是 `NEMU_STOP`，于是将其重置为 `NEMU_RUNNING` 并开始执行下一轮循环。
+        *   CPU 尝试执行 `ebreak` 后面那条本不该执行的内存数据（通常是未初始化的垃圾值，如 `0xdeadbe00`），最终导致 Invalid Opcode 崩溃。
 
-*   **解决方案 1：严格的时序控制**
-    *   将 `check_watchpoint` 放在循环首部（指令执行前）。这样即使触发暂停，还没执行导致终止的指令；下次继续时才会执行并正常终止。
-
-*   **解决方案 2：状态守护与条件执行（当前采用）**
-    *   若放在 `exec_once` 后（如为了监测指令执行后的副作用），必须增加**状态守护**，仅允许在运行状态下暂停：
+*   **解决方案一：状态守护（Post-check + Guard，当前采用）**
+    保留在指令执行后（Post-check）检测的习惯，但必须增加**状态守护**逻辑。
+    *   **原理**：利用 `nemu_state.state` 作为优先级判断依据。仅当当前仍处于 `NEMU_RUNNING` 状态时，才允许监视点将其改为 `NEMU_STOP`。若指令（如 `ebreak`）已将状态设为 `NEMU_END`，则监视点逻辑应“避让”，绝不覆盖终止状态。
+    *   **代码实现**：
         ```c
         // 仅当当前仍处于运行状态时，才允许监视点将其改为暂停
         if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
             nemu_state.state = NEMU_STOP;
         }
         ```
+
+*   **解决方案二：时序调整（Pre-check 机制）**
+    将监视点检查逻辑从指令执行**后**移至指令执行**前**。
+    *   **原理**：
+        1.  在每一轮指令执行循环的**开头**（`execute` 之前）先检查监视点。
+        2.  **若触发**：状态设为 `STOP` 并跳出，此时尚未执行当前指令。用户查看上下文后输入 `c`，继续执行该条指令。
+        3.  **若未触发**：执行指令（如 `ebreak`）。
+        4.  **自然退出**：`ebreak` 执行后将状态设为 `END`。主循环检测到状态非 `RUNNING`，直接结束整个模拟过程。
+    *   **核心优势**：从物理时序上杜绝了冲突。因为 `ebreak` 执行并设置 `END` 后，模拟器直接退出，根本没有机会再次运行 `check_watchpoint` 去覆盖状态。
 
 **5. 性能优化：Kconfig 可配置集成**
 
