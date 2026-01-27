@@ -39,6 +39,11 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+
+      if (check_watchpoint(&used_list) > 0){
+      nemu_state.state = NEMU_STOP;
+       // break;
+    }
 }
 
 static void exec_once(Decode *s, vaddr_t pc) {
@@ -75,18 +80,10 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
-    if (check_watchpoint(&used_list) > 0){
-      nemu_state.state = NEMU_STOP;
-      break;
-    }
+
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-    /* 监视点放置最佳位置，由于当前非法指令的中断并未实现，则利用循环前检查监视点，一旦发现立即进行return /break 处理来防止迭代后续代码功能
-      if (check_watchpoint(&used_list) > 0){
-        nemu_state.state = NEMU_STOP;
-      }
-    */
     if (nemu_state.state != NEMU_RUNNING) break;
 
     IFDEF(CONFIG_DEVICE, device_update());
