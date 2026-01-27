@@ -442,21 +442,63 @@ C. 核心监测逻辑
 - 求值联动：`check_watchpoint()` 是 `expr()` 的高频调用者，表达式求值的正确性直接决定监视点的可靠性。 
 - 执行流反馈：SDB 的 `c/si` 命令调用 `cpu_exec()`；`cpu_exec()` 在每次执行单条指令或若干条指令后（由实现决定）调用 `check_watchpoint()`；若检测到触发，则切换到调试器交互态。
 
-**4. 状态机优先级设计逻辑（针对 ebreak 冲突）**
+**4. 状态机优先级设计逻辑（关键陷阱分析）**
 
-在 `execute()` 循环中，监视点检测的时序决定了拦截优先级。设计采用 “首部检测值变，尾部检查状态” 的策略：
+在 `execute()` 循环中，监视点检测的时序与状态管理至关重要。设计不当会导致模拟器状态异常。
 
-- 当循环到达某条指令（如 `ebreak`）时，`exec_once()` 完成指令执行并可能把 `nemu_state` 置为 `NEMU_END`；循环尾部看到该状态并终止；通常 `check_watchpoint()` 安放在循环首部或每条指令后，但若放在尾部，`NEMU_END` 的优先级会先被处理，从而保证程序自然结束或异常（如 `NEMU_ABORT`）不会被监视点暂停覆盖。
+*   **陷阱现象**：若将 `check_watchpoint` 放置在指令执行函数 `exec_once` 之后（例如集成在 `trace_and_difftest` 中），且未进行状态守护，可能引发严重 Bug。
+    *   **场景**：程序执行到最后一条 `ebreak` 或非法指令（导致 `isa_exec_once` 将状态设为 `NEMU_END` 或 `NEMU_ABORT`）。
+    *   **冲突**：此时 `nemu_state` 应为终止状态。但若在此刻调用 `check_watchpoint`（例如 `$pc` 更新导致触发），且代码无条件执行 `nemu_state.state = NEMU_STOP`，则**终止状态被暂停状态覆盖**。
+    *   **后果**：用户看到程序只是“暂停”，输入 `c` 继续后，模拟器尝试执行下一条（通常是未定义或非法的）内存数据，最终导致无效指令异常（Invalid Opcode）或反汇编断言失败崩溃。
 
-结论：该设计确保系统保留对模拟器终止或异常的语义优先级，不会因为监视点触发而错误地阻止正常结束或报错处理。
+*   **解决方案 1：严格的时序控制**
+    *   将 `check_watchpoint` 放在循环首部（指令执行前）。这样即使触发暂停，还没执行导致终止的指令；下次继续时才会执行并正常终止。
 
-**5. 实现细节与谨慎点**
+*   **解决方案 2：状态守护与条件执行（当前采用）**
+    *   若放在 `exec_once` 后（如为了监测指令执行后的副作用），必须增加**状态守护**，仅允许在运行状态下暂停：
+        ```c
+        // 仅当当前仍处于运行状态时，才允许监视点将其改为暂停
+        if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
+            nemu_state.state = NEMU_STOP;
+        }
+        ```
 
-- `expr()` 接口要求传入可写字符串（`char *`），因此 `wp->exp` 必须保存表达式快照，不能持有对调用者缓冲区的引用。 
+**5. 性能优化：Kconfig 可配置集成**
+
+监视点检查（尤其是复杂的表达式求值）会显著降低模拟器运行速度。为了在不调试时获得最佳性能，我们引入 `Kconfig` 开关来控制该功能的编译。
+
+1.  **添加配置项 (`nemu/Kconfig`)**:
+    ```kconfig
+    config WATCHPOINT
+        bool "Enable watchpoint check"
+        default y
+        help
+          Enable checking watchpoints...
+    ```
+
+2.  **代码集成 (`src/cpu/cpu-exec.c`)**:
+    使用 `#ifdef` 宏在编译阶段剔除检查逻辑。
+    ```c
+    static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+        // ... (itrace, difftest) ...
+
+    #ifdef CONFIG_WATCHPOINT
+        // 内联检查逻辑，避免函数调用开销，并包含状态守护
+        if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
+            nemu_state.state = NEMU_STOP;
+        }
+    #endif
+    }
+    ```
+    这样，通过 `make menuconfig` 即可随时开启或关闭监视点功能，兼顾灵活性与性能。
+
+**6. 实现细节与谨慎点**
+
+- `expr()` 接口要求传入可写字符串（`char *`），因此 `wp->exp` 必须保存表达式快照，不能持有对调用者缓冲区的引用。
 - 打印格式：对 `word_t` 的输出请使用项目提供的格式化宏（如 `FMT_WORD`）以兼容 RV32/RV64。
 - 并发：NEMU 常为单线程，若未来并行需要，应在访问 `used_list`/`free_list` 时加锁。
 
-**6. 测试与验证建议**
+**7. 测试与验证建议**
 
 - 单元测试：对 `new_wp`/`unlink_wp`/`fetch_wp` 做边界测试（池耗尽、删除头、删除尾、唯一节点删除）。
 - 集成测试：设置若干监视点（寄存器/内存），运行若干条指令，验证 `check_watchpoint()` 能在寄存器/内存变化时正确触发并打印快照。
