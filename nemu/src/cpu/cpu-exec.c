@@ -39,13 +39,13 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-// 仅作分析，不要修改：
-if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
+  
+#ifdef CONFIG_WATCHPOINT
+  if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
     nemu_state.state = NEMU_STOP;
-}
-}
-
-static void exec_once(Decode *s, vaddr_t pc) {
+  }
+#endif
+}static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
   s->snpc = pc;
   isa_exec_once(s);   // 由具体的指令集实现
@@ -79,6 +79,7 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
+    //放在当前位置最好，不需要考虑NEMU状态中途问题，先检查监视点情况
     // if (check_watchpoint(&used_list) > 0){
     //   nemu_state.state = NEMU_STOP;
     //   break;
@@ -86,13 +87,7 @@ static void execute(uint64_t n) {
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
-    /* 监视点放置最佳位置，由于当前非法指令的中断并未实现，则利用循环前检查监视点，一旦发现立即进行return /break 处理来防止迭代后续代码功能
-      if (check_watchpoint(&used_list) > 0){
-        nemu_state.state = NEMU_STOP;
-      }
-    */
     if (nemu_state.state != NEMU_RUNNING) break;
-
     IFDEF(CONFIG_DEVICE, device_update());
   }
 }

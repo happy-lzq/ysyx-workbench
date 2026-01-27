@@ -151,4 +151,12 @@ config SDCARD_IMG_PATH
 endif # HAS_SDCARD
 endif
 
+config WATCHPOINT
+  bool "Enable watchpoint check"
+  default y
+  help
+    Enable checking watchpoints during program execution within the
+    trace_and_difftest loop. If disabled, watchpoints will be ignored
+    to improve simulation performance.
+    
 endif # DEVICE
