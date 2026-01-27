@@ -14,14 +14,14 @@
 ***************************************************************************************/
 #include <cpu/cpu.h>
 #include "sdb.h"
-#include <isa.h>   /* <- 新增：为使用全局 cpu 变量和 CPU_state 声明 */
+#include <isa.h>   
 
 // ======================== 数据定义与初始化 =========================================//
 
-WP wp_pool[NR_WP] = {};
-ChangedInfo changed_list[NR_WP] = {};
-wp_list used_list = {NULL, NULL, 0};
-wp_list free_list = {NULL, NULL, 0};
+WP wp_pool[NR_WP] = {};                // 链表结构体数组，用于构建两个链表
+ChangedInfo changed_list[NR_WP] = {};  // 监视点结构体数组
+wp_list used_list = {NULL, NULL, 0};   // 使用链表
+wp_list free_list = {NULL, NULL, 0};   // 空闲链表
 
 void init_wp_pool() {
   int i;
