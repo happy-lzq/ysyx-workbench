@@ -279,8 +279,8 @@ void sdb_mainloop() {
   // 用户交互循环处理输入指令模式
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
-    /* extract the first token as the command */
-    char *cmd = strtok(str, " ");
+    char *cmd = strtok(str, " ");    
+  // 获取readline缓冲区的命令，并且进行切片获取命令行指令函数以及对应的指令内容  
     if (cmd == NULL) { continue; }
     char *args = cmd + strlen(cmd) + 1;
     if (args >= str_end) {
@@ -295,7 +295,7 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        // readline 输入与cmd_table匹配后回调函数执行，进入对应指令操作
+        // cmd指针与cmd_table匹配后回调函数执行，进入对应指令操作
         if (cmd_table[i].handler(args) < 0) { 
           return ;
         }

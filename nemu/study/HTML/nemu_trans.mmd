@@ -1,0 +1,97 @@
+flowchart TD
+    %% ===============================================================================
+    %% 1. 系统启动与初始化 (System Start & Initialization)
+    %% ===============================================================================
+    Start([nemu-main<br/>程序入口]) --> InitMonitor[init_monitor<br/>初始化管理]
+
+    subgraph InitPhase ["初始化阶段 "]
+
+        direction TB
+        InitMonitor --> LoadImg[load_img<br/>加载镜像文件]
+        InitMonitor --> InitSDB[init_sdb<br/>初始化简易调试器]
+        
+        subgraph SDB_Init ["SDB 核心初始化"]
+            InitSDB --> InitRegex[init_regex<br/>① 初始化表达式正则库]
+            InitSDB --> InitWP[init_wp_pool<br/>② 初始化监视点池]
+        end
+    end
+
+    %% 连接到循环
+    InitPhase -- "初始化完成" --> SDBMainLoop
+
+    %% ===============================================================================
+    %% 2. 主交互循环 (Main Interface Loop)
+    %% ===============================================================================
+    subgraph LoopLogic ["sdb_mainloop 循环逻辑"]
+        direction TB
+        SDBMainLoop(sdb_mainloop<br/>NEMU调试交互循环) --> ReadInput[rl_gets<br/>① 获取命令行输入]
+        ReadInput --> ParseCmd[strtok 解析<br/>② 切片获取 cmd 与 args]
+        ParseCmd --> MatchCmd{strcmp<br/>③ 匹配 cmd_table?}
+        
+        MatchCmd -- "匹配失败" --> PrintErr[⑤ 打印未知命令错误]
+        PrintErr --> SDBMainLoop
+
+        MatchCmd -- "匹配成功" --> ExecHandler[④ 执行对应的回调函数]
+        
+        ExecHandler --> CheckRet{"检查返回值"}
+        CheckRet -- "return >= 0" --> SDBMainLoop
+        CheckRet -- "return < 0 (cmd_q)" --> ExitSystem([退出 NEMU])
+    end
+
+    %% 连接到功能模块
+    ExecHandler --> CmdTable
+
+    %% ===============================================================================
+    %% 3. 命令处理与分发 (Command Dispatcher)
+    %% ===============================================================================
+    subgraph HandlerLogic ["命令处理函数集 (src/monitor/sdb/sdb.c)"]
+        direction TB
+        CmdTable["cmd_table[]<br/>用户交互命令表"]
+        
+        CmdTable --> CmdHelp[① help<br/>打印命令帮助信息]
+        CmdTable --> CmdC[② c<br/>连续运行程序]
+        CmdTable --> CmdQ[③ q<br/>退出 NEMU]
+        CmdTable --> CmdSi[④ si<br/>单步执行指令]
+        CmdTable --> CmdInfo[⑤ info<br/>打印状态]
+        CmdTable --> CmdX[⑥ x<br/>扫描内存]
+        CmdTable --> CmdP[⑦ p<br/>表达式求值]
+        CmdTable --> CmdW[⑧ w<br/>添加监视点]
+        CmdTable --> CmdD[⑨ d<br/>删除监视点]
+    end
+
+    %% ===============================================================================
+    %% 4. 核心功能实现 (Core Implementation)
+    %% ===============================================================================
+    subgraph CoreFunc ["底层核心支持"]
+        direction TB
+        
+        CmdC --> CPU_Exec_Inf[cpu_exec -1<br/>持续运行]
+        CmdSi --> CPU_Exec_N[cpu_exec N<br/>执行 N 步]
+        
+        CmdInfo -- "r" --> RegDisplay[isa_reg_display<br/>打印寄存器]
+        CmdInfo -- "w" --> WPList[watchpoint_list<br/>打印监视点信息]
+        
+        CmdX --> VaddrRead[vaddr_read<br/>读取虚拟内存]
+        CmdP --> ExprEval[expr<br/>表达式求值核心]
+        CmdW --> NewWP[new_wp<br/>申请监视点节点]
+        CmdD --> UnlinkWP[unlink_wp<br/>释放监视点节点]
+        
+        CPU_Exec_Inf & CPU_Exec_N --> ExecuteOnce[execute -> exec_once<br/>取指/译码/执行/更新PC]
+    end
+
+    %% 样式定义 - 使用极浅的背景色并强制深色文字
+    classDef init fill:#e3f2fd,stroke:#1565c0,stroke-width:1px,color:#000;
+    classDef loop fill:#fff3e0,stroke:#ef6c00,stroke-width:1px,color:#000;
+    classDef cmd fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px,color:#000;
+    classDef core fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px,color:#000;
+
+    %% 应用样式
+    class InitPhase,SDB_Init init;
+    class LoopLogic loop;
+    class HandlerLogic cmd;
+    class CoreFunc core;
+    
+    class Start,InitMonitor,LoadImg,InitSDB,InitRegex,InitWP init;
+    class SDBMainLoop,ReadInput,ParseCmd,MatchCmd,PrintErr,ExecHandler,CheckRet,ExitSystem loop;
+    class CmdTable,CmdHelp,CmdC,CmdQ,CmdSi,CmdInfo,CmdX,CmdP,CmdW,CmdD cmd;
+    class CPU_Exec_Inf,CPU_Exec_N,RegDisplay,WPList,VaddrRead,ExprEval,NewWP,UnlinkWP,ExecuteOnce core;
