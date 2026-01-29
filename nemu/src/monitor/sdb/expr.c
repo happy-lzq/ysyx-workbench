@@ -269,7 +269,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
     // 括号对检查合法，且表达式两边都存在括号，去除括号再次递归
       return eval(l+1,r-1,success,hex);
   } else {        
-    // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
+    // 单目运算符处理                                                                      
       int op = find_main_operator(l,r,success);
       if (tokens[op].type == TK_DEREF ||tokens[op].type == TK_NEG || tokens[op].type == TK_PLUS){
         switch (tokens[op].type){
@@ -286,7 +286,7 @@ word_t eval(int l,int r,bool *success,bool *hex){
           return num_plus;
           break;
         }} else {
-      // 利用*success 检查主运算符
+      // 双目运算符处理
       if (*success == false) return 0;
       val1 = eval(l,op-1,success,hex);
       val2 = eval(op+1,r,success,hex);
@@ -306,10 +306,12 @@ word_t eval(int l,int r,bool *success,bool *hex){
           } else return (word_t) (val1 && val2 );
         return (word_t) (val1 || val2 );
         case '/':
-          if (val2 == 0) {
-            printf("division by zero\n");
-            *success = false;
-            return 0;
+          if (tokens[op].type != TK_AND || tokens[op].type != TK_OR){
+            if (val2 == 0) {
+              printf("division by zero\n");
+              *success = false;
+              return 0;
+            }
           }
           return val1 / val2;
         // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
