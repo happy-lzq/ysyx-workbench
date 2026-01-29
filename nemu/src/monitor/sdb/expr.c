@@ -25,7 +25,7 @@
 //========================= Token 类型 ====================================//
 enum {
   TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG,
-  TK_NOTEQ,TK_AND, TK_OR,TK_VAR,TK_DEREF
+  TK_NOTEQ,TK_AND, TK_OR,TK_VAR,TK_DEREF,TK_NEG,TK_PLUS
 
   /* TODO: Add more token types */
 
@@ -150,7 +150,7 @@ static bool make_token(char *e) {
 
   for ( i = 0; i < nr_token; i++){
  // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
-    if (tokens[i].type == '*' || tokens[i].type == '-'){
+    if (tokens[i].type == '*' || tokens[i].type == '-'|| tokens[i].type == '+'){
       if (i ==0                       ||
         tokens[i-1].type == '+'       ||
         tokens[i-1].type == '-'       ||
@@ -161,7 +161,18 @@ static bool make_token(char *e) {
         tokens[i-1].type == TK_AND    ||
         tokens[i-1].type == TK_OR     ||
         tokens[i-1].type == '('       ){
-          tokens[i].type = TK_DEREF;    
+        switch (tokens[i].type){
+        case '*':
+          tokens[i].type = TK_DEREF;
+          break;
+        case '-':
+          tokens[i].type = TK_NEG;
+          break;
+        case '+':
+          tokens[i].type = TK_PLUS;
+          break;
+        default: break;
+        }
       }
     }
   }
@@ -193,7 +204,7 @@ int get_priortiy(int type){
      小数值 = 高优先级（先计算）；大数值 = 低优先级（更可能被选为主运算符）。
   */
   switch (type){
-    case TK_DEREF : return 1;   /* 一元解引用/一元运算：最高优先级（最强绑定） */
+    case TK_DEREF : case TK_NEG: case TK_PLUS :return 1;   /* 一元解引用/一元运算：最高优先级（最强绑定） */
     case   '*'    : return 4;
     case   '/'    : return 4;
     case   '+'    : return 5;
@@ -257,10 +268,21 @@ word_t eval(int l,int r,bool *success,bool *hex){
   } else {        
     // 表达式非整体被括号，进入找主运算符拆分两个表达式重复递归                                                                          
       int op = find_main_operator(l,r,success);
-      if (tokens[op].type == TK_DEREF){
-        word_t addr = eval(l+1,r,success,hex);
-        return vaddr_read(addr,sizeof(int));
-      } else {
+      if (tokens[op].type == TK_DEREF ||tokens[op].type == TK_NEG || tokens[op].type == TK_PLUS){
+        switch (tokens[op].type){
+        case TK_DEREF:
+          word_t addr = eval(l+1,r,success,hex);
+          return vaddr_read(addr,sizeof(int));
+          break;
+        case TK_NEG :
+          word_t num_neg = eval(l+1,r,success,hex);
+          return -num_neg;
+          break;
+        default :
+          word_t num_plus = eval(l+1,r,success,hex);
+          return num_plus;
+          break;
+        }} else {
       // 利用*success 检查主运算符
       if (*success == false) return 0;
       val1 = eval(l,op-1,success,hex);
@@ -285,7 +307,8 @@ word_t eval(int l,int r,bool *success,bool *hex){
       }
      }
     }
-  }
+  }  
+
 
 word_t expr(char *e, bool *success, bool *hex) {
   if (!make_token(e)) {
