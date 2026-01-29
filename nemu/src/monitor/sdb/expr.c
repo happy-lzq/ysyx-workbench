@@ -160,6 +160,8 @@ static bool make_token(char *e) {
         tokens[i-1].type == TK_NOTEQ  ||
         tokens[i-1].type == TK_AND    ||
         tokens[i-1].type == TK_OR     ||
+        tokens[i-1].type == TK_NEG    ||
+        tokens[i-1].type == TK_PLUS   ||
         tokens[i-1].type == '('       ){
         switch (tokens[i].type){
         case '*':
