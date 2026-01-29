@@ -45,7 +45,6 @@ static struct rule {
   {"&&",TK_AND},                          // 逻辑与     264 
   {"\\|\\|",TK_OR},                       // 逻辑或     265 
   {"[a-zA-Z_][a-zA-Z0-9_]*",TK_VAR},      // 变量名     266
-  
   {"\\<",'<'},                            // 小于       60
   {"\\>",'>'},                            // 大于       62
   {"\\+", '+'},                            // 加号       43
@@ -297,8 +296,15 @@ word_t eval(int l,int r,bool *success,bool *hex){
         case '*': return val1 * val2;
         case TK_EQ    : return (word_t) (val1 == val2 ? 1 : 0); 
         case TK_NOTEQ : return (word_t) (val1 != val2 ? 1 : 0); 
-        case TK_AND   : return (word_t) (val1 && val2 );
-        case TK_OR    : return (word_t) (val1 || val2 );
+        case TK_AND   : 
+          if (val1==0 || val2==0){
+            return 0;
+          } else return (word_t) (val1 && val2 );
+        case TK_OR    : 
+          if (val1==1 || val2==1){
+            return 1;
+          } else return (word_t) (val1 && val2 );
+        return (word_t) (val1 || val2 );
         case '/':
           if (val2 == 0) {
             printf("division by zero\n");
