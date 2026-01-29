@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <memory/vaddr.h> 
 #include <cpu/cpu.h>
+
 //========================= Token 类型 ====================================//
 enum {
   TK_NOTYPE = 256, TK_EQ,TK_16NUM,TK_NUM,TK_REG,
@@ -30,7 +31,6 @@ enum {
   /* TODO: Add more token types */
 
 };
-
 //===========Token 结构体数组定义 正则规则（每个数组元素由结构体成员构成） ==================//
 static struct rule {
   const char *regex;
