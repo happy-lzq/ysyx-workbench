@@ -150,7 +150,7 @@ static bool make_token(char *e) {
 
   for ( i = 0; i < nr_token; i++){
  // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
-    if (tokens[i].type == '*'){
+    if (tokens[i].type == '*' || tokens[i].type == '-'){
       if (i ==0                       ||
         tokens[i-1].type == '+'       ||
         tokens[i-1].type == '-'       ||
