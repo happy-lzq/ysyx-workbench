@@ -39,6 +39,7 @@ typedef struct wp_list
   WP* tail;
   int size;
 }wp_list;
+
 extern ChangedInfo changed_list[NR_WP];
 extern wp_list used_list;
 extern wp_list free_list;

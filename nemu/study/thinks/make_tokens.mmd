@@ -1,0 +1,22 @@
+flowchart TD
+    Start([开始 make_token]) --> Init[重置 nr_token, position=0]
+    Init --> CheckEnd{"e[position] == '\\0'?"}
+    
+    CheckEnd -- 是 --> Success([返回 true])
+    CheckEnd -- 否 --> IterateRules["遍历 rules[i]"]
+    
+    IterateRules --> Match{"匹配 regexec &<br/>从头开始?"}
+    
+    Match -- "否, 试下一个i" --> NextRule{"还有规则?"}
+    NextRule -- 是 --> IterateRules
+    NextRule -- 否 --> Error([报错: 无匹配规则])
+    
+    Match -- "是, 匹配成功" --> GetLen[计算长度 substr_len]
+    GetLen --> Advance[position += substr_len]
+    Advance --> CheckType{"Token类型?"}
+    
+    CheckType -- "空格 (TK_NOTYPE)" --> BreakLoop[跳出规则循环]
+    CheckType -- 其他 --> Record["存入 tokens 数组<br/>nr_token++"]
+    Record --> BreakLoop
+    
+    BreakLoop --> CheckEnd

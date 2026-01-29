@@ -109,19 +109,18 @@ static bool make_token(char *e) {
   int position = 0;
   int i;
   regmatch_t pmatch;      // regmatch_t 结构体用于存放正则表达式匹配结果的位置，so: 目标字符串中的起始位置，eo:目标字符串的结束位置
-  nr_token = 0;           // 用于记录有效token_type
+  nr_token = 0;           
   // e[position] 实际上等价于 *(e + position)，即“从 e 指向的起始地址偏移 position 个字节后的内容”。
   while (e[position] != '\0') {
-    /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
-      // 对于 pmatch 而言：目标字符串为：e+position，利用position，substr_len，rm_eo 来记录每一个正确匹配的token的长度
-// 用 rules[] 结构体数组里定义的每个正则表达式规则，依次去匹配输入字符串的当前位置，只要某个规则能从当前位置开始匹配成功，就把它当作一个 token
+  // re[i]编译好的正则规则对象，与传入指针e指向的命令行内容逐个字符串叠加匹配正则对象，构成一个表达式tokens,并放入结构体数组pmatch
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 && pmatch.rm_so == 0) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
         Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
             i, rules[i].regex, position, substr_len, substr_len, substr_start);
         position += substr_len;
+
 // 用正则表达式识别出一个 token（记号），将其信息（类型和内容）保存到 tokens 数组里，并维护 nr_token 计数。
         switch (rules[i].token_type) {
           case TK_NOTYPE: // 空格
@@ -148,6 +147,7 @@ static bool make_token(char *e) {
       return false;
     }
   }
+
   for ( i = 0; i < nr_token; i++){
  // 如果 * 出现在表达式开头，或出现在另一个运算符之后，或出现在左括号 ( 之后，则它是 unary deref（TK_DEREF）。
     if (tokens[i].type == '*'){
@@ -315,12 +315,14 @@ int eval_input_file(const char *path) {
 
   char line[4096];
   while (fgets(line, sizeof(line), f)) {
-    /* strip newline & leading/trailing whitespace */
     char *p = line;
-    while (*p && (*p == ' ' || *p == '\t')) p++; /* skip leading ws */
+// 跳过行首空白符与制表符
+    while (*p && (*p == ' ' || *p == '\t')) p++; 
     char *end = p + strlen(p);
+// 截断行尾换行符，回车符，制表符
     while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t')) end--;
     *end = '\0';
+// 处理全行空格，导致p指向行尾结束符直接跳过
     if (*p == '\0') continue;
 
     bool success = false;

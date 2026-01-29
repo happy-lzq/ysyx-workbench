@@ -1,0 +1,56 @@
+flowchart TD
+    Start([开始 eval l, r]) --> Compare{比较 l 与 r}
+
+    %% 分支 1: 异常情况
+    Compare -- "l > r" --> Error([报错: Bad Expression])
+    
+    %% 分支 2: 单一 Token
+    Compare -- "l == r" --> SingleToken{判断 Token 类型}
+    SingleToken -- TK_16NUM --> ParseHex[解析 16 进制数]
+    SingleToken -- TK_NUM --> ParseDec[解析 10 进制数]
+    SingleToken -- TK_REG --> ParseReg[解析寄存器值]
+    SingleToken -- 其他 --> ErrorType([报错: 未知类型])
+    
+    ParseHex --> ReturnVal([返回数值])
+    ParseDec --> ReturnVal
+    ParseReg --> ReturnVal
+
+    %% 分支 3: 复合表达式 (关键路径)
+    Compare -- "l < r" --> CheckP{check_parentheses<br/>检查括号?}
+    
+    %% 3.1 括号完全包裹
+    CheckP -- "是 (整体被括号包裹)" --> RemoveP["去除括号<br/>eval(l+1, r-1)"]
+    RemoveP --> Start
+    
+    %% 3.2 需拆分计算
+    CheckP -- "否 (需拆分)" --> FindOp["find_main_operator(l, r)<br/>寻找主运算符"]
+    FindOp --> CheckOp{找到 op?}
+    
+    CheckOp -- 否 --> ErrorOp([报错: No main operator])
+    
+    CheckOp -- "是 (op)" --> SplitCalc["分而治之 (Divide & Conquer)"]
+    
+    subgraph RecursiveStep [递归计算子表达式]
+        direction TB
+        SplitCalc --> CheckDeref{"Token[op] 是解引用 TK_DEREF?"}
+        
+        CheckDeref -- "是 (一元 * )" --> CalcDeref["eval(l+1, r)<br/>vaddr_read(addr)"]
+        
+        CheckDeref -- "否 (二元运算)" --> CalcLeft["val1 = eval(l, op-1)"]
+        CalcLeft --> CalcRight["val2 = eval(op+1, r)"]
+        CalcRight --> DoMath["switch(op.type)<br/>执行算术运算 (+ - * / ...)"]
+    end
+    
+    DoMath --> ReturnResult([返回计算结果])
+    CalcDeref --> ReturnResult
+
+    %% 样式调整
+    classDef plain fill:#fff,stroke:#333,stroke-width:1px,color:#000;
+    classDef cond fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000;
+    classDef error fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000;
+    classDef logic fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000;
+
+    class Start,ReturnVal,ReturnResult plain;
+    class Compare,SingleToken,CheckP,CheckOp,CheckDeref cond;
+    class Error,ErrorType,ErrorOp error;
+    class ParseHex,ParseDec,ParseReg,RemoveP,FindOp,SplitCalc,CalcLeft,CalcRight,DoMath logic;
