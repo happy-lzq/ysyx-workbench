@@ -173,7 +173,7 @@ static void gen_expr_rec(struct buf_state *s, int depth) {
 
 // ============================ 递归表达式 写入缓冲区 ==============================//
 static void gen_rand_expr() {
-  char tmp[4096];             // 缓冲区
+  char tmp[4096];             // 最大表达式缓冲区
   int i = 5;
   while (i--) {
     tmp[0] = '\0';
@@ -183,7 +183,7 @@ static void gen_rand_expr() {
     if (s.rem <= 0 || tmp[0] == '\0') continue;
      
     // 检查每个表达式的括号对是否合理
-    int bal = 0, ok = 1;
+    int bal = 0, ok = 1;  // bal 左括号数，ok 括号对真确与错误标志
     for (char *q = tmp; *q; q++) {
       if (*q == '(') {
         bal++;
@@ -195,7 +195,7 @@ static void gen_rand_expr() {
         bal--; 
         }
     }
-    if (!ok || bal != 0) continue;
+    if (!ok || bal != 0) continue;  // ok=0，bal=0,括号对真确：表达式写入buf；否则消耗重新生成的机会
     snprintf(buf, sizeof(buf), "%s", tmp);
     return;
   }
