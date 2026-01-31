@@ -383,7 +383,7 @@ int eval_input_file(const char *path) {
       // 这是一个新表达式
       bool success = false;
       bool ishex = false;
-      printf("Eval: %s ... ", p);
+      printf("Eval: %s ... \n", p);
       
       last_result = expr(p, &success, &ishex);
       last_success = success;
