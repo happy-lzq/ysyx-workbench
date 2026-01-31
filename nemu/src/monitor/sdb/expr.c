@@ -326,20 +326,19 @@ word_t expr(char *e, bool *success, bool *hex) {
   if (!make_token(e)) {
     *success = false;
     return 0;
-  } else{
-  // 检查表达式是否存在16进制token
-    for (int i = 0; i < nr_token; i++){
-      if (tokens[i].type == TK_16NUM){
-        *hex = true;
-        break;
-      } 
-    } 
-    *success = true;
-  // 进入表达式求值递归求值处理之前，先将success设置为ture,eval求值过程中如果有错误提前返回false 结束当前求值
-  return eval(0,nr_token-1,success,hex);
-  }
-}
+  } 
 
+  // 检查表达式是否存在16进制token
+  for (int i = 0; i < nr_token; i++){
+    if (tokens[i].type == TK_16NUM){
+      *hex = true;
+      break;
+    } 
+  }
+  
+  *success = true;
+  return eval(0, nr_token - 1, success, hex);
+}
 
 int eval_input_file(const char *path) {
   if (!path) return -1;
@@ -349,28 +348,62 @@ int eval_input_file(const char *path) {
   }
 
   char line[4096];
+  word_t last_result = 0;
+  bool last_success = false;
+  bool last_ishex = false;
+
   while (fgets(line, sizeof(line), f)) {
     char *p = line;
-// 跳过行首空白符与制表符
+    // 跳过行首空白符与制表符
     while (*p && (*p == ' ' || *p == '\t')) p++; 
     char *end = p + strlen(p);
-// 截断行尾换行符，回车符，制表符
+    // 截断行尾换行符，回车符，制表符
     while (end > p && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t')) end--;
     *end = '\0';
-// 处理全行空格，导致p指向行尾结束符直接跳过
+    // 处理全行空格，导致p指向行尾结束符直接跳过
     if (*p == '\0') continue;
 
-    bool success = false;
-    bool ishex = false;
-    printf("\ncurrent expr: %s\n", p);
-    word_t val = expr(p, &success, &ishex);
-    if (success) {
-      if (ishex) printf("value: 0x%08" PRIx32 "\n", (uint32_t)val);
-      else printf("value: %u\n", (unsigned)val);
+    // 检查是否为验证行 (value <expected_value>)
+    if (strncmp(p, "value ", 6) == 0) {
+      char *val_str = p + 6;
+      word_t correct_val = strtoull(val_str, NULL, 0); // 自动识别 10进制或0x开头16进制
+      
+      if (last_success) {
+        if (last_result == correct_val) {
+          if (last_ishex) {
+            printf("验证正确：✅ (Got: 0x%lx, Expected: 0x%lx)\n", (unsigned long)last_result, (unsigned long)correct_val);
+          } else {
+            printf("验证正确：✅ (Got: %lu, Expected: %lu)\n", (unsigned long)last_result, (unsigned long)correct_val);
+          }
+        } else {
+          // 使用红色打印错误，引起注意
+          if (last_ishex) {
+            printf("\033[1;31m验证错误：❌ (Expression calculated: 0x%lx, Expected: 0x%lx)\033[0m\n", (unsigned long)last_result, (unsigned long)correct_val);
+          } else {
+            printf("\033[1;31m验证错误：❌ (Expression calculated: %lu, Expected: %lu)\033[0m\n", (unsigned long)last_result, (unsigned long)correct_val);
+          }
+        }
+      } else {
+        printf("无法验证：上一条表达式计算失败\n");
+      }
+      // 重置状态
+      last_success = false; 
     } else {
-      printf("Bad expression: %s\n", p);
+      // 这是一个新表达式
+      bool success = false;
+      bool ishex = false;
+      printf("Eval: %s \n", p);
+      
+      last_result = expr(p, &success, &ishex);
+      last_success = success;
+      last_ishex = ishex;
+      
+      if (!success) {
+        printf("Bad expression\n");
+      }
+      // 不立即打印 value，等待下一行验证
     }
   }
   fclose(f);
-  return 0 ;
+  return 0;
 }
