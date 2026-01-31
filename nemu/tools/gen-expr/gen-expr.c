@@ -61,7 +61,7 @@ static int regs_name_n = sizeof(regs_name)/sizeof(regs_name[0]);
 static complexity_t cfg = {.max_depth = 3,.max_atoms = 4,.max_length = 4096};
 // 操作数以及权重
 static weight_item_t op_items[]= {
-  {"dec",50},{"hex",30},{"reg",20}
+  {"dec",50},{"hex",30},{"reg",0}
 };
 static weight_pool_t op_pool = {op_items,sizeof(op_items)/sizeof(op_items[0]),0};
 // 操作符以及权重
@@ -230,9 +230,51 @@ int main() {
   }
   for (int i = 0; i < gen_n; i ++) {
     gen_rand_expr();
+
+    // 构造临时 C 程序利用 GCC 求值
+    char code_buf[65536 + 1024]; 
+    char *code_path = "/tmp/.code.c";
+    char *exec_path = "/tmp/.code";
+
+    // 根据表达式是否包含 0x 决定输出格式
+    const char *print_fmt = (strstr(buf, "0x") || strstr(buf, "0X")) ? "0x%lx" : "%lu";
+
+    // 构造完整 C 代码
+    sprintf(code_buf, 
+      "#include <stdio.h>\n"
+      "int main() { "
+      "  unsigned long result = %s; "
+      "  printf(\"%s\", result); "
+      "  return 0; "
+      "}", buf, print_fmt);
+
+    // 写入 C 源文件
+    FILE *fp = fopen(code_path, "w");
+    if (!fp) continue; 
+    fprintf(fp, "%s", code_buf);
+    fclose(fp);
+
+    // 调用 GCC 编译
+    int ret = system("gcc /tmp/.code.c -o /tmp/.code 2> /dev/null");
+    if (ret != 0) continue; 
+
+    // 运行并捕获输出
+    fp = popen(exec_path, "r");
+    if (!fp) continue;
+
+    char result[128];
+    if (fscanf(fp, "%127s", result) != 1) {
+        pclose(fp);
+        continue;
+    }
+    pclose(fp);
+
+    // 格式化输出到 input 文件
     fprintf(out, "%s\n", buf);
+    fprintf(out, "value %s\n", result);
+
     if (i < 10) {
-      fprintf(stderr, "%s\n", buf);
+      printf("Verified: %s = %s\n", buf, result);
     }
   }
 
