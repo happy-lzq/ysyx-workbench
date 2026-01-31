@@ -350,6 +350,7 @@ int eval_input_file(const char *path) {
   char line[4096];
   word_t last_result = 0;
   bool last_success = false;
+  bool last_ishex = false;
 
   while (fgets(line, sizeof(line), f)) {
     char *p = line;
@@ -369,10 +370,18 @@ int eval_input_file(const char *path) {
       
       if (last_success) {
         if (last_result == correct_val) {
-          printf("验证正确：✅ (Got: %lu, Expected: %lu)\n", (unsigned long)last_result, (unsigned long)correct_val);
+          if (last_ishex) {
+            printf("验证正确：✅ (Got: 0x%lx, Expected: 0x%lx)\n", (unsigned long)last_result, (unsigned long)correct_val);
+          } else {
+            printf("验证正确：✅ (Got: %lu, Expected: %lu)\n", (unsigned long)last_result, (unsigned long)correct_val);
+          }
         } else {
           // 使用红色打印错误，引起注意
-          printf("\033[1;31m验证错误：❌ (Expression calculated: %lu, Expected: %lu)\033[0m\n", (unsigned long)last_result, (unsigned long)correct_val);
+          if (last_ishex) {
+            printf("\033[1;31m验证错误：❌ (Expression calculated: 0x%lx, Expected: 0x%lx)\033[0m\n", (unsigned long)last_result, (unsigned long)correct_val);
+          } else {
+            printf("\033[1;31m验证错误：❌ (Expression calculated: %lu, Expected: %lu)\033[0m\n", (unsigned long)last_result, (unsigned long)correct_val);
+          }
         }
       } else {
         printf("无法验证：上一条表达式计算失败\n");
@@ -383,10 +392,11 @@ int eval_input_file(const char *path) {
       // 这是一个新表达式
       bool success = false;
       bool ishex = false;
-      printf("Eval: %s ... \n", p);
+      printf("Eval: %s ... ", p);
       
       last_result = expr(p, &success, &ishex);
       last_success = success;
+      last_ishex = ishex;
       
       if (!success) {
         printf("Bad expression\n");
