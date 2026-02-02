@@ -151,6 +151,14 @@ config ITRACE_COND
   string "Only trace instructions when the condition is true"
   default "true"
 
+config WATCHPOINT
+  bool "Enable watchpoint check"
+  default y
+  help
+    Enable checking watchpoints during program execution within the
+    trace_and_difftest loop. If disabled, watchpoints will be ignored
+    to improve simulation performance.
+
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

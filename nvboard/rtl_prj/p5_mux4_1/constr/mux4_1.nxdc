@@ -1,0 +1,4 @@
+top=mux4_1
+a (BTNL, BTNU, BTND, BTNR)
+s (SW1, SW0)
+y LD0

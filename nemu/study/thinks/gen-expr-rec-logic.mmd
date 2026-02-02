@@ -1,0 +1,46 @@
+flowchart TB
+    classDef logic fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    classDef action fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000
+    classDef control fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+
+    subgraph RecursionFunction ["递归函数: gen_expr_rec(buf, depth)"]
+        direction TB
+        
+        Start("函数入口"):::logic
+        Guard{"缓冲区空间不足?"}:::control
+        Start --> Guard
+        Guard -- Yes --> Return("Return"):::action
+        Guard -- No --> CalcWidth["决定当前层宽度<br/>atoms = 1 + rand() % max"]:::action
+
+        subgraph LeftOperand ["1- 生成左操作数 (Left Value)"]
+            direction TB
+            CalcWidth --> CheckRec1{"Decision 1<br/>depth > 0 &&<br/>rand < FIRST_PROB?"}:::control
+            
+            CheckRec1 -- "Yes (递归)" --> Rec1A["Append '('"]:::action
+            Rec1A --> CallRec1["递归调用<br/>gen_expr_rec(depth-1)"]:::logic
+            CallRec1 --> Rec1B["Append ')'"]:::action
+            
+            CheckRec1 -- "No (基准)" --> Base1["生成终结符<br/>gen_operand()"]:::action
+        end
+
+        subgraph OperatorLoop ["2- 扩展操作符链 (Operator Extension)"]
+            direction TB
+            LoopCond{"Loop: 还有剩余 atoms?"}:::control
+            
+            Rec1B & Base1 --> LoopCond
+            
+            LoopCond -- "No" --> Return
+            LoopCond -- "Yes" --> GenOp["生成的随机操作符<br/>(+, -, *, / ...)"]:::action
+            
+            GenOp --> CheckRec2{"Decision 2<br/>depth > 0 &&<br/>rand < SECOND_PROB?"}:::control
+            
+            CheckRec2 -- "Yes (递归)" --> Rec2A["Append '('"]:::action
+            Rec2A --> CallRec2["递归调用<br/>gen_expr_rec(depth-1)"]:::logic
+            CallRec2 --> Rec2B["Append ')'"]:::action
+            
+            CheckRec2 -- "No (基准)" --> Base2["生成终结符<br/>gen_operand()"]:::action
+            
+            Rec2B & Base2 --> LoopNext["i++"]:::logic
+            LoopNext --> LoopCond
+        end
+    end

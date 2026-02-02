@@ -1,0 +1,53 @@
+flowchart TB
+    classDef struct fill:#bbdefb,stroke:#0d47a1,stroke-width:2px,color:#000;
+    classDef logic fill:#e1bee7,stroke:#4a148c,stroke-width:2px,color:#000;
+    classDef memory fill:#fff176,stroke:#f57f17,stroke-width:2px,color:#000;
+
+    subgraph DataStructures ["1. 核心数据结构 (Data Structures)"]
+        direction TB
+        Complexity["config: complexity_t<br/>--------------<br/>max_depth = 3<br/>max_atoms = 4<br/>max_length = 4096"]:::struct
+        
+        ItemDef["Struct: weight_item_t<br/>--------------<br/>const char *name<br/>int weight"]:::struct
+        
+        PoolDef["Struct: weight_pool_t<br/>--------------<br/>weight_item_t *items<br/>int n (数组长度)<br/>int total (权重总和)"]:::struct
+        
+        ItemDef -- "聚合" --> PoolDef
+    end
+
+    subgraph Initialization ["2. 初始化与概率空间构建 (pool_prepare)"]
+        direction TB
+        InitStart["main() 开始"] --> InitFunc["pool_prepare(&op_pool)"]
+        
+        subgraph MemoryLayout ["内存实例: op_items"]
+            Item0["Index 0: {dec, 50}"]:::memory
+            Item1["Index 1: {hex, 30}"]:::memory
+            Item2["Index 2: {reg, 20}"]:::memory
+        end
+        
+        InitFunc -- "遍历" --> CalcSum["sum += weight"]
+        CalcSum -- "累加完成" --> SetTotal["p->total = 100<br/>(50+30+20)"]
+        
+        SetTotal -.-> RangeDesc["构建概率区间:<br/>[0, 50) -> dec<br/>[50, 80) -> hex<br/>[80, 100) -> reg"]:::logic
+    end
+
+    subgraph SelectionAlgo ["3. 加权随机选择算法 (pool_pick)"]
+        direction TB
+        PickStart["gen_operand() 调用 pool_pick"] --> GenRand["随机数 r = rand() % p->total<br/>(假设 r=65)"]
+        
+        LoopStart["遍历 items (i=0)"] --> Acc1["acc += items[0].weight (50)"]
+        Acc1 --> Check1{"r < acc? (65 < 50)"}
+        Check1 -- "No" --> LoopNext1["i++ (i=1)"]
+        
+        LoopNext1 --> Acc2["acc += items[1].weight (50+30=80)"]
+        Acc2 --> Check2{"r < acc? (65 < 80)"}
+        
+        Check2 -- "Yes (命中!)" --> ReturnIdx["返回索引 i=1"]
+        
+        ReturnIdx --> Dispatch["Switch(i)"]
+        Dispatch -- "0" --> GenDec["生成十进制"]
+        Dispatch -- "1" --> GenHex["生成十六进制"]
+        Dispatch -- "2" --> GenReg["生成寄存器"]
+    end
+
+    PoolDef -.-> InitFunc
+    RangeDesc -.-> GenRand

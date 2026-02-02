@@ -14,6 +14,13 @@
 ***************************************************************************************/
 
 #include <common.h>
+#include <stdio.h>
+#include <inttypes.h>
+#include "monitor/sdb/sdb.h" 
+
+/* forward declare expr from sdb */
+extern word_t expr(char *e, bool *success, bool *hex);
+#include <stdbool.h>
 
 void init_monitor(int, char *[]);
 void am_init_monitor();

@@ -1,0 +1,74 @@
+flowchart TB
+    %% ================= 主结构区域 =================
+    subgraph DataStruct [数据结构与资源池]
+        direction TB
+        Pool["wp_pool 数组 (总容量 NR_WP=32)"]
+        FreeList["free_list: 空闲链表"]
+        UsedList["used_list: 活跃链表"]
+        ChangeArr["ChangedInfo: 变动记录缓冲"]
+        
+        Pool --> FreeList
+        Pool --> UsedList
+    end
+
+    %% ================= 核心操作区域 =================
+    subgraph Operations [链表核心操作]
+        direction TB
+        Fetch["fetch_wp: 从 free_list 获取节点"]
+        Insert["inserttail: 通用尾插法<br/>(插入 Used 或 Free)"]
+        InitNode["unlink_init: 节点数据初始化/清空"]
+    end
+
+    %% ================= 业务命令区域 (优化布局) =================
+    subgraph Commands [SDB 业务命令逻辑]
+        direction LR
+        
+        %% 并行命令组
+        subgraph CmdGroup [ ]
+            direction TB
+            CmdNew(new_wp: 新增)
+            CmdDel(unlink_wp: 删除)
+            CmdInfo(info w: 查看)
+        end
+
+        %% 操作流
+        CmdNew -->|expr成功| GetFree[fetch_wp] --> Fill[写入数据] --> Add[inserttail Used]
+        CmdDel -->|遍历Used| Remove[摘除节点] --> Reset[unlink_init] --> Recyle[inserttail Free]
+        CmdInfo -->|遍历| Traverse[打印列表]
+        
+        %% 关联底层 (改为隐藏虚线或简化)
+        % GetFree -.-> Fetch
+        % Add -.-> Insert
+        % Recyle -.-> Insert
+    end
+
+    %% ================= 运行时检测区域 =================
+    subgraph Runtime [CPU 运行时检测]
+        direction TB
+        ExecLoop["cpu_exec: 指令执行循环"] --> TraceFunc["trace_and_difftest"]
+        
+        TraceFunc --> CheckWP{"check_watchpoint<br/>遍历 used_list"}
+        
+        CheckWP -- 需逐个计算 --> EvalNew["expr: 计算当前新值"]
+        EvalNew --> Diff{新值 != 旧值?}
+        
+        Diff -- Yes: 值变 --> Record["记录至 ChangedInfo"]
+        Record --> UpdateOld["更新 wp->old_val = new_val"]
+        UpdateOld --> Count["变动计数++"]
+        
+        Diff -- No: 无变 --> NextNode["下一个节点"]
+        
+        Count -- "计数 > 0" --> StopCPU["设置 state = NEMU_STOP"]
+        StopCPU --> PrintLog["打印变动信息"]
+    end
+
+    %% ================= 样式美化 =================
+    classDef pool fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000;
+    classDef op fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000;
+    classDef cmd fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000;
+    classDef run fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000;
+
+    class Pool,FreeList,UsedList,ChangeArr pool;
+    class Fetch,Insert,InitNode op;
+    class CmdNew,CmdDel,CmdInfo,GetFree,Fill,Add,Remove,Reset,Recyle,Traverse cmd;
+    class ExecLoop,TraceFunc,CheckWP,EvalNew,Diff,Record,UpdateOld,Count,StopCPU,PrintLog run;

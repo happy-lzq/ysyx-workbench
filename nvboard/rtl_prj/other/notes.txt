@@ -1,0 +1,166 @@
+verilator --cc --exe --build --trace --Wall --top-module $(TOP_MODULE) -Mdir $(OBJ_DIR)
+    --cc：把 Verilog 转成 C++ 模型
+    --exe tb.cpp：把你的 testbench 一起纳入构建（你提供 main()）
+    --build：自动调用生成的子 Makefile 完成编译/链接
+    --trace：启用波形接口（C++里还需 traceEverOn/trace/dump）
+    --top-module <TOP>：明确顶层
+    -Mdir obj_dir：所有中间产物放到 obj_dir/
+仅检查模式：verilator --lint-only -Wall 
+
+
+.cpp 仿真框架
+1) 标配初始化（任何 DUT 都一样）
+    #include <verilated.h>
+    #include <verilated_vcd_c.h>
+    #include "Vdut.h"   // 按你的顶层模块名生成
+    static vluint64_t sim_time = 0;
+
+    int main(int argc, char** argv) {
+      Verilated::commandArgs(argc, argv);
+      Verilated::traceEverOn(true);
+
+      Vdut* top = new Vdut;
+      VerilatedVcdC* tfp = new VerilatedVcdC;
+      top->trace(tfp, 1);            // 层次深度按需
+      tfp->open("wave.vcd");         // 可用 GTKWave 查看
+      ...
+    }
+
+2) 通用“时钟步进器”（tick）：照顾时序逻辑的采样点
+    static void tick(Vdut* top, VerilatedVcdC* tfp) {
+      // 低电平阶段
+      top->clk = 0; top->eval(); tfp->dump(sim_time++);
+
+      // 上升沿（时序逻辑在这里采样）
+      top->clk = 1; top->eval(); tfp->dump(sim_time++);
+
+      // 回到低电平（给组合逻辑一次稳定机会）
+      top->clk = 0; top->eval(); tfp->dump(sim_time++);
+    }
+
+3) 复位序列（时序逻辑离不开它）
+    // 上电默认：先置复位，再跑若干拍让 reset 分支确实被采样
+    top->rst = 1; top->eval(); tfp->dump(sim_time++);
+    tick(top, tfp);
+    tick(top, tfp);
+
+    // 断言复位态（把预期写成可执行检查）
+    assert(top->some_state == EXPECTED_RESET_VALUE);
+
+    // 释放复位，再来一拍，使 DUT 进入正常运行态
+    top->rst = 0; top->eval(); tfp->dump(sim_time++);
+    tick(top, tfp);
+
+4) 组合逻辑的驱动与观测（无时钟/时钟间隙的检查）
+    // 组合块：改输入 -> eval -> 读输出
+    top->in_a = 0; top->in_b = 1;
+    top->eval(); tfp->dump(sim_time++);
+    assert(top->out_f == (top->in_a ^ top->in_b));
+
+5) 断言策略：把“预期”写进代码
+    组合时刻的断言：输入变化后 eval() 立刻判定。
+    时序时刻的断言：tick() 后判定（寄存器已更新）。
+    关键事件：复位后第一拍、状态翻转边界、计数回零、握手/ready-valid 采样点。
+    让断言成为“可执行规格”：一旦失败，进程非 0 退出，CI 清晰可见。
+
+6) 结束与清理
+    tfp->close();
+    top->final();
+    delete tfp;
+    delete top;
+
+// 假设 DUT 既有组合输出 out_f = g(in_a, in_b)，又有时序寄存器 reg_q
+// 且有 clk/rst
+    static vluint64_t sim_time = 0;
+    static void tick(Vdut* t, VerilatedVcdC* v){ t->clk=0; t->eval(); v->dump(sim_time++); t->clk=1; t->eval(); v->dump(sim_time++); t->clk=0; t->eval(); v->dump(sim_time++); }
+
+    int main(int argc,char**argv){
+      Verilated::commandArgs(argc,argv);
+      Verilated::traceEverOn(true);
+      Vdut* t=new Vdut; VerilatedVcdC* v=new VerilatedVcdC; t->trace(v,1); v->open("wave.vcd");
+
+      // 上电+复位
+      t->rst=1; t->eval(); v->dump(sim_time++);
+      tick(t,v); tick(t,v);
+      // 复位态检查（组合与时序的初值）
+      assert(t->reg_q==0);
+
+      // 释放复位
+      t->rst=0; t->eval(); v->dump(sim_time++);
+
+      // 组合路径检查
+      t->in_a=0; t->in_b=1; t->eval(); v->dump(sim_time++);
+      assert(t->out_f== (t->in_a ^ t->in_b));  // 举例：期望是 XOR
+
+      // 准备让时序路径在下个 posedge 采样
+      t->in_a=1; t->in_b=1;  // 驱动次态
+      tick(t,v);             // 经过一个上升沿
+
+      // 时序路径检查（寄存器已更新）
+      assert(t->reg_q==EXPECTED_VALUE_AFTER_POSEDGE);
+
+      // 若 DUT 需要多拍互动，可继续 tick + 断言链
+      for(int i=0;i<10;++i) tick(t,v);
+
+      v->close(); t->final(); delete v; delete t; return 0;
+    }
+
+    组合：改→eval→读/断言→dump。
+    时序：准备输入→tick（采样）→读/断言→继续 tick。
+    关键边沿：复位覆盖 posedge，首拍重点验；慢路径要能加速。
+    全程留痕：三相位 dump，问题可视化；断言即规格。
+
+yosys 执行参数：
+
+操作选项：
+  -b, --backend <backend> 使用 <backend> 作为命令行上指定的输出文件
+  -f, --frontend <frontend> 使用 <frontend> 作为命令行上的输入文件
+  -s, --scriptfile <脚本文件>
+                                执行<脚本文件>中的命令
+  -c, --tcl-scriptfile <tcl_scriptfile>
+                                执行 TCL <tcl_scriptfile> 中的命令（有关详细信息，请参阅“help tcl”）
+  -C, --tcl-interactive 进入TCL交互式shell模式
+  -p, --commands <commands> 执行 <commands> （要链接命令，用分号 + 空格分隔它们：'cmd1; cmd2'）
+  -r, --top <top> 详细说明指定的 HDL <top> 模块
+  -m, --plugin <plugin> 加载指定的<plugin>模块
+  -D, --define <定义>[=<值>]
+                                如果通过命令“read -define”提供，则将指定的 Verilog 定义设置为 <value>
+  -S, --synth 用于调用“synth”命令的快捷方式，这是用于将 Verilog 输入转换为门级网表的默认脚本。例如： yosys -o output.blif -S input.v 对于更复杂的综合作业，建议在脚本文件中使用 read_* 和 write_* 命令，而不是在命令行上指定输入和输出文件。
+  -H 打印命令列表
+  -h, --help [<命令>] 打印此帮助消息。如果给出，则打印 <command> 的帮助。
+  -V, --version 打印版本信息并退出
+
+ 记录选项：
+  -Q 禁止打印横幅（版权、免责声明、版本）
+  -T 禁止打印页脚（日志哈希、版本、计时统计）
+      --no-version 抑制在除 -V、--version 之外的任何地方写出 Yosys 版本
+  -q, --quiet 安静运行。仅将警告和错误消息写入控制台。使用此选项两次也可以消除警告消息
+  -v, --verbose <level> 将高达 <level> 的日志标头打印到控制台。对除“脚本结尾”之外的所有内容暗示 -q。信息。
+  -t, --timestamp 用时间戳注释所有日志消息
+  -d, --detailed-timing 在退出时打印更详细的计时统计信息
+  -l, --logfile <日志文件> 将日志消息写入 <日志文件>
+  -L, --line-buffered-logfile <日志文件>
+                                与 -l 类似，但以行缓冲模式打开 <logfile>
+  -o, --outfile <outfile> 在退出时将设计写入 <outfile>
+  -P, --dump-design <header_id>[:<文件名>]
+                                将指定的日志头打印到文件时转储设计。如果未指定，则使用 yosys_dump_<header_id>.il 作为文件名。使用“ALL”作为 <header_id> 在每个标头处转储。
+  -W, --warning-as-warning <正则表达式>
+                                为所有匹配 <regex> 的日志消息打印警告
+  -w, --警告作为消息 <正则表达式>
+                                如果警告消息与 <regex> 匹配，则将其打印为常规消息
+  -e, --警告作为错误 <正则表达式>
+                                如果警告消息与 <regex> 匹配，则将其打印为错误消息
+  -E, --deps-file <depsfile> 使用输入和输出文件名写入 Makefile 依赖文件 <depsfile>
+
+ 开发者选项：
+  -X, --trace 启用对核心数据结构更改的跟踪。用于调试
+  -M, --randomize-pointers 将稍微随机化分配的指针地址。用于调试
+      --autoidx <idx> 从<seed>开始计算autoidx，与--hash-seed效果类似
+      --hash-seed <seed> 将哈希值与 <seed> 混合，以进行极端优化和测试
+  -A, --abort 将在脚本末尾调用 abort()。用于调试
+  -x, --experimental <feature> 不打印实验性 <feature> 的警告
+  -g, --debug 全局启用调试日志消息
+      --perffile <perffile> 将 JSON 性能日志写入 <perffile>
+
+
+

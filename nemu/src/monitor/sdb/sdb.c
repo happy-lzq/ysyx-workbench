@@ -17,43 +17,40 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <utils.h>
+#include <memory/vaddr.h> 
 #include "sdb.h"
+#include <common.h>
 
+
+// 自动计算数组元素个数，动态计算cmd_table[]中的指令数
+#define NR_CMD ARRLEN(cmd_table)
+// 定义NEMU进行交互模式，显示(nemu)提示符
 static int is_batch_mode = false;
 
+//============================ Command declarations ============================//
 void init_regex();
-void init_wp_pool();
-
-/* We use the `readline' library to provide more flexibility to read from stdin. */
-static char* rl_gets() {
-  static char *line_read = NULL;
-
-  if (line_read) {
-    free(line_read);
-    line_read = NULL;
-  }
-
-  line_read = readline("(nemu) ");
-
-  if (line_read && *line_read) {
-    add_history(line_read);
-  }
-
-  return line_read;
-}
-
-static int cmd_c(char *args) {
-  cpu_exec(-1);
-  return 0;
-}
-
-
-static int cmd_q(char *args) {
-  return -1;
-}
-
+void init_wp_pool(); 
 static int cmd_help(char *args);
+static int cmd_c(char *args);
+static int cmd_q(char *args);
+static int cmd_si(char *args);
+static int cmd_info(char *args);
+static int cmd_x(char *args);
+static int cmd_p(char *args);
+static int cmd_w(char *args);
+static int cmd_d(char *args);
 
+// ======================= SDB 简易调试器表达式求值与监视点初始化==============================// 
+void init_sdb() {
+  /* Compile the regular expressions. */
+  init_regex();
+
+  /* Initialize the watchpoint pool. */
+  init_wp_pool();
+}
+
+//================================== Command table ====================================//
 static struct {
   const char *name;
   const char *description;
@@ -62,13 +59,34 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
+  {"si", "Step execute",cmd_si},
+  {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
+  {"x","read memery from addr (x n 0x80000000)",cmd_x},
+  {"p","parse expression",cmd_p},
+  {"w","watchpoint add (w <expr>)",cmd_w},
+  {"d","watchpoint delete (d < no>)",cmd_d}
   /* TODO: Add more commands */
 
 };
 
-#define NR_CMD ARRLEN(cmd_table)
+  //======================== 用户界面交互处理 ====================================//
+	// rl_gets 使用 readline 库读取用户输入的一行指令
+static char* rl_gets() {
+  static char *line_read = NULL;
+  if (line_read) {
+    free(line_read);
+    line_read = NULL;
+  }
+  line_read = readline("(nemu) ");
+	// 检查指针是否有效，同时在检查指针有效情况下首字母不为非空'\0'，防止上一指令输入回车后未清除
+  if (line_read && *line_read) {								
+    add_history(line_read);
+  }
+  return line_read;
+}
 
+//============================= Command functions =============================//
+  // cmd_help 显示帮助信息的命令处理函数
 static int cmd_help(char *args) {
   /* extract the first argument */
   char *arg = strtok(NULL, " ");
@@ -92,26 +110,178 @@ static int cmd_help(char *args) {
   return 0;
 }
 
+  // cmd_c 继续执行程序的命令处理函数
+static int cmd_c(char *args) {
+  // 传入-1 cpu-exce()参数进行隐式无符号数转化为：0xffffffff uint32_t 的最大值
+  cpu_exec(-1);
+  return 0;
+}
+
+  // cmd_q 退出程序的命令处理函数
+static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
+  return -1;
+}
+
+  // cmd_si 单步执行指定指令数的命令处理函数
+static int cmd_si(char *args) {
+  char *endptr;
+  int n;
+  if (args==NULL){
+    n=1;
+  } else{
+    n =strtoul(args,&endptr,10);
+    if (endptr == args || *endptr !='\0' || n <= 0){
+      printf("Invalid number of instructions: %s\n", args);
+      return 0;
+    }
+  }
+  cpu_exec(n);  
+  return 0;
+}
+
+  // cmd_info 打印寄存器+监控点信息
+static int cmd_info(char *args){
+  char *arg = strtok (NULL," ");
+  if (arg == NULL){
+    printf("Usage: info [r/w]\n");
+    return 0;
+  }
+  if (strcmp(arg,"r") == 0){
+    isa_reg_display();
+  } else if (strcmp(arg,"w") == 0){
+    watchpoint_list(&used_list);
+  } else{
+    printf("Unknown argument '%s'. Usage: info [r|w]\n", args);
+    return 0;
+  }
+  
+  return 0;
+}
+
+  // cmd_x n [0x80000000] 
+  static int cmd_x(char *args){
+    if (args == NULL){
+      printf("Usage: x N EXPR\n");
+      return 0;
+    }
+    
+    char *n_arg = strtok(NULL," ");
+    if (n_arg == NULL){
+      printf("Missing argument N\n");
+      return 0;
+    }
+    // 两类库函数将数字字符类型转化为 整数int类型
+    // int n = atoi(n_arg);
+    char *endptr;
+    int n = (int)strtoul(n_arg,&endptr,10);
+    // 非法结束字符位置不能等于初始位置，
+    if (endptr == n_arg || *endptr !='\0' || n <= 0){
+      printf("Invalid number of instructions: %s\n", n_arg);
+      return 0;
+    }
+    char *expr_arg = strtok(NULL," ");
+    if (expr_arg == NULL) {
+      printf("Missing argument EXPR\n");
+      return 0;
+    }
+
+    word_t addr,data;
+    sscanf(expr_arg,"%x",&addr);
+    printf("Memory dump at 0x%08x for %d words:\n", addr, n);
+    for (int i = 0; i < n; i++){
+      data = vaddr_read(addr,sizeof(int));
+      printf("0x%08x: 0x%08x\n", addr, data);
+      addr += 4;
+    }
+    return 0;
+  }
+    //======================== 表达式求值 cmd_p p $t1===================================//
+  static int cmd_p(char *args){
+    if (args == NULL){
+      printf("Usage: p <expr>  OR  p <filename>\n");
+      return 0;
+    }
+  // 1. 尝试在nemu/ 目录下打开用户指定的文件路径：input
+    FILE* f = fopen(args,"r");
+    char fallpath[1024]= {0};
+  // 2. nemu/ 目录下无，则进入gen-expr下的build目录下拼接搜索。
+    if (f == NULL){
+      snprintf(fallpath,sizeof(fallpath),"tools/gen-expr/build/%s",args);
+      f = fopen(fallpath,"r");
+      if (f !=NULL){
+        args = fallpath;
+      }
+    }
+  // 3. 再次判断 f 是否可打开存在，，并执行对应文件处理方式
+    if (f !=NULL){
+      fclose(f);
+      eval_input_file(args);
+      return 0;
+    }
+  // 4. 如果不是文件，则当作普通表达式处理
+    bool success = false;
+    bool hex = false;
+    word_t result = expr(args,&success,&hex);
+    if (success){
+      if (hex == true){
+        printf("0x%08" PRIx32 "\n", result);
+      } else {
+        printf("%u\n",result);
+      }
+    } else{
+      printf("Bad expression.\n");
+    }
+    return 0;
+  }
+
+//============================= watchpoint add expr  =================================//
+static int cmd_w(char *args){
+
+  if (args == NULL){
+    printf("Usage: w <expr>\n");
+    return 0;
+  }
+  new_wp(args);
+  watchpoint_list(&used_list);
+  return 0;
+}
+
+// //============================= watchpoint delete expr  =================================//
+static int cmd_d(char *args){
+  if (args == NULL){
+    printf("Usage: d <no>\n");
+    return 0;
+  }
+  char *endptr;
+  int no = (int)strtoul(args,&endptr,10);
+  if (endptr == args || *endptr !='\0'){
+    printf("Invalid number of instructions: %s\n", args);
+    return 0;
+  }
+  unlink_wp(&used_list,no);
+  watchpoint_list(&used_list);
+  return 0;
+}
+
+
+
+//============================= SDB main loop ========================================//
 void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
-
 void sdb_mainloop() {
+  // 持续运行直到指令结束或用户退出
   if (is_batch_mode) {
     cmd_c(NULL);
     return;
   }
-
+  // 用户交互循环处理输入指令模式
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);
-
-    /* extract the first token as the command */
-    char *cmd = strtok(str, " ");
+    char *cmd = strtok(str, " ");    
+  // 获取readline缓冲区的命令，并且进行切片获取命令行指令函数以及对应的指令内容  
     if (cmd == NULL) { continue; }
-
-    /* treat the remaining string as the arguments,
-     * which may need further parsing
-     */
     char *args = cmd + strlen(cmd) + 1;
     if (args >= str_end) {
       args = NULL;
@@ -125,19 +295,14 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        if (cmd_table[i].handler(args) < 0) { return; }
+        // cmd指针与cmd_table匹配后回调函数执行，进入对应指令操作
+        if (cmd_table[i].handler(args) < 0) { 
+          return ;
+        }
         break;
       }
     }
 
     if (i == NR_CMD) { printf("Unknown command '%s'\n", cmd); }
   }
-}
-
-void init_sdb() {
-  /* Compile the regular expressions. */
-  init_regex();
-
-  /* Initialize the watchpoint pool. */
-  init_wp_pool();
 }

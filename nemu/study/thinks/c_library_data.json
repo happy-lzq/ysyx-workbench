@@ -1,0 +1,727 @@
+[
+  {
+    "name": "patsubst",
+    "header": "makefile",
+    "prototype": "$(patsubst <pattern>, <replacement>, <text>)\n全称： Pattern Substitute\n含义： 按照指定的模式，替换列表中的单词。",
+    "description": "\n1. 核心机制：神奇的 %\n理解这个函数的关键在于理解 % (通配符)：\n查找时 (<pattern>)： % 代表任意长度的非空字符串（我们称之为“茎 (stem)”）。\n替换时 (<replacement>)： % 会把刚才匹配到的那个“茎”原封不动地放回去。\n2. 最经典的用法：从 .c 生成 .o\n这是 patsubst 90% 的使用场景。假设你有源文件列表，想生成对应的 .o 文件列表。",
+    "return_val": "SRCS := a.c b.c c.c\n\n# 写法 A：使用函数（标准）\nOBJS_A := $(patsubst %.c, %.o, $(SRCS))\n\n# 写法 B：使用替换引用（简写，强烈推荐）\nOBJS_B := $(SRCS:%.c=%.o)\n\n# OBJS_A 和 OBJS_B 是完全一样的",
+    "example": "# 1. 原始文本 (通常来自 wildcard)\nSRCS := main.c utils.c src/config.c\n\n# 2. 执行 patsubst\n# 意思是：找到以 .c 结尾的单词，把 .c 换成 .o，前面的部分保持不变\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\n# 3. 结果\n# OBJS 的值变为: main.o utils.o src/config.o",
+    "modes": []
+  },
+  {
+    "name": "wildcard",
+    "header": "makefile",
+    "prototype": "\n语法： $(wildcard <pattern>)\n",
+    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
+    "return_val": "",
+    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
+    "modes": []
+  },
+  {
+    "name": "wildcard",
+    "header": "maekfile",
+    "prototype": "\n语法： $(wildcard <pattern>)\n",
+    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
+    "return_val": "",
+    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
+    "modes": []
+  },
+  {
+    "name": "shell",
+    "header": "makefile",
+    "prototype": "\n语法： $(shell <command>)",
+    "description": "含义： 这是 Makefile 与系统交互的桥梁。它会调用系统的 Shell 运行命令，并将标准输出作为函数的返回值。",
+    "return_val": "",
+    "example": "# 获取当前日期\nBUILD_DATE := $(shell date +%Y-%m-%d)\n# 获取所有的 .c 文件（类似于 wildcard，但使用系统的 find 命令）\nALL_C_FILES := $(shell find . -name \"*.c\")",
+    "modes": []
+  },
+  {
+    "name": "notdir",
+    "header": "makefile",
+    "prototype": "\n语法： $(notdir <names...>)",
+    "description": "含义： 去掉路径信息，只保留文件名部分。",
+    "return_val": "",
+    "example": "FILES := src/gui/window.c /usr/include/stdio.h\nNAMES := $(notdir $(FILES))\n# 结果 NAMES 为: window.c stdio.h",
+    "modes": []
+  },
+  {
+    "name": "dir",
+    "header": "makefile",
+    "prototype": "\n语法： $(dir <names...>)",
+    "description": "含义： 从文件路径中提取出目录部分（包括最后的斜杠 /）。",
+    "return_val": "注意：如果没有路径，它会返回 ./。\n用途： 当你需要获取源文件所在的文件夹路径时使用。",
+    "example": "FILES := src/gui/window.c main.c\nDIRS := $(dir $(FILES))\n# 结果 DIRS 为: src/gui/ ./",
+    "modes": []
+  },
+  {
+    "name": "basename",
+    "header": "makefile",
+    "prototype": "语法： $(basename <names...>)",
+    "description": "注意（易混淆点）： Makefile 中的 basename 和 Linux Shell 命令中的 basename 含义不同！\nShell 中： basename /usr/bin/sort -> sort (去掉路径，留文件名)\nMakefile 中： basename src/foo.c -> src/foo (去掉文件扩展名，保留路径)\n功能： 取出文件名中最后一个点 . 之前的所有内容。",
+    "return_val": "",
+    "example": "FILES := src/main.c include/header.h\nBASE := $(basename $(FILES))\n# 结果 BASE 为: src/main include/header",
+    "modes": []
+  },
+  {
+    "name": "suffprefix",
+    "header": "makefile",
+    "prototype": "$(addsuffix <suffix>, <names...>)",
+    "description": "为列表中的每一个变量添加一个后缀",
+    "return_val": "",
+    "example": "NAMES := main app\n# 给名字加上 .o 后缀\nOBJS := $(addsuffix .o, $(NAMES))\n# 结果 OBJS 为: main.o app.o",
+    "modes": []
+  },
+  {
+    "name": "addprefix",
+    "header": "makefile",
+    "prototype": "$(addprefix <prefix>, <names...>)",
+    "description": "为列表中每一个变量添加前缀\n",
+    "return_val": "",
+    "example": "FILES := main.c utils.c\n# 给所有文件加上 src/ 目录前缀\nSRC_FILES := $(addprefix src/, $(FILES))\n# 结果 SRC_FILES 为: src/main.c src/utils.c",
+    "modes": []
+  },
+  {
+    "name": "abspath",
+    "header": "makefile",
+    "prototype": "$(abspath <names...>)",
+    "description": "功能： 它会自动处理路径中的 . (当前目录) 和 .. (上级目录)，将其解析为最终的物理路径。",
+    "return_val": "",
+    "example": "PATH_VAR := src/../include/config.h\nREAL_PATH := $(abspath $(PATH_VAR))\n# 假设当前目录是 /home/user/project\n# 结果 REAL_PATH 会是: /home/user/project/include/config.h",
+    "modes": []
+  },
+  {
+    "name": "oprator",
+    "header": "makefile",
+    "prototype": "makefile 脚本常用运算符",
+    "description": "=        递归赋值，可迭代\n:=       立即赋值，所见即所得。当makefile进行时刻所见所得的赋值意义\n?=        条件赋值，一版作为默认赋值，后遇条件则重新赋值\n+=        追加赋值符号",
+    "return_val": "",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "$+",
+    "header": "makefile",
+    "prototype": "makefile脚本常用自动变量\n",
+    "description": "$@   构建的目标文件\n$<    构建目标文件的第一个依赖文件\n$^    构建目标文件的所有依赖文件\n$*    去除目标文件的后缀\n$?    代表比目标文件更新的最新所有依赖文件",
+    "return_val": "",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "abspath",
+    "header": "happy.h",
+    "prototype": "$(abspath name) \n\n$(realpath name) \n",
+    "description": "利用字符串拼接绝对路径。\n\n举例：$(abspath $(CURDIR)/../..)/input\nCURDIR：当前makefile脚本文件的绝对路径：/home/user/project/nemu/tools/gen-expr\n”/..\" ：返回上一目录结构    \"/../..\" ：返回上两级目录\n$(abspath $(CURDIR)/../..) ：/home/user/project/nemu\n拼接结果+input共同构成：/home/user/project/nemu/input",
+    "return_val": "abspath：仅仅是对路径进行拼接，并不验证最后文件：input是否存在？\n\nrealpath：拼接逻辑与abspath一致，但是会检查文件是否存在，若不存在，返回空字符串",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "unsetenv",
+    "header": "stdlib.h",
+    "prototype": "int unsetenv(const char *name);",
+    "description": "功能\n从环境表中删除名为 name 的环境变量（若存在）。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空）。",
+    "return_val": "返回值\n成功：返回 0。\n失败：返回 -1，并设置 errno（例如 EINVAL）。\n注意\n删除后 getenv(name) 将返回 NULL。\n与 setenv/putenv 一样，若在多线程中修改环境，需要外部同步。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "putenv",
+    "header": "stdlib.h",
+    "prototype": "int putenv(char *string);",
+    "description": "功能\n把形如 \"NAME=VALUE\" 的字符串加入环境；实现通常直接使用传入指针作为环境项（不做复制）。\n参数\nstring：指向格式为 \"NAME=VALUE\" 的可写 C 字符串。注意是非 const，因实现可能使用该内存。",
+    "return_val": "返回值\n传统实现：成功返回 0，失败返回非 0（或 -1）并设置 errno（平台可能不同）。\n注意\n内存所有权被“转移”到环境表：不能在调用后 free 或让该内存成为栈变量失效（必须保证字符串长期可用，通常用 malloc）。\n对并发与可移植性不如 setenv，可能导致难以追踪的生命周期 bug。\n若传入字符串内容被修改，会直接影响环境变量值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "setenv",
+    "header": "stdlib.h",
+    "prototype": "int setenv(const char *name, const char *value, int overwrite);",
+    "description": "功能：\n设置或新增进程临时环境变量 name 的值为 value。若变量已存在，overwrite 控制是否覆盖。\n参数\nname：变量名（不能为 NULL、不能包含 '='、不能为空字符串）。\nvalue：要设置的字符串值（不能为 NULL）。\noverwrite：非零表示即使已存在也覆盖，0 表示存在则不修改。",
+    "return_val": "成功：返回 0。\n失败：返回 -1，并设置 errno（如 EINVAL 名称非法、ENOMEM 内存不足）\n注意\nsetenv 会复制 name/value 到内部环境存储，调用方可释放传入字符串。\n比 putenv 更安全、更易用（不转移内存所有权）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "getenv",
+    "header": "stdlib.h",
+    "prototype": "char *getenv(const char *name);",
+    "description": "按名字查当前进程的环境变量表（environment），找到返回指向值字符串的指针；找不到或参数为 NULL 则返回 NULL。",
+    "return_val": "getenv 返回的指针指向程序内部环境表的字符串；不要 free() 它，也不要修改（除非你非常确定）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "snprintf",
+    "header": "stdio.h",
+    "prototype": "int snprintf(char *str, size_t size, const char *format, ...);",
+    "description": "功能概述：\n\n按 format 对后续参数进行格式化并写入缓冲区 str，至多写入 size 字节（包含结尾的 NUL 字符）。常用于安全地向固定大小缓冲区写入格式化字符串以避免缓冲区溢出。\n参数说明：\n\nstr：目标缓冲区指针（可为有效缓冲或 NULL，见下文 size==0 情形）。\nsize：缓冲区总容量（字节）。若 size > 0，函数保证在 str 中写入结尾 '\\0'（除非发生错误）；若 size == 0 则不写入任何字节，但仍计算所需长度并返回（不写 NUL）。\nformat：格式字符串，与 printf 的格式相同（%s、%d、%u、%x、%p、%f 等）。\n...：与格式字符串对应的参数列表。",
+    "return_val": "返回值（C99 / POSIX 语义）：\n\n若成功，返回“本应写入的字符数”（不包含最终的 NUL），也就是如果缓冲够大，返回值等于实际要输出的字符数。\n如果返回值 >= size，表示输出被截断（结果不完整），可用该返回值分配更大的缓冲区或判定失败。\n若发生编码或其他错误，返回负值（通常 -1），并可能设置 errno。\n\n保证 NUL：当 size > 0 时，snprintf 在任何成功路径或截断路径都会在 str 中写入 NUL（即使输出被截断）。\n判定截断：检查返回值 n：\nn < 0 → 错误；\nn >= size → 输出被截断（需要更大缓冲或重试）；\n0 <= n < size → 成功且未截断。\n若 size == 0：函数仅计算所需长度并返回该长度（不写入 NUL），适用于先测长度再分配的场景。\n与 vsnprintf：vsnprintf(char *str, size_t size, const char *format, va_list ap) 接受 va_list，适合在实现变参包装函数时使用。",
+    "example": "/* snprintf example */\n#include <stdio.h>\n\nint main ()\n{\n  char buffer [100];\n  int cx;\n\n  cx = snprintf ( buffer, 100, \"The half of %d is %d\", 60, 60/2 );\n\n  if (cx>=0 && cx<100)      // check returned value\n\n    snprintf ( buffer+cx, 100-cx, \", and the half of that is %d.\", 60/2/2 );\n\n  puts (buffer);\n\n  return 0;\n}\nThe half of 60 is 30, and the half of that is 15.",
+    "modes": []
+  },
+  {
+    "name": "fprintf",
+    "header": "stdio.h",
+    "prototype": "int fprintf(FILE *stream, const char *format, ...);",
+    "description": "功能描述: 按照 format 指定的格式，把格式化后的文本写入 stream（任意 FILE*，例如 stdout、stderr 或文件）。其行为与 printf 类似，但目标是指定的 FILE 流。\n参数:\nstream: 目标 FILE *（已打开的流）。\nformat: 格式字符串，含普通字符与格式控制（如 %s, %d, %u, %x, %p, %f 等）。\n...: 与格式串对应的参数列表。",
+    "return_val": "返回值:\n成功时返回写入的字符数（非负整数，不包括隐含的终止 NUL）；\n失败时返回负值（并通常设置 errno 来表明错误原因，如磁盘已满、流无效等）。\n副作用/注意事项:\n若 format 与随后的参数不匹配，会导致未定义行为。避免把不受信任的字符串直接作为 format（防止格式字符串注入），如要输出用户字符串应使用 fprintf(stream, \"%s\", userstr)。\n输出先进入 FILE 的缓冲区，未必立即写入底层设备；如需立即写入，请使用 fflush(stream) 或关闭流。\n检查返回值可以发现写失败（例如 IO 错误）。",
+    "example": "  for (int i = 0; i < gen_n; i ++) {\n    gen_rand_expr();\n    fprintf(out, \"%s\\n\", buf);\n    if (i < 10) {\n      fprintf(stderr, \"%s\\n\", buf);\n    }\n  }\n\n将前10行表达式以stderr流输出打印在终端屏幕",
+    "modes": []
+  },
+  {
+    "name": "perror",
+    "header": "errno.h",
+    "prototype": "void perror(const char *s);",
+    "description": "功能描述: 向标准错误流 stderr 输出一条错误说明。输出形式通常为：\n当 s 非空且不为空串时：s: <错误描述>\\n\n当 s 为 NULL 或空串时：<错误描述>\\n\n其中 <错误描述> 来源于内部对全局变量 errno 的解释（相当于 strerror(errno)）。\n参数:\ns: 指向用户提供的简单描述字符串（可为 NULL）。该字符串不会被当作格式串处理，仅作为前缀文字。",
+    "return_val": "无返回值\n作用/注意事项:\n使用 perror 前要确保最近的调用已设置 errno（例如系统调用或库函数失败时）。\nperror 本身不会格式化可变参数，也不会返回错误代码；如需可编程控制错误文本，使用 strerror/strerror_r。\nperror 不是在信号处理器或所有异步上下文下安全（非 async-signal-safe）。\n在多线程环境下，perror 的输出通常是原子写一行，但 strerror 在某些实现上可能不是线程安全的；若需要线程安全的错误文本，使用 strerror_r。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "vsnpintf",
+    "header": "stdio.h",
+    "prototype": "int vsnprintf (char * s, size_t n, const char * format, va_list arg );",
+    "description": "功能：按 format 和 va_list ap 格式化输出到缓冲区 str，最多写入 size 字节（包含终止 NUL）。相当于 snprintf 的 va_list 版本，常用于实现带可变参数的封装函数。\n\n参数：\n\nstr：目标缓冲区（当 size > 0 时保证写入终止 NUL，size == 0 时不写入）。\nsize：缓冲区大小（字节）。\nformat：格式字符串。\nap：由 va_start 初始化的 va_list，表示变参列表。若在需要复用 ap，要先用 va_copy 复制。\n",
+    "return_val": "返回值（C99 / POSIX）：\n\n成功时返回“如果无限缓冲能写入的字符数”（不含终止 NUL）。\n若返回值 >= size 表示输出被截断（可用返回值分配更大缓冲重试）。\n出错时返回负值。",
+    "example": "void PrintFError ( const char * format, ... )\n{\n  char buffer[256];\n  va_list args;\n  va_start (args, format);\n  vsnprintf (buffer,256,format, args);\n  perror (buffer);\n  va_end (args);\n}\n\nint main ()\n{\n   FILE * pFile;\n   char szFileName[]=\"myfile.txt\";\n\n   pFile = fopen (szFileName,\"r\");\n   if (pFile == NULL)\n     PrintFError (\"Error opening '%s'\",szFileName);\n   else\n   {\n     // file successfully open\n     fclose (pFile);\n   }\n   return 0;\n}\n\n",
+    "modes": []
+  },
+  {
+    "name": "fputs",
+    "header": "stdio.h",
+    "prototype": "int fputs ( const char * str, FILE * stream );",
+    "description": "功能：\n将指定指针str中的字符串复制到文件流stream中，终止符不复制（puts-会复制）\n参数：\nstr：将复制的指针\nstream：文件流指针",
+    "return_val": "成功返回非负值，\n失败返回：EOF",
+    "example": "/* fputs example */\n#include <stdio.h>\n\nint main ()\n{\n   FILE * pFile;\n   char sentence [256];\n\n   printf (\"Enter sentence to append: \");\n   fgets (sentence,256,stdin);\n   pFile = fopen (\"mylog.txt\",\"a\");\n   fputs (sentence,pFile);\n   fclose (pFile);\n   return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "sprintf",
+    "header": "stdio.h",
+    "prototype": "int sprintf ( char * str, const char * format, ... );",
+    "description": "功能：\n将format中的字符串按规定格式输入到缓冲str中\n参数：\nstr：目标指针\nformat：规定字符串指针",
+    "return_val": "返回最终出现在str中的字符大小",
+    "example": "/* sprintf example */\n#include <stdio.h>\n\nint main ()\n{\n  char buffer [50];\n  int n, a=5, b=3;\n  n=sprintf (buffer, \"%d plus %d is %d\", a, b, a+b);\n  printf (\"[%s] is a string %d chars long\\n\",buffer,n);\n  return 0;\n}\n\n[5 plus 3 is 8] is a string 13 chars long",
+    "modes": []
+  },
+  {
+    "name": "strtol",
+    "header": "string.h",
+    "prototype": "long int strtol (const char* str, char** endptr, int base);",
+    "description": "功能：\n把以 C 字符串表示的整数转换为 long 类型。支持不同进制（2–36 或 auto-detect）。\n参数：\nnptr：指向要解析的字符串（可包含前导空白和可选正负号）。\nendptr：如果非 NULL，*endptr 会被设置为指向第一个不能被解析为数字的字符（即解析停止处）。若未能解析出任何数字，*endptr == nptr。可用来检测是否成功或进行后续解析。\nbase：指定基数（2–36）。若为 0，函数会根据字符串前缀自动判断：以 0x/0X 为十六进制，以 0 开头为八进制，否则十进制。",
+    "return_val": "返回值：转换后的 long 值。若无可转换数字则返回 0（同时 endptr 指向原始字符串）。\n溢出/下溢：若数值超出 long 表示范围，返回 LONG_MAX 或 LONG_MIN，并将 errno 设为 ERANGE。\n部分解析：如果字符串前面包含可转换部分（比如 \"123abc\"），返回 123 且 *endptr 指向 'a'。\n要正确判断成功与否，应同时检查 endptr、errno 和返回值是否等于边界值。",
+    "example": "/* strtol example */\n#include <stdio.h>      /* printf */\n#include <stdlib.h>     /* strtol */\n\nint main ()\n{\n  char szNumbers[] = \"2001 60c0c0 -1101110100110100100000 0x6fffff\";\n  char * pEnd;\n  long int li1, li2, li3, li4;\n  li1 = strtol (szNumbers,&pEnd,10);\n  li2 = strtol (pEnd,&pEnd,16);\n  li3 = strtol (pEnd,&pEnd,2);\n  li4 = strtol (pEnd,NULL,0);\n  printf (\"The decimal equivalents are: %ld, %ld, %ld and %ld.\\n\", li1, li2, li3, li4);\n  return 0;\n}\n\nThe decimal equivalents are: 2001, 6340800, -3624224 and 7340031",
+    "modes": []
+  },
+  {
+    "name": "regmatch_t",
+    "header": "regex.h",
+    "prototype": "typedef struct {\n  regoff_t rm_so;\n  regoff_t rm_eo;\n} regmatch_t;",
+    "description": "功能：\nregmatch_t 是一个结构体，用于存放正则表达式匹配结果的位置。\n主要用于 regexec()，用来记录每个捕获组（包括整个匹配和子表达式）的起止位置。\n参数：\nrm_so（start offset）：匹配子串在目标字符串中的起始下标（从0开始）。\nrm_eo（end offset）：匹配子串在目标字符串中的结束下标（开区间，即不包含该位置）。",
+    "return_val": "在调用 regexec() 时，传入 regmatch_t pmatch[] 数组，pmatch[0] 存放整个正则的匹配区间，pmatch[1] 及以后存放各子表达式的区间。\n如果没有匹配，rm_so 和 rm_eo 通常为 -1。",
+    "example": "#include <stdio.h>\n#include <regex.h>\n\nint main() {\n    regex_t regex;\n    regmatch_t pmatch[1];\n    const char *pattern = \"[0-9]+\";\n    const char *str = \"abc123xyz\";\n\n    regcomp(&regex, pattern, REG_EXTENDED);\n    if (regexec(&regex, str, 1, pmatch, 0) == 0) {\n        printf(\"Match: start=%d, end=%d\\n\", (int)pmatch[0].rm_so, (int)pmatch[0].rm_eo);\n        // 输出: Match: start=3, end=6\n        // 即 \"123\" 在 \"abc123xyz\" 的下标3~6（不含6）\n    }\n    regfree(&regex);\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "regfree",
+    "header": "regex.h",
+    "prototype": "void regfree(regex_t *preg);",
+    "description": "功能：\n释放由 regcomp 分配的正则对象资源。\n参数：\npreg：指向要释放的 regex_t 对象。\n返回值：\n",
+    "return_val": "无返回值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regexec",
+    "header": "regex.h",
+    "prototype": "int regexec(const regex_t *preg, const char *string, size_t nmatch,regmatch_t pmatch[], int eflags);",
+    "description": "功能：\n用编译好的正则对象匹配目标字符串\n参数：\n\npreg：rgecomp编译成功的正则对象。\nstring：待匹配的目标字符串。\nnmatch：pmatch 数组长度，指定要捕获多少个子表达式。\npmatch：用于存放匹配结果的数组（每个元素记录匹配子串在目标字符串中的起止位置）。\neflags：执行选项，如 REG_NOTBOL（不是行首）、REG_NOTEOL（不是行尾）等。",
+    "return_val": "返回值：\n\n返回 0 表示匹配成功。\nREG_NOMATCH 表示不匹配。\n其它值表示错误。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regerorr",
+    "header": "regex.h",
+    "prototype": "size_t regerror(int errcode, const regex_t *preg, char *errbuf, size_t errbuf_size);",
+    "description": "功能：\n将正则相关错误码转换为可读的错误信息字符串。\n参数：\nerrcode：错误码（通常是 regcomp 或 regexec 的返回值）。\npreg：指向相关 regex_t 对象。\nerrbuf：用于存放错误信息的缓冲区。\nerrbuf_size：缓冲区大小。",
+    "return_val": "返回值：\n返回错误信息实际长度。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "regcomp",
+    "header": "regex.h",
+    "prototype": "int regcomp(regex_t *preg, const char *regex, int cflags);",
+    "description": "功能：\n编译正则表达式字符串，生成可用于匹配的正则对象。\n参数：\npreg：指向 regex_t 结构体的指针，存储编译后的正则对象。\nregex：正则表达式字符串。\ncflags：编译选项，如 REG_EXTENDED（扩展正则）、REG_ICASE（忽略大小写）等。",
+    "return_val": "返回 0 表示编译成功。\n非 0 表示编译失败，可用 regerror 获取错误信息。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "sscanf",
+    "header": "stdio.h",
+    "prototype": "int sscanf ( const char * s, const char * format, ...);",
+    "description": "sscanf 是 C 标准库中的一个输入函数，用于从指定字符串中按照指定格式读取数据。它的工作方式类似于 scanf，但 scanf 是从标准输入（如键盘）读取，而 sscanf 是从字符串中读取。\n\nstr  源字符串，从中读取数据。\nformat  格式控制字符串，指定如何解析输入。它包含格式说明符（如 %d, %f, %s 等）和普通字符。\n...  可变数量的指针参数，用于存储解析后的数据。这些指针的类型必须与 format 中的格式说明符匹配。",
+    "return_val": "正整数：成功匹配并赋值的参数个数。\n0：没有成功匹配任何项。\nEOF：在尝试读取时发生错误或到达字符串末尾。",
+    "example": "/* sscanf example */\n#include <stdio.h>\n\nint main ()\n{\n  char sentence []=\"Rudolph is 12 years old\";\n  char str [20];\n  int i;\n\n  sscanf (sentence,\"%s %*s %d\",str,&i);\n  printf (\"%s -> %d\\n\",str,i);\n  \n  return 0;\n}\n\nRudolph -> 12",
+    "modes": [
+      {
+        "code": "%d",
+        "detail": "读取整数。"
+      },
+      {
+        "code": "%f",
+        "detail": "读取浮点数。"
+      },
+      {
+        "code": "%lf",
+        "detail": "读取双精度浮点数。"
+      },
+      {
+        "code": "%c",
+        "detail": "读取字符。"
+      },
+      {
+        "code": "%s",
+        "detail": "读取字符串（遇到空白字符停止）。"
+      },
+      {
+        "code": "%[]",
+        "detail": "读取匹配字符集合的字符串。"
+      },
+      {
+        "code": "%x",
+        "detail": "读取十六进制整数。"
+      },
+      {
+        "code": "%o",
+        "detail": "读取八进制整数。"
+      },
+      {
+        "code": "%u",
+        "detail": "读取无符号整数。"
+      },
+      {
+        "code": "%i",
+        "detail": "读取整数（自动检测进制）。"
+      },
+      {
+        "code": "%p",
+        "detail": "读取指针地址。"
+      },
+      {
+        "code": "%n",
+        "detail": "记录已读取的字符数。"
+      },
+      {
+        "code": "%%",
+        "detail": "匹配百分号。"
+      }
+    ]
+  },
+  {
+    "name": "atoi",
+    "header": "stdlib.h",
+    "prototype": "int atoi(const char *str);",
+    "description": "扫描参数 str 字符串，跳过前面的空白字符（例如空格，tab缩进等），直到遇上数字或正负符号才开始做转换，而再遇到非数字或字符串结束时('\\0')才结束转换，并将结果返回。",
+    "return_val": "将数字字符串返回为整数数值",
+    "example": "static int cmd_si(char *args) {\n  int n;\n  if (args == NULL) {\n    n = 1;  // 默认执行一条指令\n  } else {\n    n = atoi(args);  // 将参数转换为整数\n    if (n <= 0) {\n      printf(\"Invalid number of instructions: %s\\n\", args);\n      return 0;\n    }\n  }\n  cpu_exec(n);  // 执行n条指令\n  return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "calloc",
+    "header": "stdlib.h",
+    "prototype": "void* calloc (size_t num, size_t size);",
+    "description": "拆解：c (Count / Clear) + alloc (Allocate)\n逻辑：计数分配 或 清零分配。\n功能描述：为 N 个元素分配内存，并且自动清零。\n       malloc 只管分配（里面可能是垃圾数据）。\n       calloc 分配完帮你擦干净（全置为 0）。",
+    "return_val": "返回值：指向分配内存的指针，失败返回 NULL。",
+    "example": "// 分配 10 个 int，并全部初始化为 0\nint *arr = (int *)calloc(10, sizeof(int));",
+    "modes": []
+  },
+  {
+    "name": "malloc",
+    "header": "stdlib.h",
+    "prototype": "void* calloc (size_t num, size_t size);",
+    "description": "拆解：c (Count / Clear) + alloc (Allocate)\n逻辑：计数分配 或 清零分配。\n功能描述：为 N 个元素分配内存，并且自动清零。\n       malloc 只管分配（里面可能是垃圾数据）。\n       calloc 分配完帮你擦干净（全置为 0）。",
+    "return_val": "返回值：指向分配内存的指针，失败返回 NULL。",
+    "example": "// 分配 10 个 int，并全部初始化为 0\nint *arr = (int *)calloc(10, sizeof(int));",
+    "modes": []
+  },
+  {
+    "name": "strtoul",
+    "header": "string.h",
+    "prototype": "unsigned long int strtoul (const char* str, char** endptr, int base);",
+    "description": "拆解：str (String) + to + u (Unsigned) + l (Long)\n逻辑：字符串转无符号长整型。\n功能描述：将字符串转换成 unsigned long 数值。比简单的 atoi 强大，因为它能检测非法字符停止的位置（endptr）和指定进制（base）。\n",
+    "return_val": "转换后的无符号长整数。如果溢出返回 ULONG_MAX。\nstr 指向需要转化为的字符串；\nenptr 属于指针类型，用于检查指向的str中的非法数字字符串地址。\nbase 转化类型",
+    "example": "/* strtoul example */\n#include <stdio.h>      /* printf, NULL */\n#include <stdlib.h>     /* strtoul */\n\nint main ()\n{\n  char buffer [256];\n  unsigned long ul;\n  printf (\"Enter an unsigned number: \");\n  fgets (buffer, 256, stdin);\n  ul = strtoul (buffer, NULL, 0);\n  printf (\"Value entered: %lu. Its double: %lu\\n\",ul,ul*2);\n  return 0;\n\noutput:\nEnter an unsigned number: 30003\nValue entered: 30003. Its double: 60006",
+    "modes": []
+  },
+  {
+    "name": "strtok",
+    "header": "string.h",
+    "prototype": "char *strtok(char *str, const char *delim);",
+    "description": "拆解：str (String) + tok (Token)\n逻辑：字符串切分/取令牌。\n功能描述：将字符串按照指定的分隔符（delimiters）切分成一个个片段（Token）。\n破坏性：它会把分隔符改成 \\0。\n状态性：第一次传字符串，后面传 NULL 继续切同一个字符串。",
+    "return_val": "指向下一个 Token 的指针。\n如果没有更多 Token，返回 NULL。",
+    "example": "char str[] = \"ls -l -a\";\nchar *token = strtok(str, \" \"); // 取第一个 \"ls\"\nwhile (token != NULL) {\n    printf(\"%s\\n\", token);\n    token = strtok(NULL, \" \"); // 继续取 \"-l\", \"-a\"\n}\n\noutput:\nls\n-l\n-a\n",
+    "modes": [
+      {
+        "code": "",
+        "detail": "以空格为切片信息"
+      },
+      {
+        "code": ",",
+        "detail": "以逗号为切片信息"
+      },
+      {
+        "code": ".",
+        "detail": "以句号为切片信息"
+      },
+      {
+        "code": "……",
+        "detail": "以各种符号参数为切片信息"
+      }
+    ]
+  },
+  {
+    "name": "memmove",
+    "header": "string.h",
+    "prototype": "void *memmove(void *dest, const void *src, size_t n);",
+    "description": "拆解：mem (Memory) + move (Move)\n逻辑：内存搬运（区别于 cpy 复制）。\n功能描述：将 n 字节从 src 复制到 dest。\n关键点：Move 暗示了它能处理“重叠”的情况。就像搬家一样，即使旧家和新家有重叠区域，它也能保证东西不丢（通常通过倒序复制实现）。而 memcpy 假设内存不重叠。",
+    "return_val": "返回值：返回 dest 的指针。",
+    "example": "char str[] = \"123456\";\n// 把 \"123\" 搬到 \"234\" 的位置 -> 变成 \"112356\"\nmemmove(str + 1, str, 3); \n",
+    "modes": []
+  },
+  {
+    "name": "isdigit",
+    "header": "ctype.h",
+    "prototype": "int isdigit(int c);",
+    "description": "功能：\n检测参数 c 是否为十进制数字字符（'0'..'9'）。通常用于判断字符是否为数字而不涉及多字节或 locale 的复杂性。\n\n参数：\n- c：要检测的字符，类型为 int。传入时应先转换为 (unsigned char) 或传入 EOF，以避免未定义行为。",
+    "return_val": "若 c 为数字字符则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"a1b2\";\n    for (int i = 0; s[i]; i++) {\n        if (isdigit((unsigned char)s[i])) printf(\"digit: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "isalpha",
+    "header": "ctype.h",
+    "prototype": "int isalpha(int c);",
+    "description": "功能：\n检测参数 c 是否为字母字符（通常为 A-Z 或 a-z，具体取决于 C 的 locale 设置）。\n\n参数：\n- c：要检测的字符，类型为 int。建议传入 (unsigned char) 值或 EOF，以符合标准规定并避免未定义行为。",
+    "return_val": "若 c 在当前 locale 中被视为字母则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"abc123\";\n    for (int i = 0; s[i]; i++) {\n        if (isalpha((unsigned char)s[i])) printf(\"alpha: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "isalnum",
+    "header": "ctype.h",
+    "prototype": "int isalnum(int c);",
+    "description": "功能：\n检测参数 c 是否为字母或数字字符（等价于 isalpha(c) || isdigit(c)，受 locale 影响）。\n\n参数：\n- c：要检测的字符，类型为 int。建议使用 (unsigned char) 或 EOF 作为参数。",
+    "return_val": "若 c 为字母或数字字符则返回非零值（真），否则返回 0（假）。",
+    "example": "#include <stdio.h>\n#include <ctype.h>\n\nint main(void) {\n    char *s = \"a_1-2b\";\n    for (int i = 0; s[i]; i++) {\n        if (isalnum((unsigned char)s[i])) printf(\"alnum: %c\\n\", s[i]);\n    }\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "isspace",
+    "header": "ctype.h",
+    "prototype": "int isspace(int c);",
+    "description": "拆解：is (Check/Boolean) + space (Whitespace)\n逻辑：是不是空白符？\n功能描述：检查字符是否为空白字符（空格、制表符 \\t、换行符 \\n、回车 \\r 等）。",
+    "return_val": "非 0 (真)：是空白符。\n0 (假)：不是。\n",
+    "example": "/* isspace example */\n#include <stdio.h>\n#include <ctype.h>\nint main ()\n{\n  char c;\n  int i=0;\n  char str[]=\"Example sentence to test isspace\\n\";\n  while (str[i])\n  {\n    c=str[i];\n    if (isspace(c)) c='\\n';\n    putchar (c);\n    i++;\n  }\n  return 0;\n}\n\noutput:\n  Example\n  sentence\n  to\n  test\n  isspace",
+    "modes": []
+  },
+  {
+    "name": "strcmp",
+    "header": "string.h",
+    "prototype": "int strcmp ( const char * str1, const char * str2 );",
+    "description": "拆解：str (String) + cmp (Compare)\n逻辑：字符串比较。\n功能描述：逐个字符比较两个字符串的 ASCII 码值，直到出现不同或遇到 \\0。",
+    "return_val": "< 0：str1 小于 str2 (字典序 str1 在前)。\n0：str1 等于 str2。\n> 0：str1 大于 str2 (字典序 str1 在后)。",
+    "example": "#include <stdio.h>\n#include <string.h>\n\nint main ()\n{\n  char key[] = \"apple\";\n  char buffer[80];\n  do {\n     printf (\"Guess my favorite fruit? \");\n     fflush (stdout);\n     scanf (\"%79s\",buffer);\n  } while (strcmp (key,buffer) != 0);\n  puts (\"Correct answer!\");\n  return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "strcspn",
+    "header": "string.h",
+    "prototype": "size_t strcspn ( const char * str1, const char * str2 );",
+    "description": "从 str1 的第一个字符开始扫描，检查当前字符是否出现在 str2 中。\n如果出现：立即停止，返回当前已经扫描过的字符个数（也就是该字符在 str1 中的下标）。\n如果不出现：继续扫描下一个字符。如果扫描完 str1 都没有找到：返回 str1 的总长度。\n如果str1中的任意字符都没有在str2中被扫描到，则位于结束符终止。",
+    "return_val": "返回值即是整数：是str1中被扫码出现在str2中的字符，在str1中的下标。（结束符下标=字符个数+1）",
+    "example": "example 1:\n  const char *str1 = \"apple\";\n  const char *str2 = \"lp\"; \n  size_t len = strcspn(str1, str2);\n  output: len = 1;\nexample2:\n  const char *str1 = \"hello\";\n  const char *str2 = \"xyz\";\n  size_t len = strcspn(str1, str2);\n  output len = 5\noutput:\nthe first number in str is at position 5",
+    "modes": []
+  },
+  {
+    "name": "strncpy",
+    "header": "string.h",
+    "prototype": "char * strncpy ( char * destination, const char * source, size_t num );",
+    "description": "将源字符串的前num个的字符复制到destination地址中。\n当num大于等于strlen(source)时，完全复制，但不添加结束符。",
+    "return_val": "返回目标地址的字符串指针——>destination",
+    "example": "/* strncpy example */\n#include <stdio.h>\n#include <string.h>\n\nint main ()\n{\n  char str1[]= \"To be or not to be\";\n  char str2[40];\n  char str3[40];\n\n  /* copy to sized buffer (overflow safe): */\n  strncpy ( str2, str1, sizeof(str2) );\n\n  /* partial copy (only 5 chars): */\n  strncpy ( str3, str2, 5 );\n  str3[5] = '\\0';   /* null character manually added */\n\n  puts (str1);\n  puts (str2);\n  puts (str3);\n\n  return 0;\n}\n\noutput:\nTo be or not to be\nTo be or not to be\nTo be ",
+    "modes": []
+  },
+  {
+    "name": "strcpy",
+    "header": "string.h",
+    "prototype": "char * strcpy ( char * destination, const char * source );",
+    "description": "将源字符串指针source内的字符串(含终止符)复制到目标字符串指针destination指向的地址",
+    "return_val": "返回类型：char*（字符指针）\n返回值：返回目标字符串 destination 的起始地址==>返回传入的 destination 指针本身",
+    "example": "/* strcpy example */\n#include <stdio.h>\n#include <string.h>\n\nint main ()\n{\n  char str1[]=\"Sample string\";\n  char str2[40];\n  char str3[40];\n  strcpy (str2,str1);\n  strcpy (str3,\"copy successful\");\n  printf (\"str1: %s\\nstr2: %s\\nstr3: %s\\n\",str1,str2,str3);\n  return 0;\n}\noutput:\nstr1: Sample string\nstr2: Sample string\nstr3: copy successful",
+    "modes": []
+  },
+  {
+    "name": "strspn",
+    "header": "string.h",
+    "prototype": "size_t strspn(const char *str1, const char *str2);",
+    "description": "字符串str1从第一个字符开始出现在字符串str2中的字符个数。\n若str1的第一个字符都不在str2中，则返回0；若全在，则返回strlen(str1)。",
+    "return_val": "返回类型：size_t（无符号整数）\n返回值：从 str1 开头开始，连续出现在 str2 中的字符个数\n如果 str1 的第一个字符就不在 str2 中，返回 0\n如果 str1 的所有字符都在 str2 中，返回 strlen(str1)",
+    "example": "/* strspn example */\n#include <stdio.h>\n#include <string.h>\n\nint main ()\n{\n  int i;\n  char strtext[] = \"129th\";\n  char cset[] = \"1234567890\";\n\n  i = strspn (strtext,cset);\n  printf (\"The initial number has %d digits.\\n\",i);\n  return 0;\n}\noutput:\nThe initial number has 3 digits.",
+    "modes": []
+  },
+  {
+    "name": "fopen",
+    "header": "stdio.h",
+    "prototype": "FILE *fopen(const char *filename, const char *mode);",
+    "description": "使用给定的模式 mode 打开 filename 所指向的文件。\n\n举例说明：FILE *f = fopen(const char *filename,\"r\")\n在相对路径下：filename 是基于工作目录下搜索地址，比如在nemu工作目录下：\n filename,对于f而言实际是对：nemu/filename  做文件打开处理。\n如果不用相对路径(相对工作目录)，就需要输入的是文件在系统中的绝对路径，一般来说都是利用数组将绝对路径字符串放置其中，然后用指针指向该数组来索引。",
+    "return_val": "如果文件成功打开，则返回一个指向 FILE 对象的指针。否则返回 NULL。",
+    "example": "FILE *fp;\nfp = fopen(\"file.txt\", \"w+\");\nfprintf(fp, \"%s %s\", \"Hello\", \"World\");\nfclose(fp);",
+    "modes": [
+      {
+        "code": "\"r\"",
+        "detail": "读取：打开文件以进行输入操作。文件必须存在。"
+      },
+      {
+        "code": "\"w\"",
+        "detail": "写入：创建一个用于输出操作的空文件。如果同名文件已存在，则丢弃其内容。"
+      },
+      {
+        "code": "\"a\"",
+        "detail": "追加：在文件末尾打开文件以进行输出。如果文件不存在，则会创建该文件。"
+      },
+      {
+        "code": "\"r+\"",
+        "detail": "读取/更新：打开文件进行更新（包括输入和输出）。文件必须存在。"
+      },
+      {
+        "code": "\"w+\"",
+        "detail": "写入/更新：创建一个空文件并打开它进行更新。如果存在则覆盖。"
+      },
+      {
+        "code": "\"a+\"",
+        "detail": "追加/更新：打开一个文件进行更新，所有输出操作都会将数据写入文件末尾。"
+      }
+    ]
+  },
+  {
+    "name": "fgets",
+    "header": "stdio.h",
+    "prototype": "char *fgets(char *str, int n, FILE *stream);",
+    "description": "从指定的流 stream 读取一行，并把它存储在 str 所指向的字符串内。\nint n 用于指定字节个数，一般为数字的大小",
+    "return_val": "如果读取成功，该函数返回相同的 str 参数。\n如果到达文件末尾或者没有读取到任何字符，str 的内容保持不变，并返回一个空指针。\n如果发生错误，返回一个空指针。",
+    "example": "FILE *fp = fopen(\"file.txt\", \"r\");\nchar str[60];\nif(fgets(str, 60, fp)!=NULL) {\n    printf(\"%s\", str);\n}\nfclose(fp);",
+    "modes": []
+  },
+  {
+    "name": "strchr",
+    "header": "string.h",
+    "prototype": "char *strchr(const char *str, int c);",
+    "description": "在参数 str 所指向的字符串中搜索第一次出现字符 c（一个无符号字符）的位置。",
+    "return_val": "该函数返回在字符串 str 中第一次出现字符 c 的位置，如果未找到该字符则返回 NULL。",
+    "example": "const char str[] = \"http://www.runoob.com\";\nconst char ch = '.';\nchar *ret;\nret = strchr(str, ch);\nprintf(\"|%c| 之后的字符串是 - |%s|\\n\", ch, ret);\n\noutput:\n  Looking for the 's' character in \"This is a sample string\"...\n  found at 4\n  found at 7\n  found at 11\n  found at 18",
+    "modes": []
+  },
+  {
+    "name": "time",
+    "header": "time.h",
+    "prototype": "time_t time(time_t *tloc);",
+    "description": "获取当前日历时间（自 Epoch 起的秒数）。若 tloc 非空，同时把结果存入 *tloc。",
+    "return_val": "成功返回当前时间（time_t）。若出错返回 (time_t)-1。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "srand",
+    "header": "stdlib.h",
+    "prototype": "void srand(unsigned int seed);",
+    "description": "设置伪随机数生成器的种子，用于初始化后续的 rand() 序列。",
+    "return_val": "无返回值（void）。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "rand",
+    "header": "stdlib.h",
+    "prototype": "int rand(void);",
+    "description": "功能：\n返回一个伪随机整数，范围为 0 到 RAND_MAX（含）。若需改变序列，应先调用 srand() 设定种子。",
+    "return_val": "返回一个在 0..RAND_MAX 之间的非负整数。函数本身没有错误指示。",
+    "example": "#include <stdio.h>\n#include <stdlib.h>\n#include <time.h>\n\nint main(void) {\n    srand((unsigned)time(NULL));\n    int r = rand();\n    int small = rand() % 100;\n    printf(\"rand=%d, small=%d\\n\", r, small);\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "fclose",
+    "header": "stdio.h",
+    "prototype": "int fclose(FILE *stream);",
+    "description": "关闭文件流并释放相关资源，同时刷新缓冲区。",
+    "return_val": "成功返回 0；失败返回 EOF 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "system",
+    "header": "stdlib.h",
+    "prototype": "int system(const char *command);",
+    "description": "在子 shell 中执行命令字符串 command（等同在终端运行该命令）。若 command 为 NULL，可用于检测是否存在命令处理器。",
+    "return_val": "返回命令的退出状态（平台相关）。若无法创建子进程或执行失败返回 -1 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "popen",
+    "header": "stdio.h",
+    "prototype": "FILE *popen(const char *command, const char *type);",
+    "description": "执行命令并建立与子进程的管道，返回可读/可写的 FILE*（type 为 \"r\" 读取子进程输出，\"w\" 写入子进程输入）。",
+    "return_val": "成功返回 FILE*，失败返回 NULL 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "fscanf",
+    "header": "stdio.h",
+    "prototype": "int fscanf(FILE *stream, const char *format, ...);",
+    "description": "从文件流 stream 中按格式读取数据并赋值到后续参数指定的变量。",
+    "return_val": "成功赋值的字段数量；若匹配失败或达到 EOF，返回值可能比预期小或为 EOF。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "pclose",
+    "header": "stdio.h",
+    "prototype": "int pclose(FILE *stream);",
+    "description": "关闭由 popen 返回的文件流，并等待所对应的子进程终止，返回子进程的终止状态。",
+    "return_val": "返回子进程的状态；出错返回 -1 并设置 errno。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "printf",
+    "header": "stdio.h",
+    "prototype": "int printf(const char *format, ...);",
+    "description": "按格式将输出写到标准输出（stdout）。",
+    "return_val": "写入的字符数（不含结束 NUL）；错误时返回负值。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "assert",
+    "header": "assert.h",
+    "prototype": "void assert(int expression);",
+    "description": "调试用断言：当 expression 为假时打印诊断信息并调用 abort()；若定义了 NDEBUG，则 assert 宏无操作。",
+    "return_val": "无返回值；失败时通常终止程序。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "strncmp",
+    "header": "string.h",
+    "prototype": "int strncmp(const char *s1, const char *s2, size_t n);",
+    "description": "功能：\n比较字符串 s1 和 s2 的最多前 n 个字符，用于在限制长度下判断字符串的字典序关系（常用于前缀比较或避免越界读取）。\n\n参数：\n- s1：指向第一个待比较的 C 字符串（以 '\\0' 终止）。\n- s2：指向第二个待比较的 C 字符串。\n- n：要比较的最大字符数（类型为 size_t）。函数最多比较 n 个字符；若在比较过程中遇到 '\\0' 则停止。\n\n实现细节：\n- 比较是按每字节的无符号值（即按 (unsigned char)）进行，而不是按 locale 或多字节字符集语义。\n- 当 n == 0 时，函数不会访问 s1/s2 的内容，直接返回 0。\n- 该函数适用于比较前缀或在不确定字符串是否以 '\\0' 结尾但知道最大长度时使用；若需要比较固定长度的内存块（可能包含 '\\0'），请使用 memcmp。\n- 注意避免传入 NULL 指针（未定义行为），并确保在比较的长度范围内内存是可读的。",
+    "return_val": "返回一个整数：\n- < 0：在比较的范围内 s1 小于 s2（按无符号字节值比较）。\n- 0：在最多 n 个字符内两字符串相等（包括 n == 0 时）。\n- > 0：在比较的范围内 s1 大于 s2。",
+    "example": "/* strncmp 示例 */\n#include <stdio.h>\n#include <string.h>\n\nint main() {\n  if (strncmp(\"hello\", \"heaven\", 2) == 0) {\n    printf(\"前两个字符相等\\n\");\n  }\n  if (strncmp(\"abc\", \"abd\", 3) < 0) {\n    printf(\"\"abc\" < \"abd\" 在前 3 个字符比较下\n\");\n  }\n  return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "fputc",
+    "header": "stdio.h",
+    "prototype": "int fputc(int c, FILE *stream);",
+    "description": "向指定的文件流写入一个字符（以 unsigned char 转换后写入）。通常用于逐字符输出或实现基于字符的输出抽象。",
+    "return_val": "成功时返回写入的字符（作为无符号字符转换后的 int）；出错时返回 EOF 并设置 errno。",
+    "example": "FILE *f = fopen(\"out.txt\", \"w\");\nif (f) { fputc('A', f); fclose(f); }",
+    "modes": []
+  },
+  {
+    "name": "fgetc",
+    "header": "stdio.h",
+    "prototype": "int fgetc(FILE *stream);",
+    "description": "从指定的文件流读取下一个字符，返回该字符（作为无符号字符转换后的 int）。常用于逐字符读取文本或二进制数据。",
+    "return_val": "成功时返回读取的字符（0..UCHAR_MAX 作为 int）；到达 EOF 或出错时返回 EOF（可结合 feof/ferror 判断原因）。",
+    "example": "FILE *f = fopen(\"in.txt\", \"r\");\nint c; while ((c = fgetc(f)) != EOF) putchar(c); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fread",
+    "header": "stdio.h",
+    "prototype": "size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);",
+    "description": "从文件流中读取最多 nmemb 个元素，每个元素 size 字节，存入 ptr 指向的缓冲区。常用于高效块读取二进制数据。",
+    "return_val": "返回成功读取的元素数量（不是字节数）。若返回值 < nmemb，可通过 feof/ferror 判定是到达 EOF 还是发生错误。",
+    "example": "FILE *f = fopen(\"data.bin\", \"rb\");\nchar buf[256]; size_t n = fread(buf, 1, sizeof(buf), f); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fwrite",
+    "header": "stdio.h",
+    "prototype": "size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);",
+    "description": "向文件流写入 nmemb 个元素，每个元素 size 字节，数据来自 ptr 指向的缓冲区。常用于一次性写入块数据以提高效率。",
+    "return_val": "返回成功写入的元素数量（不是字节数）。若返回值 < nmemb，表示发生写入错误（可检查 ferror）。",
+    "example": "FILE *f = fopen(\"out.bin\", \"wb\");\nconst char buf[] = \"hello\"; fwrite(buf, 1, sizeof(buf), f); fclose(f);",
+    "modes": []
+  },
+  {
+    "name": "fseek",
+    "header": "stdio.h",
+    "prototype": "int fseek(FILE *stream, long offset, int whence);",
+    "description": "在文件流中移动文件位置指针。whence 可取 SEEK_SET（文件开头）、SEEK_CUR（当前偏移）或 SEEK_END（文件末尾）。用于随机访问文件内容。",
+    "return_val": "成功返回 0；出错返回非 0（通常 -1）并设置 errno。",
+    "example": "fseek(f, 0, SEEK_END); long len = ftell(f); fseek(f, 0, SEEK_SET);",
+    "modes": []
+  },
+  {
+    "name": "ftell",
+    "header": "stdio.h",
+    "prototype": "long ftell(FILE *stream);",
+    "description": "返回文件流当前的文件位置（以字节为单位，相对于文件开头）。常与 fseek 配合用于测量或保存当前位置。",
+    "return_val": "成功返回当前偏移（long）；出错返回 -1L 并设置 errno。",
+    "example": "long pos = ftell(f);",
+    "modes": []
+  },
+  {
+    "name": "fgetpos",
+    "header": "stdio.h",
+    "prototype": "int fgetpos(FILE *stream, fpos_t *pos);",
+    "description": "将当前文件位置保存到由 pos 指向的对象（fpos_t）。可用于保存并在后续使用 fsetpos 恢复位置（能够保存更多实现相关状态）。",
+    "return_val": "成功返回 0；出错返回非 0 并设置 errno。",
+    "example": "fpos_t p; fgetpos(f, &p); /* ... */ fsetpos(f, &p);",
+    "modes": []
+  },
+  {
+    "name": "fsetpos",
+    "header": "stdio.h",
+    "prototype": "int fsetpos(FILE *stream, const fpos_t *pos);",
+    "description": "将文件位置设置为先前由 fgetpos 存储的 pos。用于可靠恢复复杂流位置（实现可包含额外状态）。",
+    "return_val": "成功返回 0；出错返回非 0 并设置 errno。",
+    "example": "fpos_t p; fgetpos(f, &p); /* ... */ fsetpos(f, &p);",
+    "modes": []
+  },
+  {
+    "name": "feof",
+    "header": "stdio.h",
+    "prototype": "int feof(FILE *stream);",
+    "description": "测试给定文件流的 EOF 指示器是否已被设置（例如上一次读取达到了文件结尾）。通常与 fread/fgetc 的返回值配合使用以判定是否到达 EOF。",
+    "return_val": "若 EOF 指示器被设置返回非 0，否则返回 0。",
+    "example": "if (feof(f)) printf(\"reached EOF\n\");",
+    "modes": []
+  },
+  {
+    "name": "ferror",
+    "header": "stdio.h",
+    "prototype": "int ferror(FILE *stream);",
+    "description": "测试给定文件流的错误指示器是否被设置（例如读取或写入出错）。在检测到错误后，可使用 clearerr 清除错误状态并继续操作。",
+    "return_val": "若错误指示器被设置返回非 0，否则返回 0。",
+    "example": "if (ferror(f)) { perror(\"IO error\"); clearerr(f); }",
+    "modes": []
+  },
+  {
+    "name": "fflush",
+    "header": "stdio.h",
+    "prototype": "int fflush(FILE *stream);",
+    "description": "刷新指定流的输出缓冲区，将缓冲数据写入底层文件或设备。若 stream 为 NULL，则刷新所有输出流。常用于确保重要输出立即落盘或发送。",
+    "return_val": "成功返回 0；出错返回 EOF 并设置 errno。",
+    "example": "fprintf(stdout, \"status\"); fflush(stdout);",
+    "modes": []
+  }
+]

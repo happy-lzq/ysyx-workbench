@@ -1,0 +1,48 @@
+flowchart TB
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    classDef decision fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef action fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000
+
+    subgraph MainLoop ["Step 1: 全局控制 (Main Control)"]
+        direction TB
+        Start("main()"):::process
+        GenCall("调用 gen_rand_expr()"):::process
+        Save("写入 buf 到文件"):::action
+        
+        Start --> GenCall --> Save -- "Next" --> GenCall
+    end
+
+    subgraph Generation ["Step 2: 生成策略 (Generation Wrapper)"]
+        direction TB
+        Try("尝试生成 (Loop 5 times)"):::process
+        RecEntry("进入递归算法\ngen_expr_rec()"):::process
+        Verify{"合法性检查Valid?\n1. 缓冲区未溢出\n2. 括号平衡"}:::decision
+        
+        GenCall --> Try --> RecEntry
+        RecEntry --> Verify
+        Verify -- "Fail" --> Try
+        Verify -- "Pass" --> Return("完成"):::action
+    end
+
+    subgraph Algorithm ["Step 3: 递归核心 (Recursive Algorithm)"]
+        direction TB
+        NodeEntry("节点生成决策"):::process
+        IsRec{"是否递归嵌套?\n(depth>0 & 概率命中)"}:::decision
+        
+        BranchRec["生成子表达式\nAppend '(' -> Recurse -> ')'"]:::action
+        BranchBase["生成原子操作数\ngen_operand()"]:::action
+        
+        Next{"还有后续操作符?"}:::decision
+        AppendOp["选择并拼接操作符\n( + - * / )"]:::action
+
+        NodeEntry --> IsRec
+        IsRec -- "Yes (Complex)" --> BranchRec
+        IsRec -- "No (Simple)" --> BranchBase
+        
+        BranchRec & BranchBase --> Next
+        Next -- "Yes" --> AppendOp --> NodeEntry
+    end
+
+    %% 跨图连接
+    RecEntry -.-> NodeEntry
+    BranchRec -.-> NodeEntry

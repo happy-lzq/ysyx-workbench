@@ -1,14 +1,31 @@
-*.*
+# 忽略所有
 *
+
+# 保留目录结构
 !*/
-!/nemu/*
-!/nexus-am/*
-!/nanos-lite/*
-!/navy-apps/*
-!/npc/*
+
+# 包含顶级目录
+!/nemu/
+!/nexus-am/
+!/nanos-lite/
+!/navy-apps/
+!/npc/
+!/nvboard/
+
+# 包含必要的文件
 !Makefile
 !README.md
 !.gitignore
 !init.sh
-/fceux-am
 
+# 包含 nvboard 目录，但排除特定的 _obj 目录
+!/nvboard/
+!/nvboard/**
+nvboard/RTL_prj/*/*_obj/
+
+# 包含 nemu 所有文件，但排除特定的目录
+!/nemu/
+!/nemu/**
+# 排除fceux-am
+/fceux-am
+/am-kernels
