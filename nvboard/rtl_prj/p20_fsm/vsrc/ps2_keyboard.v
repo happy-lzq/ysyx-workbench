@@ -4,16 +4,18 @@ module ps2_keyboard(
     ,ps2_clk     // PS2，有效时钟
     ,ps2_data    // 传入有效数据
     ,scancode    // 有效数据
-    ,valid       // 有效数据标志位   
+    ,valid       // 有效数据标志位 
+    ,press_count  
 );
     input clk,resetn,ps2_clk,ps2_data;
     output reg [7:0] scancode;
+    output reg [6:0] press_count;
     output reg valid;
 
     reg [9:0] buffer;        // ps2_data bits
     reg [3:0] count;         // count ps2_data bits
     reg [2:0] ps2_clk_sync;
-
+    reg [7:0] prev_scancode;
 /* 奈奎斯特采样，打三拍通过处理上上拍与上一拍的变化情况来决定采样时刻，经典的下降沿采样处理
     上升沿 = (上一次是0) 并且 (这一次是1)
           = ~ps2_clk_sync[2] &  ps2_clk_sync[1]
@@ -26,8 +28,10 @@ module ps2_keyboard(
     always @(posedge clk or negedge resetn) begin
         if (resetn == 0) begin // reset
             count <= 0;
+            press_count <= 0;
             valid <= 0;
             scancode <= 0;
+            prev_scancode <= 8'h00;
         end
         else begin
             valid <= 0;
@@ -37,15 +41,34 @@ module ps2_keyboard(
                     (ps2_data)       &&         // stop  bit = 1
                     (^buffer[9:1]))             // 奇数个1，异或结果为1，偶数个1，异或结果0
                     begin       
+                        $display("receive %x", buffer[8:1]);
                         scancode <= buffer[8:1];
                         valid <= 1;
+
+                        if (buffer[8:1] != 8'hE0) begin // 忽略E0扩展码
+                            if (buffer[8:1] == 8'hF0) begin
+                                press_count <= press_count + 1;  // press_code
+                                prev_scancode <= buffer[8:1];
+                            end else begin
+                                if (buffer[8:1] != prev_scancode) begin
+                                    if (prev_scancode != 8'hF0) begin
+                                        press_count <= press_count + 1;   //release_code
+                                        prev_scancode <= buffer[8:1];
+                                    end else begin
+                                        prev_scancode <= 8'h00;
+                                    end
+                                end
+                            end
+                        end
                 end
+                
                 count <= 0;                     // for next
               end else begin
                 buffer[count] <= ps2_data;      // store ps2_data
                 count <= count + 3'b1;
               end
             end
+            
         end
     end
 

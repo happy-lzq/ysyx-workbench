@@ -7,22 +7,29 @@ module top(
     output [7:0] seg0,
     output [7:0] seg1,
     output [7:0] seg2,
-    output [7:0] seg3
+    output [7:0] seg3,
+    output [7:0] seg4,
+    output [7:0] seg5,
+    output [7:0] seg6,
+    output [7:0] seg7
 );
 
     wire [7:0] scancode;
+    wire [6:0] press_count;
+
     wire valid;
-    
     ps2_keyboard u_ps2(
         .clk(clk),
         .resetn(rst_n),
         .ps2_clk(ps2_clk),
         .ps2_data(ps2_data),
         .scancode(scancode),
+        .press_count(press_count),
         .valid(valid)
     );
 /*================= 按键数据传输设计：可乐机使能与复位、投币，与退钱处理 ========================*/
-    reg [7:0] released_key;
+    reg [7:0] released_data;   // 释放传出的数据
+//
     reg key_release_pulse;  // 按键有效释放标志位
     reg f0_seen;            // 1,代表F0，存在按键松开，具体哪个键不清楚，需要等通码验证
 // 数据发送逻辑：按下发送：通码(传输1次)；释放：发送断码=FO+通码(传输2次)；本设计抓释放时刻即可。
@@ -30,7 +37,7 @@ module top(
         if (!rst_n) begin
             f0_seen <= 0;
             key_release_pulse <= 0;
-            released_key <= 0;
+            released_data <= 0;
         end else begin
             key_release_pulse <= 0;
             if (valid) begin
@@ -39,7 +46,7 @@ module top(
                 end else begin
                     if (f0_seen) begin
                         key_release_pulse <= 1;
-                        released_key <= scancode;
+                        released_data <= scancode;
                         f0_seen <= 0;
                     end
                 end
@@ -54,9 +61,9 @@ module top(
             system_enable <= 0;
         end else begin
             if (key_release_pulse) begin
-                if (released_key == 8'h5A) // Enter
+                if (released_data == 8'h5A) // Enter
                     system_enable <= 1;
-                else if (released_key == 8'h76) // Esc
+                else if (released_data == 8'h76) // Esc
                     system_enable <= 0;
             end
         end
@@ -75,15 +82,18 @@ module top(
             half_pulse <= 0;
             pi_quit <= 0;
             if (system_enable && key_release_pulse) begin
-                if (released_key == 8'h3A) // M
+                if (released_data == 8'h3A) // M
                     one_pulse <= 1;
-                else if (released_key == 8'h31) // N
+                else if (released_data == 8'h31) // N
                     half_pulse <= 1;
-                else if (released_key == 8'h29)
+                else if (released_data == 8'h29)
                     pi_quit <=1;
             end
         end
     end
+
+    // 其他键的按下与释放
+    
 
 /*===================== 可乐状态机购买输出逻辑设计：根据标志位设计LED显示时长 ========================*/
     wire po_money, po_cola;
@@ -162,8 +172,9 @@ module top(
 /*===================== 退钱数码管根据状态显示逻辑设计：根据输出状态设计数码管状态显示 ========================*/
     reg [3:0] change_int;
     reg [3:0] change_dec;
-    wire [6:0] h_ch_int, h_ch_dec;
-    
+    reg [3:0] tens;
+    reg [3:0] units;
+    wire [6:0] h_ch_int, h_ch_dec,count_tens,count_units;
     always @(*) begin
         if (system_enable) begin
             case(quit_out)
@@ -180,6 +191,17 @@ module top(
             change_dec = 4'd10; // --
         end
     end
+    /* verilator lint_off WIDTHTRUNC */
+    always @(*) begin
+        if (system_enable) begin
+            tens = press_count / 7'd10;
+            units= press_count % 7'd10;
+        end else begin
+            tens = 4'd10; // --
+            units = 4'd10; // --
+        end
+    end
+    /* verilator lint_on WIDTHTRUNC */
 
     bcd7seg u_seg_ch_int(
         .in (change_int), 
@@ -190,6 +212,16 @@ module top(
         .in (change_dec), 
         .bcd7seg_out (h_ch_dec)
     );
+
+    bcd7seg u_bcd7seg_tens (
+    .in             (tens),
+    .bcd7seg_out    (count_tens)
+);
+    bcd7seg u_bcd7seg_units (
+    .in             (units),
+    .bcd7seg_out    (count_units)
+);
+
 /*===================== 数码管根据显示逻辑设计连接开发板输出端口 ========================*/
     wire dp1 = system_enable; 
     wire dp0 = 0;
@@ -197,5 +229,10 @@ module top(
     assign seg0 = ~{h_dec, dp0}; 
     assign seg3 = ~{h_ch_int, dp1}; 
     assign seg2 = ~{h_ch_dec, dp0};
+    assign seg4 = ~{7'b0000001, dp0};
+    assign seg5 = ~{7'b0000001, dp0};
+    assign seg6 = ~{count_units, dp0};
+    assign seg7 = ~{count_tens, dp0};
+
 
 endmodule

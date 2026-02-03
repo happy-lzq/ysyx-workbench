@@ -7,6 +7,7 @@ module vga_pic(
 reg [23:0] vga_mem [524287:0];
 
 initial begin
+    // 帧缓存（Frame Buffer）读取
     $readmemh("/home/l/ysyx/ysyx-workbench/nvboard/rtl_prj/p21_vga/resource/picture.hex", vga_mem);
 end
 
