@@ -18,9 +18,9 @@
 
 #include <isa.h>
 typedef struct Decode {
-  vaddr_t pc;
-  vaddr_t snpc; // static next pc
-  vaddr_t dnpc; // dynamic next pc
+  vaddr_t pc;   // 当前pc
+  vaddr_t snpc; // 静态顺序执行，对应pc自动叠加4：pc+4
+  vaddr_t dnpc; // 动态分支调整执行，对应实际调整的下一条指令pc地址：主要用于分支跳转指令使用
   ISADecodeInfo isa;
   IFDEF(CONFIG_ITRACE, char logbuf[128]);
 } Decode;
