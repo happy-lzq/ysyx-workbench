@@ -30,24 +30,28 @@ enum {
     SEXT(val, len)：Sign EXTension（符号扩展）。
     作用是把一个 len 位长度的有符号数，强行拉长到 32 位（如果最高位是 1，前面全补 1；如果是 0，前面全补 0）。
 */
-/*================================== IUSRJB 立即数处理 ==================================================*/
+/*================================== IUSRJB 立即数处理 先拼接再符号位扩展==================================================*/
+
 #define src1R() do { *src1 = R(rs1); } while (0)
 #define src2R() do { *src2 = R(rs2); } while (0)
 #define immI() do { *imm = SEXT(BITS(i, 31, 20), 12); } while(0)   
 #define immU() do { *imm = SEXT(BITS(i, 31, 12), 20) << 12; } while(0)
 #define immS() do { *imm = (SEXT(BITS(i, 31, 25), 7) << 5) | BITS(i, 11, 7); } while(0)
-// R类型无立即数操作
-#define immJ() do { \
-  *imm = ((SEXT(BITS(i, 31, 31),  1)  << 20 ) |  \
-          (SEXT(BITS(i, 19, 12),  8)  << 12 ) |  \
-          (SEXT(BITS(i, 20, 20),  1)  << 11 ) |  \
-          (SEXT(BITS(i, 30, 21), 10)  << 1  )); \
+// R类无立即数：第0位固定为0，最高位为20位，总计立即数为21位
+#define immJ() do {                             \
+  uint32_t val = ((BITS(i, 31, 31))  << 20 ) |  \
+                 ((BITS(i, 19, 12))  << 12 ) |  \
+                 ((BITS(i, 20, 20))  << 11 ) |  \
+                 ((BITS(i, 30, 21))  << 1  ) ;  \
+  *imm = SEXT(val,21)                        ;  \
 } while(0)
-#define immB() do { \
-  *imm = ((SEXT(BITS(i, 31, 31),  1)  << 12 ) | \
-          (SEXT(BITS(i,  7,  7),  1)  << 11 ) | \
-          (SEXT(BITS(i, 30, 25),  6)  <<  5 ) | \
-          (SEXT(BITS(i, 11,  8),  4)  <<  1 )); \
+// B型立即数：第0位固定为0，最高位为12位，总计立即数为13位
+#define immB() do {                              \
+  uint32_t val = ((BITS(i, 31, 31))  << 12 ) |   \
+                 ((BITS(i,  7,  7))  << 11 ) |   \
+                 ((BITS(i, 30, 25))  <<  5 ) |   \
+                 ((BITS(i, 11,  8))  <<  1 ) ;   \
+  *imm = SEXT(val,13)                        ;   \
 } while(0)
 
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
