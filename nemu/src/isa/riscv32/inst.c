@@ -36,7 +36,7 @@ enum {
 #define src2R() do { *src2 = R(rs2); } while (0)
 #define immI()  do { *imm = SEXT (BITS(i, 31, 20), 12); } while(0)   
 #define immU()  do { *imm = SEXT (BITS(i, 31, 12), 20) << 12; } while(0)
-#define immS()  do { *imm = SEXT((BITS(i, 31, 25) << 5) | BITS(i, 11, 7),12); } while(0)
+#define immS()  do { *imm = SEXT(((BITS(i, 31, 25) << 5) | BITS(i, 11, 7)),12); } while(0)
 // R类无立即数：第0位固定为0，最高位为20位，总计立即数为21位
 #define immJ() do {                             \
   uint32_t val = ((BITS(i, 31, 31))  << 20 ) |  \
