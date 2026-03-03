@@ -21,7 +21,7 @@
 #if   defined(CONFIG_PMEM_MALLOC)
 static uint8_t *pmem = NULL;
 #else // CONFIG_PMEM_GARRAY
-static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
+static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};      // CONFIG_MSIZE=0X80000000   客户机的模拟的物理内存
 #endif
 
 uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }

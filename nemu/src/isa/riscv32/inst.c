@@ -102,16 +102,16 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);                      // x[rd] = x[rs1] & sext(immediate)
   INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);                      // x[rd] = x[rs1] | sext(immediate)
   INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);                      // x[rd] = x[rs1] ^ sext(immediate)
-  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << src2);                    // x[rd] = x[rs1] ≪ x[rs2]
+  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                    // x[rd] = x[rs1] ≪ x[rs2]
   INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
-  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> src2);                    // x[rd] = (x[rs1] ≫𝑢 x[rs2])
+  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                    // x[rd] = (x[rs1] ≫𝑢 x[rs2])
   INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
-  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (signed)src1 >> src2);            // x[rd] = (x[rs1] ≫𝑠 x[rs2])
-  INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (signed)src1 >> (imm & 0x1F));    // x[rd] = (x[rs1] ≫𝑠 shamt)
-  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (signed)src1 < (signed)src2) ;    // x[rd] = (x[rs1] <𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                     // x[rd] = (x[rs1] <𝑢 x[rs2])
-  INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (signed)src1 < (int32_t)imm) ;    // x[rd] = (x[rs1] <𝑠 sext(immediate))
-  INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                      // x[rd] = (x[rs1] <𝑢 sext(immediate))
+  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));            // x[rd] = (x[rs1] ≫𝑠 x[rs2])
+  INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1F));    // x[rd] = (x[rs1] ≫𝑠 shamt)
+  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2) ;   // x[rd] = (x[rs1] <𝑠 x[rs2])
+  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                      // x[rd] = (x[rs1] <𝑢 x[rs2])
+  INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int32_t)src1 < (int32_t)imm) ;    // x[rd] = (x[rs1] <𝑠 sext(immediate))
+  INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                       // x[rd] = (x[rs1] <𝑢 sext(immediate))
 
 // ==================================== 算术运算指令 =====================================================================
   INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);                     // x[rd] = x[rs1] + x[rs2]
@@ -121,8 +121,19 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
   INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
 
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~ 0 :                                                // x[rd] = x[rs1] ÷s x[rs2]
-                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 : 
+/*       除法与取余的操作
+ 1、  ~0的二进制表示为：0xffffffff（全1）
+      有符号处理：~0 = 0xffffffff 代表-1的补码 RISC-V 规定有符号除法除以 0 时，结果为 -1
+      无符号处理：~0 = 0xffffffff 代表2^32-1 32位计算机能表示的最大数，RISC-V 规定无符号除法除以 0 时，结果为全 1。
+2、   RISC-V 指令集规范的定义。当除数为 0 时，取余运算的结果规定为被除数本身。
+3、   有符号的除法需要考虑溢出，无符号不需要。有符号定义：最高位0为正，最高位1为负
+      32位有符号整数的最小值是 0x80000000（即 -2147483648）。32位有符号整数的最大值是 0x7FFFFFFF（2147483647），无法存下 
+      负数在计算机中存的是补码的形式：补码=源码进行（反码+1）；
+      计算机中进行有符号查看：最高位0：直接处理；最高位1：减1取反
+      加权计算：数值=符号位x（-2^N-1）+ 其他位x（2^N）（位数）
+*/
+  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
+                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
                                                                         (int32_t) src1 / (int32_t) src2 )));  
   INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
   INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
@@ -135,8 +146,8 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
   INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
   INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                                              // x[rd] = (x[rs1] ≫𝑢 x[rs2])
-  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (signed)src1 >> (src2 & 0x1F));                                      // x[rd] = (x[rs1] ≫𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (signed)src1 < (signed)src2);                                        // x[rd] = (x[rs1] <𝑠 x[rs2])
+  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
+  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
   INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
 
 // ==================================== 跳转指令 =================================================================
@@ -146,8 +157,8 @@ static int decode_exec(Decode *s) {
 // ==================================== 分支指令 =================================================================
   INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
   INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((signed)src1 < (signed)src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((signed)src1 >= (signed)src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
   INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
   INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
 
