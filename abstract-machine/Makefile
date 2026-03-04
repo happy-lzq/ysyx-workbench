@@ -16,7 +16,7 @@ endif
 ### Override checks when `make clean/clean-all/html`
 ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
 
-### Print build info message
+### Print build info message      NAME:添加的测试文件去掉后缀名：make ARCH=rsicv32-nemu ALL=NMAE run 
 $(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])
 
 ### Check: environment variable `$AM_HOME` looks sane
@@ -51,7 +51,7 @@ DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
 ### Compilation targets (a binary image or archive)
-IMAGE_REL = build/$(NAME)-$(ARCH)
+IMAGE_REL = build/$(NAME)-$(ARCH)    # 编译-链接产生的文件路径前缀
 IMAGE     = $(abspath $(IMAGE_REL))
 ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
@@ -132,7 +132,7 @@ endef
 $(foreach lib, $(LIBS), $(eval $(call LIB_TEMPLATE,$(lib))))
 endif
 
-### Rule (link): objects (`*.o`) and libraries (`*.a`) -> `IMAGE.elf`, the final ELF binary to be packed into image (ld)
+### Rule (link): 将*.o *.a 等编译文件利用riscv64-linux-gnu-ld链接器构建连接处理构成elf文件
 $(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
 	@echo \# Creating image [$(ARCH)]
 	@echo + LD "->" $(IMAGE_REL).elf
