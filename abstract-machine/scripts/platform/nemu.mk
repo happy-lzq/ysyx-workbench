@@ -23,7 +23,7 @@ insert-arg: image
 # 本机python环境仅有Python3,无python环境，故此将python修改为python3
 # 使用ubuntu专门管理python 替换pthon3的包  来处理替换：sudo apt install python-is-python3
 image: image-dep
-	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE)luozhiqiang.txt
+	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 

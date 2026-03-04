@@ -30,12 +30,12 @@ ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### Extract instruction set architecture (`ISA`) and platform from `$ARCH`. Example: `ARCH=x86_64-qemu -> ISA=x86_64; PLATFORM=qemu`
+### 提取指令架构与平台：ISA=RISCV   PLATFORM=NEMU
 ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
 
-### Check if there is something to build
+### Check if there is something to build   检查变量的性质属性
 ifeq ($(flavor SRCS), undefined)
   $(error Nothing to build)
 endif
@@ -62,7 +62,7 @@ LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
 
 ## 3. General Compilation Flags
 
-### (Cross) compilers, e.g., mips-linux-gnu-g++
+### (Cross) compilers, e.g., mips-linux-gnu-g++   工具链绑定
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -90,7 +90,7 @@ LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
 ## 4. Arch-Specific Configurations
 
-### Paste in arch-specific configurations (e.g., from `scripts/x86_64-qemu.mk`)
+### 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定，保证完全调用以及RISCV平台处理进而获取完整0-1指令可执行文件.bin
 -include $(AM_HOME)/scripts/$(ARCH).mk
 
 ## 5. Compilation Rules
