@@ -76,9 +76,12 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
 
 int sprintf(char *out, const char *fmt, ...) {
   va_list ap;
+  //va_start(va_list ap, last_fixed_arg) 
+  //last_fixed_arg  ... 前面的最后一个确定已知的参数。在 sprintf 中，它就是那个 fmt。
   va_start(ap, fmt);
   int ret = vsprintf(out, fmt, ap);
   va_end(ap);
+  //使 ap 失效：它会将 ap 强行置为空指针（NULL）
   return ret;
 }
 
