@@ -103,28 +103,28 @@ void *memset(void *s, int c, size_t n) {
   return pre_s;
 }
 
-void *memmove(void *dst, const void *src, size_t n) {
-  // 将源指针指向的内存位置的num字节 值复制到目标指针指向的内存块。复制过程如同使用中间缓冲区，允许源指针和目标指针重叠
-  unsigned char *pre_dst = (unsigned char *)dst;
-  const unsigned char *pre_src = (const unsigned char *)src;
-  size_t i=0;
-  // dst > src,从后往前移动
-  if (pre_dst > pre_src)
-  {
-     for ( i = n; i > 0; i--)
-     {
-  // 保证数组d[0]开始，并且循环成立，而且移动个数保证为n。
-      pre_dst[i-1] = pre_src[i-1];
-     }
-  } else {
-    for ( i = 0; i < n; i++)
-    {
-      pre_dst[i] = pre_src[i];
-    }
+// void *memmove(void *dst, const void *src, size_t n) {
+//   // 将源指针指向的内存位置的num字节 值复制到目标指针指向的内存块。复制过程如同使用中间缓冲区，允许源指针和目标指针重叠
+//   unsigned char *pre_dst = (unsigned char *)dst;
+//   const unsigned char *pre_src = (const unsigned char *)src;
+//   size_t i=0;
+//   // dst > src,从后往前移动
+//   if (pre_dst > pre_src)
+//   {
+//      for ( i = n; i > 0; i--)
+//      {
+//   // 保证数组d[0]开始，并且循环成立，而且移动个数保证为n。
+//       pre_dst[i-1] = pre_src[i-1];
+//      }
+//   } else {
+//     for ( i = 0; i < n; i++)
+//     {
+//       pre_dst[i] = pre_src[i];
+//     }
     
-  }
-  return pre_dst;
-}
+//   }
+//   return pre_dst;
+// }
 
 void *memcpy(void *out, const void *in, size_t n) {
   // 将源指针指向的内存位置的num字节 值直接复制到目标指针指向的内存块。dst 和 src 这两块内存绝对、绝对不可能有任何重合的部分！”
