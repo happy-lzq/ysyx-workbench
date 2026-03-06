@@ -82,10 +82,10 @@ static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
 
-    if (check_watchpoint(&used_list) > 0){
-      nemu_state.state = NEMU_STOP;
-      break;
-    }
+    // if (check_watchpoint(&used_list) > 0){
+    //   nemu_state.state = NEMU_STOP;
+    //   break;
+    // }
 
     exec_once(&s, cpu.pc);
     g_nr_guest_inst ++;
