@@ -25,15 +25,48 @@
  * You can modify this value as you want.
  */
 #define MAX_INST_TO_PRINT 10000
+#define ITRACE_RINGBUF_SIZE 16
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 
+#ifdef CONFIG_ITRACE
+static char iringbuf[ITRACE_RINGBUF_SIZE][128];
+static int iringbuf_head = 0;
+static int iringbuf_count = 0;
+
+static void iringbuf_record(const char *logbuf) {
+  snprintf(iringbuf[iringbuf_head], sizeof(iringbuf[iringbuf_head]), "%s", logbuf);
+  iringbuf_head = (iringbuf_head + 1) % ITRACE_RINGBUF_SIZE;
+  if (iringbuf_count < ITRACE_RINGBUF_SIZE) {
+    iringbuf_count++;
+  }
+}
+
+static void iringbuf_display() {
+  if (iringbuf_count == 0) {
+    puts("Instruction trace ring buffer is empty.");
+    return;
+  }
+
+  puts("Recent instructions (oldest to newest):");
+  int start = (iringbuf_head - iringbuf_count + ITRACE_RINGBUF_SIZE) % ITRACE_RINGBUF_SIZE;
+  int newest = (iringbuf_head - 1 + ITRACE_RINGBUF_SIZE) % ITRACE_RINGBUF_SIZE;
+  for (int i = 0; i < iringbuf_count; i++) {
+    int idx = (start + i) % ITRACE_RINGBUF_SIZE;
+    printf("%s%s\n", idx == newest ? "--> " : "    ", iringbuf[idx]);
+  }
+}
+#endif
+
 void device_update();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+#ifdef CONFIG_ITRACE
+  iringbuf_record(_this->logbuf);
+#endif
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
@@ -106,6 +139,7 @@ static void statistic() {
 
 void assert_fail_msg() {
   isa_reg_display();
+  IFDEF(CONFIG_ITRACE, iringbuf_display());
   statistic();
 }
 
@@ -140,6 +174,9 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
+      if (nemu_state.state == NEMU_ABORT || nemu_state.halt_ret != 0) {
+        IFDEF(CONFIG_ITRACE, iringbuf_display());
+      }
       // fall through
     case NEMU_QUIT: statistic();
   }
