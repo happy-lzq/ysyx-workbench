@@ -62,17 +62,28 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
  }
 
 static void display_irbuf(void){
+  int fail_inst = (irbuf_pos-1 +IRING_BUF_SIZE) % IRING_BUF_SIZE;
   if (!irbuf_full)
   {
     for (int i = 0; i < irbuf_pos; i++)
     {
-      puts(irbuf[i]);
+      if (i == fail_inst)
+      {
+        printf("--> %s\n", irbuf[i]);
+      } else{
+        printf("    %s\n", irbuf[i]);
+      }
     }   
   } else {
     int pos = irbuf_pos;
     for (int i = 0; i < IRING_BUF_SIZE; i++)
     {
-      puts(irbuf[pos]);
+      if (pos == fail_inst)
+      {
+        printf("--> %s\n", irbuf[pos]);
+      } else{
+        printf("    %s\n", irbuf[pos]);
+      }
       pos = (pos +1) % IRING_BUF_SIZE;
     }
   }
