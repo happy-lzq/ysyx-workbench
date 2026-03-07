@@ -1,5 +1,14 @@
 [
   {
+    "name": "fread",
+    "header": "happy.h",
+    "prototype": "fread(void *ptr, size_t size, size_t nmemb, FILE *stream)",
+    "description": "ptr：读到哪里去\nsize：每块多大\nnmemb：读多少块\nstream：从哪个文件读\n把客户机物理地址 RESET_VECTOR 映射成宿主机里的真实内存地址",
+    "return_val": "成功读取整个文件返回：1\n否则不等于：1",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "word",
     "header": "makefile",
     "prototype": "$(word N,TEXT)",
@@ -683,7 +692,7 @@
     "name": "fseek",
     "header": "stdio.h",
     "prototype": "int fseek(FILE *stream, long offset, int whence);",
-    "description": "在文件流中移动文件位置指针。whence 可取 SEEK_SET（文件开头）、SEEK_CUR（当前偏移）或 SEEK_END（文件末尾）。用于随机访问文件内容。",
+    "description": "stream：文件指针，比如 fp\noffset：偏移量，移动多少字节\nwhence：从哪里开始算偏移\nSEEK_SET(文件开头)\nSEEK_END(文件结束) \nSEEK_CUR（当前位置）\n把文件读写位置指针移动到你指定的位置",
     "return_val": "成功返回 0；出错返回非 0（通常 -1）并设置 errno。",
     "example": "fseek(f, 0, SEEK_END); long len = ftell(f); fseek(f, 0, SEEK_SET);",
     "modes": []

@@ -48,14 +48,15 @@ static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
 // ================================== 加载客户程序镜像函数 ==========================================
 static long load_img() {
+  // 区别于内部的 img[]指令数组，检查外部镜像文件是否存在，存在则执行镜像文件往物理内存起始地址加载覆盖内置指令数据内容
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
     return 4096; // built-in image size
   }
   FILE *fp = fopen(img_file, "rb");
   Assert(fp, "Can not open '%s'", img_file);
-  fseek(fp, 0, SEEK_END);
-  long size = ftell(fp);
+  fseek(fp, 0, SEEK_END);          
+  long size = ftell(fp); 
   Log("The image is %s, size = %ld", img_file, size);
   fseek(fp, 0, SEEK_SET);
   int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
@@ -63,24 +64,38 @@ static long load_img() {
   fclose(fp);
   return size;
 }
-
+// ================ 配置 nemu 启动命令行的选项和参数进行解析 写入nmeu的全局配置变量 =================
 static int parse_args(int argc, char *argv[]) {
+// {name, has_arg, flag, val}   GNU/Linux 提供的命令行解析库 getopt_long() 规定的接口格式
   const struct option table[] = {
     {"batch"    , no_argument      , NULL, 'b'},
     {"log"      , required_argument, NULL, 'l'},
     {"diff"     , required_argument, NULL, 'd'},
     {"port"     , required_argument, NULL, 'p'},
     {"help"     , no_argument      , NULL, 'h'},
-    {0          , 0                , NULL,  0 },
+    {0          , 0                , NULL,  0 },       // 选项表结束标记
   };
-  int o;
+  int o;  
+/*
+  1、它是 GNU 提供的命令行参数解析函数，可以同时处理：短(-b)-长选项(--batch) 以及非选项参数(.bin)
+  2、格式串："-bhl:d:p"；
+    最前'-':如果遇到“不是选项”的普通参数——>特殊返回值交出来,返回值：1 (case 1)
+    bh 表示不带参；l:d:p: 必须带参
+    -b                批处理
+    -h                帮助
+    -l file           log文件
+    -d ref.so         差分文件
+    -p 1234           端口
+  3、optarg ：选项后面对应的参数字符串
+
+*/ 
   while ( (o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
     switch (o) {
       case 'b': sdb_set_batch_mode(); break;
       case 'p': sscanf(optarg, "%d", &difftest_port); break;
       case 'l': log_file = optarg; break;
       case 'd': diff_so_file = optarg; break;
-      case 1: img_file = optarg; return 0;
+      case 1: img_file = optarg; return 0;          // 隐含命令行最后一个p普通参数一定是img_file对应参数字符串
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");      
@@ -97,7 +112,7 @@ static int parse_args(int argc, char *argv[]) {
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
-  /* Parse arguments. */
+  /* 用户启动 NEMU 时在命令行输入的选项和参数，解析后写入 NEMU 的全局配置变量里，供后面的初始化流程使用 */
   parse_args(argc, argv);
 
   /* Set random seed. */
@@ -112,10 +127,11 @@ void init_monitor(int argc, char *argv[]) {
   /* Initialize devices. */
   IFDEF(CONFIG_DEVICE, init_device());
 
-  /* Perform ISA dependent initialization. */
+  /* 准备最小内置程序镜像，初始化CPU相关状态 */
   init_isa();
 
-  /* Load the image to memory. This will overwrite the built-in image. */
+  /* 外部镜像存在，则加载镜像数据覆盖物理内存内置的最小程序镜像
+     NEMU 把外部镜像字节流加载到“宿主机进程中的 pmem 数组”里 */
   long img_size = load_img();
 
   /* Initialize differential testing. */

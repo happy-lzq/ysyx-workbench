@@ -19,11 +19,18 @@
 #include <common.h>
 #include <stdio.h>
 #include <utils.h>
+/*
+1、ANSI_FMT : 决定整行打印输出字符串的颜色
+2、[%s:%d %s] : 对应后面的 __FILE__(文件路径名), __LINE__(对应当前行号), __func__(对应的函数)
+3、## __VA_ARGS__ ：对应宏可变参数的“...” 收尾修正技巧：调用这个宏时，除固定参数外，其余所有参数的整体替换文本
 
+*/
 #define Log(format, ...) \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", \
-        __FILE__, __LINE__, __func__, ## __VA_ARGS__)
+        __FILE__, __LINE__, __func__, ## __VA_ARGS__)   
 
+
+// Assert宏 ：// 如果 cond == NULL，先用红色打印 “format”，再刷日志、打印 NEMU 调试现场，最后用标准断言把程序终止。
 #define Assert(cond, format, ...) \
   do { \
     if (!(cond)) { \
