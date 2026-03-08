@@ -75,3 +75,7 @@ uint64_t get_time();
 
 
 #endif
+
+extern FILE *mtrace_fp;
+void init_mtrace_log();
+void mtrace_write(char type, paddr_t addr, int len, word_t data);

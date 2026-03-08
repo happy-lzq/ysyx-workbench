@@ -64,11 +64,13 @@ void init_mem() {
 word_t paddr_read(paddr_t addr, int len) {
   if (likely(in_pmem(addr))) {
     word_t pr_data = pmem_read(addr,len);
-    #ifdef CONFIG_WATCHPOINT
-
+    #ifdef CONFIG_MTRACE
+      if (MTRACE_COND)
+      {
+        mtrace_write('R',addr,len,pr_data);
+      }
     #endif
     return pr_data;    // nmeu addr 属于物理内存内正常调用并反馈
-
   }
   
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));         // nmeu addr 属于外部接口地址，则进入外部接口调用
@@ -77,7 +79,16 @@ word_t paddr_read(paddr_t addr, int len) {
 }
 
 void paddr_write(paddr_t addr, int len, word_t data) {
-  if (likely(in_pmem(addr))) { pmem_write(addr, len, data); return; }
+  if (likely(in_pmem(addr))) { 
+    pmem_write(addr, len, data); 
+    #ifdef CONFIG_MTRACE
+      if (MTRACE_COND)
+      {
+        mtrace_write('W',addr,len,data);
+      }
+    #endif
+    return; }
+
   IFDEF(CONFIG_DEVICE, mmio_write(addr, len, data); return);
   out_of_bound(addr);
 }
