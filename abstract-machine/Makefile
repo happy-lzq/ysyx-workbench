@@ -8,7 +8,7 @@ html:
 ## 1. Basic Setup and Checks
 
 ### Default to create a bare-metal kernel image
-ifeq ($(MAKECMDGOALS),)
+ifeq ($(MAKECMDGOALS),)            # MAKECMDGOALS ：make run make clean 对应make的执行目标变量
   MAKECMDGOALS  = image
   .DEFAULT_GOAL = image
 endif
@@ -16,11 +16,11 @@ endif
 ### Override checks when `make clean/clean-all/html`
 ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
 
-### Print build info message      NAME:添加的测试文件去掉后缀名：make ARCH=rsicv32-nemu ALL=NMAE run 
-$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])
+### Print build info message     
+$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])     # ARCH属于内置环境变量 ：ARCH=riscv32-nemu
 
 ### Check: environment variable `$AM_HOME` looks sane
-ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)
+ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)        # 获取路径
   $(error $$AM_HOME must be an AbstractMachine repo)
 endif
 
@@ -30,8 +30,8 @@ ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### 提取指令架构与平台：ISA=RISCV   PLATFORM=NEMU
-ARCH_SPLIT = $(subst -, ,$(ARCH))
+### 提取指令架构与平台：ISA=RISCV   PLATFORM=NEMU   
+ARCH_SPLIT = $(subst -, ,$(ARCH))                
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
 
@@ -46,7 +46,8 @@ endif
 ## 2. General Compilation Targets
 
 ### Create the destination directory (`build/$ARCH`)
-WORK_DIR  = $(shell pwd)
+WORK_DIR  = $(shell pwd)    #make 进程的工作目录（current working directory）shell 执行时的工作路径
+                            #/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
@@ -57,7 +58,7 @@ ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
 ### Collect the files to be linked: object files (`.o`) and libraries (`.a`)
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
-LIBS     := $(sort $(LIBS) am klib) # lazy evaluation ("=") causes infinite recursions
+LIBS     := $(sort $(LIBS) am klib)  #增加运行时环境的库列表
 LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
 
 ## 3. General Compilation Flags
@@ -74,7 +75,7 @@ READELF   = $(CROSS_COMPILE)readelf
 
 ### Compilation flags
 INC_PATH += $(WORK_DIR)/include $(addsuffix /include/, $(addprefix $(AM_HOME)/, $(LIBS)))
-INCFLAGS += $(addprefix -I, $(INC_PATH))
+INCFLAGS += $(addprefix -I, $(INC_PATH))     # 构建编译器参数
 
 ARCH_H := arch/$(ARCH).h
 CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
@@ -121,7 +122,7 @@ $(ARCHIVE): $(OBJS)
 	@echo + AR "->" $(shell realpath $@ --relative-to .)
 	@$(AR) rcs $@ $^
 else
-# $(1): library name
+# $(1): library name   传入库名 $(1)
 define LIB_TEMPLATE =
 $$(AM_HOME)/$(1)/build/$(1)-$$(ARCH).a: force
 	@$$(MAKE) -s -C $$(AM_HOME)/$(1) archive

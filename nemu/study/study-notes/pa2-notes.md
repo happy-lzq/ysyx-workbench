@@ -616,7 +616,7 @@ $(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(I
 
 1. 链接脚本把 ELF 安排到 `0x80000000`；
 2. NEMU 在 `RESET_VECTOR` 处装载 BIN；
-3. CPU 的 `pc` 也从 `RESET_VECTOR` 开始。
+3. CPU 的 `cpu.pc` 也从 `RESET_VECTOR` 开始。
 
 ### 三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`
 #### 1. 镜像如何从 Makefile 传给 NEMU

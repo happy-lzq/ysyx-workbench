@@ -62,7 +62,15 @@ void init_mem() {
 // 正式的物理内存读写功能的API函数
 
 word_t paddr_read(paddr_t addr, int len) {
-  if (likely(in_pmem(addr))) return pmem_read(addr, len);    // nmeu addr 属于物理内存内正常调用并反馈
+  if (likely(in_pmem(addr))) {
+    word_t pr_data = pmem_read(addr,len);
+    #ifdef CONFIG_WATCHPOINT
+
+    #endif
+    return pr_data;    // nmeu addr 属于物理内存内正常调用并反馈
+
+  }
+  
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));         // nmeu addr 属于外部接口地址，则进入外部接口调用
   out_of_bound(addr);                                        // 不属于以上两个 越界
   return 0;

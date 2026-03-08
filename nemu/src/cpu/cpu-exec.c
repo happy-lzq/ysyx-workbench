@@ -91,6 +91,7 @@ static void display_irbuf(void){
 }
 
 
+
 static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
   s->snpc = pc;
