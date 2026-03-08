@@ -73,9 +73,8 @@ uint64_t get_time();
     log_write(__VA_ARGS__); \
   } while (0)
 
+extern FILE *mtrace_fp;
+void init_mtrace_log(const char *mtrace_log_file);
+void mtrace_write(char type, paddr_t addr, int len, word_t data);
 
 #endif
-
-extern FILE *mtrace_fp;
-void init_mtrace_log();
-void mtrace_write(char type, paddr_t addr, int len, word_t data);

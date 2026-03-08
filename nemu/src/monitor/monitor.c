@@ -38,6 +38,8 @@ static void welcome() {
 
 #ifndef CONFIG_TARGET_AM
 #include <getopt.h>
+#include <limits.h>
+#include <string.h>
 
 void sdb_set_batch_mode();            // 外部批处理函数声明
 
@@ -45,6 +47,24 @@ static char *log_file = NULL;         // 日志文件路径 对应（-l）
 static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对应（-d）
 static char *img_file = NULL;         // 客户程序镜像路径
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
+static char mtrace_log_file[PATH_MAX] = {};
+
+static const char *get_mtrace_log_file() {
+  const char *path = log_file != NULL ? log_file : img_file;
+  if (path == NULL) {
+    return "build/mtrace-log.txt";
+  }
+
+  const char *slash = strrchr(path, '/');
+  if (slash == NULL) {
+    return "mtrace-log.txt";
+  }
+
+  size_t dir_len = slash - path + 1;
+  int ret = snprintf(mtrace_log_file, sizeof(mtrace_log_file), "%.*smtrace-log.txt", (int)dir_len, path);
+  Assert(ret > 0 && ret < sizeof(mtrace_log_file), "mtrace log path is too long: %s", path);
+  return mtrace_log_file;
+}
 
 // ================================== 加载客户程序镜像函数 ==========================================
 static long load_img() {
@@ -121,7 +141,7 @@ void init_monitor(int argc, char *argv[]) {
   /* Open the log file. */
   init_log(log_file);
 
-  IFDEF(CONFIG_MTRACE,init_mtrace_log());
+  IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
   /* Initialize memory. */
   init_mem();

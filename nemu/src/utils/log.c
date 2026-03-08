@@ -35,9 +35,10 @@ bool log_enable() {
          (g_nr_guest_inst <= CONFIG_TRACE_END), false);
 }
 
-void init_mtrace_log(){
-  mtrace_fp = fopen("build/mtrace-log.txt","w");
-  Assert(mtrace_fp,"Can not open mtrace-log.txt");
+void init_mtrace_log(const char *mtrace_log_file) {
+  mtrace_fp = fopen(mtrace_log_file, "w");
+  Assert(mtrace_fp, "Can not open '%s'", mtrace_log_file);
+  Log("Mtrace log is written to %s", mtrace_log_file);
 }
 
 void mtrace_write(char type, paddr_t addr, int len, word_t data){

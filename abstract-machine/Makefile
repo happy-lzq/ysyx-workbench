@@ -46,9 +46,10 @@ endif
 ## 2. General Compilation Targets
 
 ### Create the destination directory (`build/$ARCH`)
-WORK_DIR  = $(shell pwd)    #make 进程的工作目录（current working directory）shell 执行时的工作路径
+### WORK_DIR: make 进程的工作目录（current working directory）
+WORK_DIR  := $(CURDIR)
                             #/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
-DST_DIR   = $(WORK_DIR)/build/$(ARCH)
+DST_DIR   := $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
 ### Compilation targets (a binary image or archive)
