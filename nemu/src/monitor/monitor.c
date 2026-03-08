@@ -47,8 +47,9 @@ static char *log_file = NULL;         // 日志文件路径 对应（-l）
 static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对应（-d）
 static char *img_file = NULL;         // 客户程序镜像路径
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
-static char mtrace_log_file[PATH_MAX] = {};
+static char mtrace_log_file[260] = {};
 
+// ==================================Mtrace_log 路径处理 ==========================================
 static const char *get_mtrace_log_file() {
   const char *path = log_file != NULL ? log_file : img_file;
   if (path == NULL) {
