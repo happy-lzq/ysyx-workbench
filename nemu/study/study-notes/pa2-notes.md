@@ -1,5 +1,64 @@
 # PA2 学习笔记
 
+## 目录
+
+- [Linux 软链接知识点总结](#sec-softlink)
+  - 1. 什么是软链接？
+  - 2. 核心命令格式
+  - 3. 与 C 语言指针的类比
+  - 4. 为什么使用软链接解决编译器前缀问题？
+- [2026年2月25日 - 2月26日 Debug 记录与总结](#sec-debug-log)
+  - 一、基础设施与环境配置问题
+  - 二、指令实现 Bug 与修复记录
+  - 三、核心 Debug 思路与方法论总结
+- [PA2 专题：指令修复、UB行为与运行时生命周期全景梳理](#sec-pa2-fix-lifecycle)
+  - 1. 核心架构解析：NEMU 的双重视角内存映射模型
+  - 2. AM (Abstract Machine) 解析：TRM 与堆栈初始化
+  - 3. 深度总结：从 C 源码到模拟器执行的完整生命周期
+- [PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转](#sec-pa2-makefile)
+- [PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结](#sec-pa2-vscode)
+  - 1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？
+  - 2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？
+  - 3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？
+  - 4. 精简后的新逻辑：为什么现在只剩几项也能正确工作？
+  - 5. 最终抽象：以后遇到新的红线，应该怎样判断是否需要修改 `json`？
+  - 6. 这次配置总结背后的方法论
+  - 7. 本次最终结论（一句话压缩）
+  - 8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法
+- [PA2 专题：NEMU 执行客户程序的完整生命周期总总结](#sec-pa2-program-lifecycle)
+  - 一、总目标：NEMU 到底在完成什么任务？
+  - 二、第一层：客户程序从何而来？——源码到镜像的构建链
+  - 三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`
+  - 四、第三层：系统初始化顺序——`init_monitor()` 为什么这么排
+  - 五、第四层：`init_isa()`、`restart()`、`load_img()` 之间的关系
+  - 六、第五层：`RESET_VECTOR` 的语义——为什么它是全局锚点
+  - 七、第六层：客户机地址如何落到宿主机数组里——`paddr.c` 的核心桥梁作用
+  - 八、第七层：`load_img()` 如何借助地址映射把镜像落地
+  - 九、第八层：为什么 `.bin` 本身没有地址，但程序仍然能从 `0x80000000` 运行
+  - 十、第九层：为什么 `includePath` 与 IntelliSense 配置问题值得纳入生命周期总结
+  - 十一、第十层：CPU 真正开始执行时发生了什么
+  - 十二、全流程中的关键函数关系图
+  - 十三、这两天分析中最关键的“为什么”与“如何解决”
+  - 十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本
+- [PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）](#sec-pa2-mtrace)
+  - 1. 问题是怎么被提出的？
+  - 2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？
+  - 3. 设计目标是什么？
+  - 4. 整体思路：把 `mtrace` 拆成三条链来看
+  - 5. 第一步：先解决“要不要编译 `mtrace`”的问题
+  - 6. 第二步：为什么 `CONFIG_MTRACE_COND` 还不够，必须再有 `MTRACE_COND`？
+  - 7. 第三步：为什么插桩点必须放在 `paddr_read()` / `paddr_write()`？
+  - 8. 第四步：输出层怎么设计？
+  - 9. 第五步：路径为什么成了整个 `mtrace` 设计里最关键的部分？
+  - 10. 第六步：真正应该依赖什么来推导 `mtrace` 的路径？
+  - 11. 第七步：路径最终是怎么实现的？
+  - 12. 第八步：设计过程中踩到的几个关键坑
+  - 13. 第九步：最终验证链是怎样闭环的？
+  - 14. 这次 `mtrace` 设计里最核心的“为什么”总结
+  - 15. 最终方案一句话收束
+  - 16. `mtrace` 路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链
+
+<a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
 在解决交叉编译器前缀不匹配的问题时，我们使用了一种非常巧妙的方法：**建立软链接**。这不仅避免了修改项目源码（如 Makefile），还保持了环境的整洁。
@@ -63,6 +122,7 @@ printf("%d\n", *shortcut_compiler); // 输出 100
 
 ---
 
+<a id="sec-debug-log"></a>
 ## 2026年2月25日 - 2月26日 Debug 记录与总结
 
 ### 一、 基础设施与环境配置问题
@@ -128,6 +188,7 @@ printf("%d\n", *shortcut_compiler); // 输出 100
    * 编写指令模式时，要注意模式字符串的精确性（特别是 `funct7` 等关键位），避免通配符 `?` 滥用导致指令冲突或被提前误匹配。
    * 保持代码整洁，避免同一条指令在不同区域重复定义。
 
+<a id="sec-pa2-fix-lifecycle"></a>
 ## PA2 专题：指令修复、UB行为与运行时生命周期全景梳理
 > 记录时间：2026年3月3日 | 核心主题：指令行为 Debug，AM 运行时机制解析，程序生命周期总结
 
@@ -166,111 +227,13 @@ printf("%d\n", *shortcut_compiler); // 输出 100
   * `halt()` 后端藏着一条定制陷阱伪指令（例如 `ebreak`）。
   * 译码器识别出特殊的 NEMU_TRAP 指令，从而终止 F-D-E 死循环，打印统计结果如 `HIT GOOD TRAP` 后关闭 NEMU 进程释放资源。
 
+<a id="sec-pa2-makefile"></a>
 ## PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转
 > 记录时间：2026年3月4日 | 核心主题：AM Makefile 宏与函数详解，SDB `-b` 批处理模式原理分析
 
-### 1. AbstractMachine(AM) Makefile 核心函数机制速查字典
-> **应用场景总结**：Makefile 中的函数不仅用于简单的文本替换，更担负了处理路径拼接、动态代码生成（元编程）的重要责任。分为内置函数与自定义宏两类：
 
-#### 一、用户自定义宏函数（用于动态元编程）
-* **`LIB_TEMPLATE` (动规生成器)**
-  * **函数原型**：`$(call LIB_TEMPLATE, $(1))`
-  * **参数意义**：`$(1)` 为唯一参数，代表依赖的子模块/库的名称（例如传入 `am` 或 `klib`）。
-  * **函数功能**：利用多行宏录制模式，生成一段用来递归编译目标子库（`MAKE -C`）并将其构建产物（`.a`静态库文件）路径合并到主链接队列里的 Makefile 规则文本。
-  * **返回值**：一段按照 Makefile 语法排版的**纯文本规则字符串**，随后配合 `$(eval)` 激活生效。
 
-#### 二、GNU Make核心内置函数分类解构
 
-**📌 1. 控制流与状态类：直接影响 Make 执行与报错**
-* **`error`**
-  * **函数原型**：`$(error text...)`
-  * **参数意义**：`text` 是要在终端中输出显示的报错提示字符串。
-  * **函数功能**：抛出一个致命级别的 Make 错误并将 `text` 打印输出给用户。遇到此函数时 Make 将立刻中止执行。
-  * **返回值**：无返回值（触发后执行流中止）。
-* **`info`**
-  * **函数原型**：`$(info text...)`
-  * **参数意义**：待打印的提示性文字变量。
-  * **函数功能**：只负责将文本打印到标准输出提供给开发者阅读，类似于程序里的 `printf`。
-  * **返回值**：空字符串。
-* **`eval`**
-  * **函数原型**：`$(eval make语句)`
-  * **参数意义**：符合 Makefile 语法的字符串代码片段。
-  * **函数功能**：Make 环境内的“动态求值器”。将传入的这些字符串直接当作原生的 Makefile 语法就地展开并使得里面定义的变量与构建规则立即生效。
-  * **返回值**：空字符串（副作用是改变了全局的 Makefile 规则树）。
-* **`foreach`**
-  * **函数原型**：`$(foreach var, list, text)`
-  * **参数意义**：`list` 为以空格分隔的字符串列表；`var` 是循环临时变量；`text` 是每次用到 `var` 来推导出的新表达式。
-  * **函数功能**：循环遍历操作。将 `list` 中的元素逐个赋给 `var`，再通过展开 `text` 依次进行映射推导。
-  * **返回值**：收集所有轮回运算展开后的结果合并为一个带有空格的最终字符串。
-
-**📌 2. 文件系统与路径切削类：处理源文件群落**
-* **`wildcard`**
-  * **函数原型**：`$(wildcard pattern...)`
-  * **参数意义**：带有 `*` 等 shell 通配符规则的目标路径表达式。
-  * **函数功能**：与底层操作系统的文件结构互动，检索磁盘上前确实存在的、符合正则模式的所有文件。
-  * **返回值**：空格分隔的文件真实路径列表；如果找不到符合的文件，返回空。
-* **`basename`**
-  * **函数原型**：`$(basename names...)`
-  * **参数意义**：一系列带后缀的文件名称序列（如 `test.c` `main.cc`）。
-  * **函数功能**：剥离并舍弃文件名末尾从最后一个点号 `.` 起始的扩展名结构。
-  * **返回值**：去掉后缀的核心文件名列表。
-* **`notdir` / `dir`**
-  * **函数原型**：`$(notdir names...)` / `$(dir names...)`
-  * **参数意义**：源文件的完整或相对路径。
-  * **函数功能**：`notdir` 剔除其前面的所有目录层级，只萃取出位于最终端的文件名；`dir` 完全相反，剃掉最后的文件名，保留前面的路径骨架。
-  * **返回值**：剥离后的那部分纯文本。
-* **`abspath` / `realpath`**
-  * **函数原型**：`$(abspath names...)` / `$(realpath names...)`
-  * **参数意义**：提供一个（可能是相对的）路径字符串。
-  * **函数功能**：将提供的路径以当前宿主机工作组为基准演算成顶格对齐的绝对路径。其中 `realpath` 多一项能力，能够追溯并解析软连接。
-  * **返回值**：从系统根目录 `/` 贯穿下来的绝对工作路径字符串。
-* **`addprefix` / `addsuffix`**
-  * **函数原型**：`$(addprefix prefix, list)` / `$(addsuffix suffix, list)`
-  * **参数意义**：`list`为列表数组，`prefix` / `suffix` 为需修饰的常量。
-  * **函数功能**：迭代列表里的每一个元素，对头（或对尾）进行字符串衔接。
-  * **返回值**：批量缝合包装完成后的新字符串队列。
-
-**📌 3. 字符微操与筛选类（字符串黑魔法）**
-* **`subst`**
-  * **函数原型**：`$(subst from, to, text)`
-  * **参数意义**：在 `text` 宿主中寻找所有的 `from`，并指定替换成 `to`。
-  * **函数功能**：无条件机械式纯文本字符连环替换。例如处理如 `ARCH=riscv32-nemu` 切分。
-  * **返回值**：修改加工完毕的文本串。
-* **`word`**
-  * **函数原型**：`$(word n, text)`
-  * **参数意义**：`text`是以空格分隔的一个文本大数组，`n` 为数字索引（Makefile索引从 1 开始）。
-  * **函数功能**：抽取抓取出大数组文本中的第 n 个特定元素片段。
-  * **返回值**：提取出来的单词项本身。
-* **`filter`**
-  * **函数原型**：`$(filter pattern..., text)`
-  * **参数意义**：以 `pattern` 给出的样式（可包含前缀和通配）当作审查模板去考核提取 `text`。
-  * **函数功能**：白名单保留机制。保留 `text` 串里所有与 `pattern` 兼容的词，不兼容直接剃除淘汰。
-  * **返回值**：留存下来的符合规则单词序列。
-* **`findstring`**
-  * **函数原型**：`$(findstring find, in)`
-  * **参数意义**：待搜索的一段 `in`，与尝试探测的子串 `find`。
-  * **函数功能**：通常与 `if` 并用来完成字符串存在性嗅探检测，看子串有没有被包含。
-  * **返回值**：一旦找到则原样返回 `find` 这个字符字面值；如果确实没找到，则返回空字符。
-* **`sort`**
-  * **函数原型**：`$(sort list)`
-  * **参数意义**：乱序且可能含有重叠的字符串模块。
-  * **函数功能**：重新按照以字典序首字母对清单重新进行清洗排列，同时核心作用是自动筛去完全相同的文字区块。
-  * **返回值**：被字典序矫正且实现强力去重的精简列表。
-
-**📌 4. 系统环境突破壁垒类**
-* **`shell`**
-  * **函数原型**：`$(shell command)`
-  * **参数意义**：`command` 为操作系统的内建控制台命令行（如 `pwd`, `ls` 等）。
-  * **函数功能**：创建一个底层操作系统的独立子分支 Bash 进程，直接在真实操作系统层中执行，破除了 Make 的上下文壁垒。
-  * **返回值**：收集截获子进程在 stdout（标准打印输出）吐出来的回应流。
-* **`flavor`**
-  * **函数原型**：`$(flavor variable)`
-  * **参数意义**：`variable`传入任意期望探查其性质的状态变量名词。
-  * **函数功能**：检查剖视该对象的本质，以此判别这个参数到底是递归绑定的，是立即展开的，还是压根就没有被用户定义的。
-  * **返回值**：返回其结构属性诸如 `undefined`（没设置）, `simple` 或者 `recursive` 等枚举标位。
-
-### 2. NEMU 执行控制流分析：交互模式与批处理模式 (`-b`) 的原理
-> **背景**：在执行 `make ARCH=riscv32-nemu ALL=name run` 进行 AM 测试时，NEMU 会默认停在 `(nemu)` 提示符前等待用户输入 `c` 才能继续执行测试程序。这对于大规模自动评测是不友好的。
 
 #### 1. 问题的逻辑来源
 NEMU 在本质上不仅是一个指令执行机器，更是一个自带 SDB（Simple Debugger 简易调试器）的分析工具。为了方便开发者一上来就能使用 `si`, `x`, `info r` 等指令探测程序的初始状态，NEMU 选择将默认的控制流“挂起”（阻塞），强行把第一阶段的话语权通过一个循环界面交给用户，而不是直接让客体代码狂奔。
@@ -309,6 +272,7 @@ void sdb_mainloop() {
 4. **截流反转**：SDB 控制大循环 `sdb_mainloop()` 开启时的前置哨兵（If 守卫）察觉开关已开启。
 5. **系统代管**：内部模拟玩家行为触发 `cmd_c(NULL)`，此函数直接跨层连通 `cpu_exec(-1)` 核心，使其毫无留恋地陷入 F-D-E 虚拟生命执行死循环，直到碰见 `ebreak` 陷阱程序优雅退出。
 
+<a id="sec-pa2-vscode"></a>
 ## PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结
 > 记录时间：2026年3月6日 | 核心主题：IntelliSense 与真实编译环境对齐，两份 `json` 配置的职责拆解与收敛
 
@@ -489,6 +453,7 @@ void sdb_mainloop() {
 > **`includePath` 管“头文件能不能找到”，`browse.path` 管“定义能不能跳到”，`forcedInclude` 管“关键配置头会不会自动预加载”。路径该归哪一类，不看名字像不像头文件目录，而看它在 IntelliSense 里承担的职责是什么。**
 
 
+<a id="sec-pa2-program-lifecycle"></a>
 ## PA2 专题：NEMU 执行客户程序的完整生命周期总总结
 > 记录时间：2026年3月8日 | 核心主题：从源码构建、镜像生成、参数解析、镜像装载、地址映射到 CPU 取指执行的全流程闭环总结
 
@@ -1150,6 +1115,7 @@ cpu.pc = RESET_VECTOR
 > **客户程序源码先经交叉编译和链接生成带地址语义的 ELF，再提取为裸二进制 BIN；运行时该 BIN 通过命令行传入 NEMU，被 `parse_args()` 解析为 `img_file`，随后 NEMU 在 `init_mem()` 建立模拟物理内存、在 `init_isa()` 初始化 CPU 并写入内置镜像、在 `load_img()` 中把外部镜像加载到 `RESET_VECTOR` 对应的 `pmem` 区域覆盖内置镜像，同时 CPU 的 `pc` 也从 `RESET_VECTOR` 起跑，最终在宿主机进程的数组内存上完成对客户机程序的取指、译码、执行和写回，从而实现完整的软件模拟执行。**
 
 
+<a id="sec-pa2-mtrace"></a>
 ## 十五、PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）
 > 记录时间：2026年3月9日 | 核心主题：`mtrace` 的设计目标、配置链、插桩点选择、路径处理与最终验证
 
@@ -1188,7 +1154,7 @@ cpu.pc = RESET_VECTOR
 
 因此更合理的方式是：
 
-* 普通日志继续写 `nemu-log.txt`；
+* 普通日志继续写 `mtrace-log.txt`；
 * 专门给 `mtrace` 准备独立文件 `mtrace-log.txt`。
 
 #### 2.2 为什么还要支持“条件表达式”？
@@ -1249,7 +1215,7 @@ cpu_exec()
 ```text
 am-kernels/tests/cpu-tests/Makefile
 -> abstract-machine/scripts/platform/nemu.mk
--> NEMUFLAGS += -l .../build/nemu-log.txt
+-> NEMUFLAGS += -b -l .../build/nemu-log.txt
 -> NEMU 启动 parse_args()
 -> log_file / img_file
 -> monitor.c 推导 mtrace-log.txt 目录
@@ -1696,3 +1662,545 @@ pc=0x80000138 W addr=0x80008ffc len=4 data=0x80000010
 
 > **`mtrace` 的正确实现，不只是“在 `paddr_read()` / `paddr_write()` 里打印一下”，而是要把“配置开关、条件过滤、统一插桩、独立日志文件、以及跟随 `make ... run` 真实产物目录的路径推导”整个闭环全部接通；其中路径处理的核心原则是：优先复用构建系统已经算好的 `log_file` 目录，其次退回 `img_file` 目录，最后才使用默认相对路径兜底。**
 
+
+---
+
+### 16. mtarce路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链
+
+前面已经解释了 `mtrace` 的路径策略为什么要“优先复用 `log_file` 目录”，这里再把**整条真实调用链**按时间顺序完整串起来。
+
+这一节要回答的核心问题是：
+
+> `monitor.c` 里的 `log_file` 到底从哪里来？`mtrace-log.txt` 又是怎么从 Makefile 一路传到 `fopen()` 的？
+
+#### 16.1 先看一眼总链路
+
+把完整流程压缩成一行，就是：
+
+```text
+make ARCH=riscv32-nemu ALL=string run
+-> am-kernels/tests/cpu-tests/Makefile
+-> 临时 Makefile.string
+-> abstract-machine/Makefile
+-> abstract-machine/scripts/platform/nemu.mk
+-> make -C $(NEMU_HOME) run ARGS="-b -l .../nemu-log.txt" IMG=...bin
+-> nemu/scripts/native.mk
+-> NEMU 可执行文件 argv[]
+-> monitor.c: parse_args()
+-> log_file = optarg
+-> get_mtrace_log_file()
+-> init_mtrace_log(...)
+-> fopen(".../mtrace-log.txt", "w")
+```
+
+也就是说，`mtrace-log.txt` 的路径不是在 `log.c` 里凭空创建的，而是沿着 **构建系统先算出 `nemu-log.txt` 路径，再在 `monitor.c` 中派生同目录下的 `mtrace-log.txt`** 这条链形成的。
+
+---
+
+#### 16.2 第一站：`cpu-tests/Makefile` 先把单个测试委托给 `abstract-machine/Makefile`
+
+假设你在目录：
+
+```bash
+cd /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
+make ARCH=riscv32-nemu ALL=string run
+```
+
+先进入的是：
+
+* `am-kernels/tests/cpu-tests/Makefile`
+
+其中关键规则是：
+
+```makefile
+Makefile.%: tests/%.c latest
+@/bin/echo -e "NAME = $*\nSRCS = $<\ninclude $${AM_HOME}/Makefile" > $@
+@if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then \
+```
+
+当目标是 `string` 时，这里会：
+
+1. 生成临时文件 `Makefile.string`；
+2. 内容大致是：
+
+```makefile
+NAME = string
+SRCS = tests/string.c
+include ${AM_HOME}/Makefile
+```
+
+3. 再执行：
+
+```bash
+make -s -f Makefile.string ARCH=riscv32-nemu run
+```
+
+因此，这一层的作用是：
+
+* 先把“本次要跑的测试是谁”固定下来；
+* 再把真正的构建/运行逻辑转交给 `abstract-machine/Makefile`。
+
+它自己并不直接生成 `mtrace-log.txt`，而是把场景信息继续往下传。
+
+---
+
+#### 16.3 第二站：`abstract-machine/Makefile` 先算出当前测试产物的根路径
+
+进入 `abstract-machine/Makefile` 后，首先会计算：
+
+```makefile
+WORK_DIR  = $(shell pwd)
+DST_DIR   = $(WORK_DIR)/build/$(ARCH)
+IMAGE_REL = build/$(NAME)-$(ARCH)
+IMAGE     = $(abspath $(IMAGE_REL))
+```
+
+如果当前目录就是 `am-kernels/tests/cpu-tests`，且：
+
+* `NAME = string`
+* `ARCH = riscv32-nemu`
+
+那么这些变量就会变成：
+
+```text
+WORK_DIR  = /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
+DST_DIR   = /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/riscv32-nemu
+IMAGE_REL = build/string-riscv32-nemu
+IMAGE     = /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu
+```
+
+这里的 `IMAGE` 很重要，因为后面：
+
+* `$(IMAGE).elf` 是 ELF 路径；
+* `$(IMAGE).bin` 是交给 NEMU 运行的镜像路径；
+* `nemu-log.txt` 的目录就是围绕这个 `IMAGE` 推出来的。
+
+也就是说，从这一步开始，构建系统已经知道“本次测试对应哪个 `build/` 目录”。
+
+---
+
+#### 16.4 第三站：`platform/nemu.mk` 第一次显式拼出 `nemu-log.txt` 路径
+
+随后会进入：
+
+* `abstract-machine/scripts/platform/nemu.mk`
+
+这里最关键的一行是：
+
+```makefile
+NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
+```
+
+这一行必须逐段拆开理解。
+
+##### 16.4.1 `$(IMAGE).elf` 是什么？
+
+它就是上一步得到的 ELF 路径，例如：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.elf
+```
+
+##### 16.4.2 `$(shell dirname $(IMAGE).elf)` 做了什么？
+
+它提取这个 ELF 所在目录，得到：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build
+```
+
+##### 16.4.3 再拼上 `/nemu-log.txt` 后变成什么？
+
+得到：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt
+```
+
+##### 16.4.4 所以 `NEMUFLAGS` 最终是什么？
+
+类似于：
+
+```text
+-b -l /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt
+```
+
+这一步的意义非常大：
+
+* `nemu-log.txt` 的位置不是运行时现猜的；
+* 它是 **构建系统在知道镜像产物目录之后，显式拼出来的**。
+
+---
+
+#### 16.5 第四站：`platform/nemu.mk` 把 `ARGS` 和 `IMG` 一起传给 NEMU
+
+同一个文件还有：
+
+```makefile
+run: insert-arg
+$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
+```
+
+它展开后，本质上类似于执行：
+
+```bash
+make -C /home/l/ysyx/ysyx-workbench/nemu \
+  ISA=riscv32 \
+  run \
+  ARGS="-b -l /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt" \
+  IMG=/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin
+```
+
+这里同时传下去两类路径信息：
+
+* `ARGS`：给 NEMU 的命令行选项，其中包含 `-l .../nemu-log.txt`；
+* `IMG`：给 NEMU 的镜像路径，对应 `.../string-riscv32-nemu.bin`。
+
+后面在 `monitor.c` 中，这两者会分别落到：
+
+* `log_file`
+* `img_file`
+
+这也正好对应 `get_mtrace_log_file()` 的两个候选来源。
+
+---
+
+#### 16.6 第五站：`nemu/scripts/native.mk` 把 Make 变量组装成真正的执行命令
+
+进入 NEMU 顶层 Makefile 后，会继续包含：
+
+* `nemu/scripts/native.mk`
+
+其中关键代码是：
+
+```makefile
+override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
+override ARGS += $(ARGS_DIFF)
+
+IMG ?=
+NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+
+run: run-env
+$(NEMU_EXEC)
+```
+
+这里要特别注意：
+
+##### 16.6.1 为什么默认 `--log=$(BUILD_DIR)/nemu-log.txt` 这次没有成为最终答案？
+
+因为外层 `platform/nemu.mk` 已经显式传入了：
+
+```text
+ARGS="-b -l /.../cpu-tests/build/nemu-log.txt"
+```
+
+而 `?=` 的含义是“只有没有外部赋值时才使用默认值”。
+
+所以本次真正生效的日志路径，不是 `native.mk` 的默认值，而是**来自测试镜像目录那条外层传入路径**。
+
+##### 16.6.2 最终运行命令长什么样？
+
+本质上相当于：
+
+```bash
+/home/l/ysyx/ysyx-workbench/nemu/build/riscv32-nemu-interpreter \
+  -b \
+  -l /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt \
+  /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin
+```
+
+从这里开始，Makefile 中的变量就已经变成 NEMU 进程实际收到的 `argv[]` 内容了。
+
+---
+
+#### 16.7 第六站：`nemu-main.c` 把 `argv[]` 交给 `init_monitor()`
+
+NEMU 程序入口在：
+
+* `nemu/src/nemu-main.c`
+
+核心代码是：
+
+```c
+int main(int argc, char *argv[]) {
+#ifdef CONFIG_TARGET_AM
+  am_init_monitor();
+#else
+  init_monitor(argc, argv);
+#endif
+
+  engine_start();
+  return is_exit_status_bad();
+}
+```
+
+在你当前这种运行路径下，会走：
+
+```c
+init_monitor(argc, argv);
+```
+
+这意味着：
+
+* `-b`
+* `-l /.../nemu-log.txt`
+* `.../string-riscv32-nemu.bin`
+
+这些参数，全部被原样带进 `monitor.c`。
+
+---
+
+#### 16.8 第七站：`parse_args()` 把参数拆成 `log_file` 和 `img_file`
+
+在 `nemu/src/monitor/monitor.c` 中，先有这些静态变量：
+
+```c
+static char *log_file = NULL;
+static char *diff_so_file = NULL;
+static char *img_file = NULL;
+static int difftest_port = 1234;
+static char mtrace_log_file[260] = {};
+```
+
+然后在 `init_monitor()` 一开始调用：
+
+```c
+parse_args(argc, argv);
+```
+
+而 `parse_args()` 的关键部分是：
+
+```c
+while ((o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
+  switch (o) {
+    case 'b': sdb_set_batch_mode(); break;
+    case 'p': sscanf(optarg, "%d", &difftest_port); break;
+    case 'l': log_file = optarg; break;
+    case 'd': diff_so_file = optarg; break;
+    case 1: img_file = optarg; return 0;
+  }
+}
+```
+
+其中最重要的是这两句：
+
+```c
+case 'l': log_file = optarg; break;
+case 1: img_file = optarg; return 0;
+```
+
+这表示：
+
+* `-l` 后面的那个路径字符串，会直接写进 `log_file`；
+* 最后那个普通参数 `.bin` 镜像路径，会写进 `img_file`。
+
+因此，当前场景下它们会变成：
+
+```text
+log_file = /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt
+img_file = /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin
+```
+
+到这里，`monitor.c` 已经拿到了后续推导 `mtrace-log.txt` 所需的全部路径信息。
+
+---
+
+#### 16.9 第八站：`init_log(log_file)` 先直接打开普通日志
+
+在 `init_monitor()` 中，接着会调用：
+
+```c
+init_log(log_file);
+IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+```
+
+先看第一句。
+
+在 `nemu/src/utils/log.c` 中：
+
+```c
+void init_log(const char *log_file) {
+  log_fp = stdout;
+  if (log_file != NULL) {
+    FILE *fp = fopen(log_file, "w");
+    Assert(fp, "Can not open '%s'", log_file);
+    log_fp = fp;
+  }
+  Log("Log is written to %s", log_file ? log_file : "stdout");
+}
+```
+
+这条链很直接：
+
+* `parse_args()` 解析出的 `log_file`
+* 作为参数传给 `init_log()`
+* 最终被 `fopen(log_file, "w")` 打开
+
+所以 `nemu-log.txt` 的来源到这里就完全闭环了。
+
+---
+
+#### 16.10 第九站：`get_mtrace_log_file()` 基于 `log_file` 目录派生 `mtrace-log.txt`
+
+真正和 `mtrace` 相关的关键是下面这段：
+
+```c
+static const char *get_mtrace_log_file() {
+  const char *path = log_file != NULL ? log_file : img_file;
+  if (path == NULL) {
+    return "build/mtrace-log.txt";
+  }
+
+  const char *slash = strrchr(path, '/');
+  if (slash == NULL) {
+    return "mtrace-log.txt";
+  }
+
+  size_t dir_len = slash - path + 1;
+  int ret = snprintf(mtrace_log_file, sizeof(mtrace_log_file),
+                     "%.*smtrace-log.txt", (int)dir_len, path);
+  Assert(ret > 0 && ret < sizeof(mtrace_log_file),
+         "mtrace log path is too long: %s", path);
+  return mtrace_log_file;
+}
+```
+
+这段逻辑可以拆成四步。
+
+##### 16.10.1 第一步：优先选择 `log_file`
+
+```c
+const char *path = log_file != NULL ? log_file : img_file;
+```
+
+这意味着：
+
+* 只要命令行传了 `-l`，就优先用 `log_file`；
+* 只有 `log_file` 不存在时，才退回 `img_file`。
+
+所以在 `make ... run` 的正常链路里，`path` 实际上就是：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt
+```
+
+##### 16.10.2 第二步：找到最后一个 `/`
+
+```c
+const char *slash = strrchr(path, '/');
+```
+
+它定位到路径中最后一个 `/`，也就是目录和文件名之间的分隔点。
+
+##### 16.10.3 第三步：截取目录部分
+
+```c
+size_t dir_len = slash - path + 1;
+```
+
+这样得到的就是：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/
+```
+
+这里故意保留最后的 `/`，是为了后面直接拼接文件名。
+
+##### 16.10.4 第四步：改名拼成 `mtrace-log.txt`
+
+```c
+snprintf(mtrace_log_file, sizeof(mtrace_log_file),
+         "%.*smtrace-log.txt", (int)dir_len, path);
+```
+
+于是最终得到：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/mtrace-log.txt
+```
+
+这就是 `mtrace-log.txt` 路径真正被构造出来的时刻。
+
+换句话说：
+
+* Makefile 直接传进来的只有 `nemu-log.txt`；
+* `mtrace-log.txt` 是在 `monitor.c` 中，以 `log_file` 所在目录为基准派生出来的。
+
+---
+
+#### 16.11 第十站：`init_mtrace_log()` 最终把这个派生路径交给 `fopen()`
+
+回到 `init_monitor()`：
+
+```c
+IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+```
+
+在 `nemu/src/utils/log.c` 中：
+
+```c
+void init_mtrace_log(const char *mtrace_log_file) {
+  mtrace_fp = fopen(mtrace_log_file, "w");
+  Assert(mtrace_fp, "Can not open '%s'", mtrace_log_file);
+  Log("Mtrace log is written to %s", mtrace_log_file);
+}
+```
+
+所以最后一跳就是：
+
+```text
+get_mtrace_log_file()
+-> 返回 /.../cpu-tests/build/mtrace-log.txt
+-> init_mtrace_log(...)
+-> fopen("/.../cpu-tests/build/mtrace-log.txt", "w")
+```
+
+到这里，整条路径链才真正闭环。
+
+---
+
+#### 16.12 为什么这条链比 `fopen("build/mtrace-log.txt", "w")` 稳得多？
+
+因为后者依赖的是“当前工作目录”，而前者依赖的是“构建系统显式传下来的产物路径”。
+
+如果直接写：
+
+```c
+fopen("build/mtrace-log.txt", "w");
+```
+
+那么这个 `build/` 指向哪里，取决于：
+
+* 你是从 `nemu/` 目录直接运行；
+* 还是从 `am-kernels/tests/cpu-tests/` 间接触发；
+* 当前 shell 的 `cwd` 恰好是什么。
+
+这就会把路径语义绑定到一个非常脆弱的隐式条件上。
+
+而现在这条链依赖的是：
+
+* `abstract-machine/Makefile` 算出的 `IMAGE`
+* `platform/nemu.mk` 算出的 `-l .../nemu-log.txt`
+* `monitor.c` 中解析得到的 `log_file`
+
+这些都属于显式、可追溯、可解释的参数传递结果。
+
+因此它更稳，也更适合实验框架里的长期使用。
+
+---
+
+#### 16.13 最后再压缩成一句话
+
+`mtrace-log.txt` 的路径不是在 `monitor.c` 里“凭感觉猜出来”的，而是按下面这条逻辑生成的：
+
+1. `cpu-tests/Makefile` 指定测试名并委托给 `abstract-machine/Makefile`；
+2. `abstract-machine/Makefile` 算出当前测试的 `IMAGE` 路径；
+3. `platform/nemu.mk` 用 `dirname $(IMAGE).elf` 构造 `-l .../nemu-log.txt`；
+4. 这条 `-l` 通过 `ARGS` 传给 NEMU；
+5. `monitor.c::parse_args()` 把它写进 `log_file`；
+6. `get_mtrace_log_file()` 取出 `log_file` 所在目录并改名为 `mtrace-log.txt`；
+7. `init_mtrace_log()` 最后调用 `fopen()` 真正创建文件。
+
+所以这条链最核心的原则就是：
+
+> **先让构建系统决定“日志该写到哪个产物目录”，再让 `monitor.c` 复用这条已经正确的路径链派生 `mtrace-log.txt`，而不是在 C 代码里重新猜一个 `build/`。**

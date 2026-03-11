@@ -6,6 +6,372 @@
 
 ---
 
+<a id="top"></a>
+
+## 目录
+
+- [零、Makefile 语法前导速查](#preface-make-syntax)
+  - [自动变量总表](#preface-auto-vars-table)
+  - [自动变量明细](#preface-auto-vars-detail)
+  - [GNU Make 内置函数总览](#preface-functions-overview)
+  - [GNU Make 内置函数明细](#preface-functions-detail)
+- [一、先给出一句话总纲](#section-overview)
+- [二、阅读这套脚本前必须先建立的三层认知](#section-cognition)
+  - [用 ysyx 三层执行模型理解 Makefile 执行规则](#section-cognition-exec-model)
+- [三、全局脚本层级总图](#section-hierarchy)
+- [四、逐个脚本拆解：核心功能 + 核心变量 + 来源 + 作用](#section-script-breakdown)
+  - [第一部分：工作区 / 应用选择层](#part-workspace-app)
+  - [第二部分：AbstractMachine 总控层](#part-am-core)
+  - [第三部分：`abstract-machine/scripts/` 细化层](#part-am-scripts)
+  - [第四部分：NEMU 侧构建与运行层](#part-nemu-build)
+- [五、脚本之间的逻辑关系梳理](#section-relations)
+- [六、变量流向图](#section-var-flow)
+- [七、include 嵌套图](#section-include-graph)
+- [八、最容易混淆的几个点](#section-confusions)
+- [九、最终总结](#section-summary)
+- [文末返回顶部](#top)
+
+---
+
+<a id="preface-make-syntax"></a>
+
+## 零、Makefile 语法前导速查
+
+这一部分是把 `makefile.md` 里的“自动变量 + GNU Make 内置函数”浓缩进 `scripts-logic.md` 的前置索引版，目的不是替代完整统计，而是让你在阅读后面的脚本链路前，先把最常见的语法工具抓牢。
+
+如果后面读到：
+
+* `$@` / `$<` / `$^` / `$*`
+* `$(shell ...)`
+* `$(call ...)`
+* `$(foreach ...)`
+* `$(eval ...)`
+* `$(addprefix ...)`
+* `$(basename ...)`
+
+优先回到这一节查，再继续往下看脚本逻辑，会顺畅很多。
+
+---
+
+<a id="preface-auto-vars-table"></a>
+
+### 1. 自动变量总表
+
+| 自动变量 | 变量使用格式 | 核心含义 | 当前工程常见用途 |
+| :--- | :--- | :--- | :--- |
+| `$@` | `$@`、`$(@D)`、`$(@:.o=.d)` | 当前规则的目标文件名 | 输出目标、派生依赖文件、取目标目录 |
+| `$<` | `$<`、`$(realpath $<)` | 当前规则的第一个依赖文件 | 编译输入源文件、动态生成临时 Makefile |
+| `$^` | `$^`、`$(^D)` | 当前规则的全部依赖（去重） | 归档库、链接程序、递归进入依赖目录 |
+| `$*` | `$*`、`Makefile.$*` | 模式规则中 `%` 匹配到的 stem | 提取测试名、生成临时目标名 |
+| `$(@D)` | `$(@D)` | 当前目标 `$@` 的目录部分 | `mkdir -p $(@D)`、进入目标目录 |
+| `$(^D)` | `$(^D)` | 全部依赖 `$^` 的目录部分 | 基于依赖目录做递归 make |
+| `$(@:pattern=replacement)` | `$(@:.o=.d)` 等 | 先取自动变量再做替换 | 从目标名反推 `.d`、裁剪展示路径 |
+
+---
+
+<a id="preface-auto-vars-detail"></a>
+
+### 2. 自动变量明细
+
+#### 1）`$@`
+- **变量名**：`$@`
+- **变量使用格式**：`$@`、`$(@D)`、`$(@:.o=.d)`
+- **核心含义**：当前规则的目标文件名
+- **典型功能**：作为 `-o $@` 的输出目标，或进一步派生目录和依赖文件名
+
+#### 2）`$<`
+- **变量名**：`$<`
+- **变量使用格式**：`$<`、`$(realpath $<)`
+- **核心含义**：当前规则的第一个依赖文件
+- **典型功能**：作为编译输入文件，或写入动态生成的中间 Makefile
+
+#### 3）`$^`
+- **变量名**：`$^`
+- **变量使用格式**：`$^`、`$(^D)`
+- **核心含义**：当前规则的所有依赖文件列表（自动去重）
+- **典型功能**：把全部对象文件打成 `.a`，或把全部依赖拿去链接
+
+#### 4）`$*`
+- **变量名**：`$*`
+- **变量使用格式**：`$*`、`Makefile.$*`
+- **核心含义**：模式规则中 `%` 匹配到的 stem
+- **典型功能**：在 `Makefile.%` 这种规则里提取 `string`、`add` 这样的测试名
+
+#### 5）`$(@D)`
+- **变量名**：`$(@D)`
+- **变量使用格式**：`$(@D)`
+- **核心含义**：目标 `$@` 的目录部分
+- **典型功能**：在写目标文件前执行 `mkdir -p $(@D)`
+
+#### 6）`$(^D)`
+- **变量名**：`$(^D)`
+- **变量使用格式**：`$(^D)`
+- **核心含义**：依赖列表 `$^` 的目录部分
+- **典型功能**：基于依赖目录执行 `$(MAKE) -C $(^D)` 这类递归调用
+
+#### 7）`$(@:pattern=replacement)` 类形式
+- **变量名**：基于自动变量的替换引用
+- **变量使用格式**：`$(@:.o=.d)`、`$(@:$(OBJDIR)/%=%)`
+- **核心含义**：先取自动变量值，再做模式替换
+- **典型功能**：从目标对象文件反推出 `.d` 文件，或把绝对/长路径裁成短展示名
+
+---
+
+<a id="preface-functions-overview"></a>
+
+### 3. GNU Make 内置函数总览
+
+当前工作区里实际高频出现的 GNU Make 内置函数，可以先按五类记忆：
+
+#### A. 路径处理类
+
+* `abspath`
+* `realpath`
+* `dir`
+* `notdir`
+* `basename`
+
+#### B. 列表处理类
+
+* `addprefix`
+* `addsuffix`
+* `filter`
+* `filter-out`
+* `sort`
+* `word`
+* `words`
+
+#### C. 字符串处理类
+
+* `subst`
+* `patsubst`
+* `findstring`
+
+#### D. 控制 / 元编程类
+
+* `call`
+* `eval`
+* `foreach`
+* `if`
+* `flavor`
+
+#### E. 环境交互 / 信息提示类
+
+* `shell`
+* `wildcard`
+* `info`
+* `warning`
+* `error`
+
+这五类要先建立直觉：
+
+> **Makefile 的难点往往不在“命令本身”，而在“命令前面这一串路径、列表、字符串、元编程函数是怎么把变量拼出来的”。**
+
+---
+
+<a id="preface-functions-detail"></a>
+
+### 4. GNU Make 内置函数明细
+
+#### 1）`abspath`
+- **函数名**：`abspath`
+- **函数原型**：`$(abspath names...)`
+- **参数意义**：`names...` 是一个或多个路径字符串
+- **函数功能**：把路径转换成绝对路径，但不解析符号链接
+
+#### 2）`addprefix`
+- **函数名**：`addprefix`
+- **函数原型**：`$(addprefix prefix,names...)`
+- **参数意义**：`prefix` 是前缀，`names...` 是目标列表
+- **函数功能**：给列表里的每一项统一加前缀
+
+#### 3）`addsuffix`
+- **函数名**：`addsuffix`
+- **函数原型**：`$(addsuffix suffix,names...)`
+- **参数意义**：`suffix` 是后缀，`names...` 是目标列表
+- **函数功能**：给列表里的每一项统一加后缀
+
+#### 4）`basename`
+- **函数名**：`basename`
+- **函数原型**：`$(basename names...)`
+- **参数意义**：`names...` 是文件名或路径列表
+- **函数功能**：去掉每个名字最后的扩展后缀
+
+#### 5）`call`
+- **函数名**：`call`
+- **函数原型**：`$(call variable,param1,param2,...)`
+- **参数意义**：`variable` 是自定义宏名，后面是传入参数，对应 `$(1)`、`$(2)` ...
+- **函数功能**：调用一个用户自定义宏并向其传参
+
+#### 6）`dir`
+- **函数名**：`dir`
+- **函数原型**：`$(dir names...)`
+- **参数意义**：`names...` 是路径列表
+- **函数功能**：提取路径中的目录部分
+
+#### 7）`error`
+- **函数名**：`error`
+- **函数原型**：`$(error text...)`
+- **参数意义**：`text...` 是错误提示文本
+- **函数功能**：立即终止 Make，并打印错误信息
+
+#### 8）`eval`
+- **函数名**：`eval`
+- **函数原型**：`$(eval text)`
+- **参数意义**：`text` 是需要再次当作 Makefile 语法解释的文本
+- **函数功能**：把动态生成的规则或变量定义重新交给 Make 解析
+
+#### 9）`filter`
+- **函数名**：`filter`
+- **函数原型**：`$(filter pattern...,text)`
+- **参数意义**：`pattern...` 是保留模式，`text` 是待筛选列表
+- **函数功能**：只保留匹配模式的项
+
+#### 10）`filter-out`
+- **函数名**：`filter-out`
+- **函数原型**：`$(filter-out pattern...,text)`
+- **参数意义**：`pattern...` 是排除模式，`text` 是原始列表
+- **函数功能**：去掉匹配模式的项
+
+#### 11）`findstring`
+- **函数名**：`findstring`
+- **函数原型**：`$(findstring find,in)`
+- **参数意义**：`find` 是待查子串，`in` 是目标字符串
+- **函数功能**：若找到子串则返回该子串，否则返回空
+
+#### 12）`flavor`
+- **函数名**：`flavor`
+- **函数原型**：`$(flavor variable)`
+- **参数意义**：`variable` 是变量名
+- **函数功能**：返回变量类型，例如 `undefined`、`recursive`、`simple`
+
+#### 13）`foreach`
+- **函数名**：`foreach`
+- **函数原型**：`$(foreach var,list,text)`
+- **参数意义**：`var` 是循环变量，`list` 是待遍历列表，`text` 是每轮展开模板
+- **函数功能**：遍历列表并展开模板内容
+
+#### 14）`if`
+- **函数名**：`if`
+- **函数原型**：`$(if condition,then-part[,else-part])`
+- **参数意义**：`condition` 是条件，`then-part` / `else-part` 是真/假时展开内容
+- **函数功能**：在变量展开阶段执行条件分支
+
+#### 15）`info`
+- **函数名**：`info`
+- **函数原型**：`$(info text...)`
+- **参数意义**：`text...` 是提示信息
+- **函数功能**：打印提示文本但不中断执行
+
+#### 16）`notdir`
+- **函数名**：`notdir`
+- **函数原型**：`$(notdir names...)`
+- **参数意义**：`names...` 是路径列表
+- **函数功能**：去掉目录部分，只保留文件名
+
+#### 17）`patsubst`
+- **函数名**：`patsubst`
+- **函数原型**：`$(patsubst pattern,replacement,text)`
+- **参数意义**：`pattern` 是模式，`replacement` 是替换模板，`text` 是原始文本
+- **函数功能**：按模式规则做文本替换
+
+#### 18）`realpath`
+- **函数名**：`realpath`
+- **函数原型**：`$(realpath names...)`
+- **参数意义**：`names...` 是路径列表
+- **函数功能**：返回真实绝对路径，并解析符号链接
+
+#### 19）`shell`
+- **函数名**：`shell`
+- **函数原型**：`$(shell command)`
+- **参数意义**：`command` 是一条 shell 命令
+- **函数功能**：执行 shell 命令，并把标准输出作为返回值
+
+#### 20）`sort`
+- **函数名**：`sort`
+- **函数原型**：`$(sort list)`
+- **参数意义**：`list` 是待排序列表
+- **函数功能**：排序并自动去重
+
+#### 21）`subst`
+- **函数名**：`subst`
+- **函数原型**：`$(subst from,to,text)`
+- **参数意义**：`from` 是原字符串，`to` 是新字符串，`text` 是目标文本
+- **函数功能**：做简单字符串替换，不走模式匹配
+
+#### 22）`warning`
+- **函数名**：`warning`
+- **函数原型**：`$(warning text...)`
+- **参数意义**：`text...` 是警告文本
+- **函数功能**：打印警告，但不终止执行
+
+#### 23）`wildcard`
+- **函数名**：`wildcard`
+- **函数原型**：`$(wildcard pattern...)`
+- **参数意义**：`pattern...` 是路径匹配模式
+- **函数功能**：返回实际存在的匹配文件列表，不存在则返回空
+
+#### 24）`word`
+- **函数名**：`word`
+- **函数原型**：`$(word n,text)`
+- **参数意义**：`n` 是第几个词，`text` 是词列表
+- **函数功能**：从空格分隔的列表中取第 `n` 项
+
+#### 25）`words`
+- **函数名**：`words`
+- **函数原型**：`$(words text)`
+- **参数意义**：`text` 是词列表
+- **函数功能**：统计列表项个数
+
+---
+
+### 5. 这一节和后文脚本逻辑的联动关系
+
+后面你在读：
+
+* `abstract-machine/Makefile`
+* `nemu/Makefile`
+* `platform/nemu.mk`
+* `cpu-tests/Makefile`
+
+时，几乎反复会碰到两类模式：
+
+#### 模式一：路径 / 列表拼接
+
+例如：
+
+```makefile
+$(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
+```
+
+这一串本质就是：
+
+1. 先把 `SRCS` 去后缀；
+2. 再统一补 `.o`；
+3. 再统一补上对象目录前缀。
+
+#### 模式二：模板化规则生成
+
+例如：
+
+```makefile
+$(foreach lib, $(LIBS), $(eval $(call LIB_TEMPLATE,$(lib))))
+```
+
+这一串本质就是：
+
+1. `foreach` 遍历库列表；
+2. `call` 调用用户自定义宏；
+3. `eval` 把宏展开结果重新当作规则注入 Make。
+
+所以这一节的最终目的不是记定义，而是建立这种直觉：
+
+> **后文大多数“看起来很长的 Make 表达式”，本质都是若干路径函数、列表函数和元编程函数的组合。**
+
+---
+
+<a id="section-overview"></a>
+
 ## 一、先给出一句话总纲
 
 这套脚本系统可以概括为一句话：
@@ -30,6 +396,8 @@ am-kernels/tests/cpu-tests/Makefile
 ```
 
 ---
+
+<a id="section-cognition"></a>
 
 ## 二、阅读这套脚本前必须先建立的三层认知
 
@@ -112,6 +480,561 @@ ISA=riscv32
 
 ---
 
+<a id="section-cognition-exec-model"></a>
+
+### 4. 用 ysyx 三层执行模型理解 Makefile 执行规则
+
+这一节专门回答一个最容易反复困惑的问题：
+
+> **Makefile 到底是怎么“执行起来”的？它为什么不是简单地从上到下跑命令？**
+
+如果只从 GNU Make 教科书角度讲，会很抽象；但如果结合 `ysyx-workbench` 当前工程来看，这个问题其实可以直接压成三层执行模型：
+
+1. **入口调度层**：决定“这次到底要编什么”
+2. **AM 总控层**：决定“这些东西到底该怎么编”
+3. **NEMU 运行层**：决定“编出来之后怎么交给模拟器去跑”
+
+把这三层看清楚，Makefile 的执行规则就会从“零散语法点”变成一条完整链路。
+
+#### 第一层：入口调度层 —— Make 首先要知道“本轮任务是什么”
+
+在你当前工程里，最典型的入口是：
+
+```bash
+make ARCH=riscv32-nemu ALL=string run
+```
+
+这条命令进入 Make 后，不会立刻执行某条命令，而是先被 GNU Make 拆成三类信息：
+
+##### 1）命令行变量
+
+```text
+ARCH = riscv32-nemu
+ALL  = string
+```
+
+##### 2）目标
+
+```text
+run
+```
+
+##### 3）当前工作目录上下文
+
+例如你是在：
+
+```text
+/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
+```
+
+下执行这条命令，那么这次 Make 进程的工作目录就是这个目录。
+
+这一步非常关键，因为它说明：
+
+> **Make 的第一件事不是执行命令，而是先建立“变量 + 目标 + 工作目录”这三个最基础的执行上下文。**
+
+随后 `am-kernels/tests/cpu-tests/Makefile` 开始起作用。它并不负责真正编译程序，而是负责：
+
+* 接收 `ALL=string`
+* 决定这次只跑 `string`
+* 动态生成一个 `Makefile.string`
+* 再把任务递归转交给 AM 总控
+
+这里一定要把“生成临时入口文件”和“进入第二层总控”拆开看，否则很容易误以为 `include $(AM_HOME)/Makefile` 本身就是一条会立即跳转的执行命令。实际上，这一层发生的是一个标准的“两段式委托”：
+
+##### 4）先由外层规则生成一个最小临时入口
+
+`cpu-tests/Makefile` 的关键规则是：
+
+```makefile
+Makefile.%: tests/%.c latest
+  @/bin/echo -e "NAME = $*\nSRCS = $<\ninclude $${AM_HOME}/Makefile" > $@
+  @if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then \
+```
+
+如果当前 `ALL=string`，那么 `%` 匹配到的 stem 就是 `string`，这一条规则会先生成：
+
+```makefile
+Makefile.string
+```
+
+它的内容本质上只有三行：
+
+```makefile
+NAME = string
+SRCS = tests/string.c
+include $(AM_HOME)/Makefile
+```
+
+这一步的本质不是编译，而是把“本轮任务”固化成一张最小任务卡：
+
+* 当前测试名是谁：`NAME=string`
+* 当前源文件是谁：`SRCS=tests/string.c`
+* 后续构建总控由谁接管：`include $(AM_HOME)/Makefile`
+
+所以 `Makefile.string` 的角色更准确地说不是“真正构建脚本”，而是：
+
+> **外层调度器专门为本次测试动态生成的桥接入口。**
+
+##### 5）再由外层 recipe 启动一个新的子 make 进程
+
+临时文件生成完之后，真正的委托发生在第二行：
+
+```makefile
+make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS)
+```
+
+以当前场景为例，它会展开成近似下面这条命令：
+
+```bash
+make -s -f Makefile.string ARCH=riscv32-nemu run
+```
+
+这里最关键的点是：
+
+* `-f Makefile.string`：子 make 以这个临时文件作为入口文件；
+* `ARCH=$(ARCH)`：把外层架构继续透传下去；
+* `$(MAKECMDGOALS)`：把外层目标继续透传下去，例如这里还是 `run`。
+
+也就是说，不是“当前 make 完全结束后，才去读下一份脚本”，而是：
+
+> **当前外层 make 在执行 `Makefile.%` 这条规则时，主动启动了一个新的子 make，把后续工作递交给它。**
+
+##### 6）`include $(AM_HOME)/Makefile` 发生在子 make 的解析阶段
+
+这一点非常重要：
+
+```makefile
+include $(AM_HOME)/Makefile
+```
+
+不是 shell 命令，也不是运行时跳转语句，而是 GNU Make 的“文本并入/规则并入”语义。
+
+也就是说，子 make 在读取 `Makefile.string` 时，遇到 `include $(AM_HOME)/Makefile`，会把：
+
+```makefile
+abstract-machine/Makefile
+```
+
+的内容继续读进来，并在同一个子 make 进程里完成规则解析、变量建立和目标求值。
+
+所以这里真正的顺序应理解为：
+
+1. 外层 `cpu-tests/Makefile` 决定当前测试任务；
+2. 外层生成 `Makefile.string`；
+3. 外层执行 `make -f Makefile.string ...`，启动子 make；
+4. 子 make 解析 `Makefile.string`；
+5. 子 make 通过 `include $(AM_HOME)/Makefile` 把 `abstract-machine/Makefile` 纳入进来；
+6. 从这一刻起，真正的编译、链接、镜像生成与平台下发，才由 AM 总控层接手。
+
+因此更精确地说：
+
+> **`cpu-tests/Makefile` 是第一层入口调度器，`Makefile.<test>` 是第一层到第二层之间的桥接入口，而 `abstract-machine/Makefile` 才是第二层真正的总控脚本。**
+
+所以入口调度层真正做的事情可以压缩为：
+
+> **把“用户命令”翻译成“一个明确的构建任务”。**
+
+#### 第二层：AM 总控层 —— Make 开始从“要做什么”转向“如何构建”
+
+当入口层把任务下发后，控制权就进入：
+
+```makefile
+include $(AM_HOME)/Makefile
+```
+
+也就是 `abstract-machine/Makefile`。
+
+这一层是 Make 执行规则的真正核心，因为它第一次系统性地建立出：
+
+* 变量表
+* 规则图
+* 依赖关系
+* 编译目标
+* 输出路径
+
+在这一层里，Make 做的事情不再是“挑测试”，而是进入标准的构建语义：
+
+这里还要再补上一层非常重要的理解：
+
+> **`abstract-machine/Makefile` 不是一份“单独就能解释完整运行链”的封闭脚本，它更像一份总控骨架：先接住上层传下来的 `NAME/SRCS/ARCH/MAKECMDGOALS`，再把架构脚本、平台脚本、编译规则、链接规则和最终目标拼装成一张完整构建图。**
+
+换句话说，第二层的关键不只是“它会编译”，而是：
+
+> **它负责把第一层传下来的最小任务描述，扩展成真正可执行的构建系统。**
+
+##### 1）先做前置检查
+
+例如：
+
+* `AM_HOME` 是否有效
+* `ARCH` 是否有对应脚本
+* `SRCS` 是否已定义
+
+这说明 Make 在真正执行规则前，首先会先把当前工程是否“可构建”检查一遍。
+
+这里还要注意两个执行规则细节：
+
+###### ① 默认目标不是永远写死的，而是由 `MAKECMDGOALS` 决定
+
+文件一开始有：
+
+```makefile
+ifeq ($(MAKECMDGOALS),)
+  MAKECMDGOALS  = image
+  .DEFAULT_GOAL = image
+endif
+```
+
+这意味着：
+
+* 如果子 make 没显式指定目标，就默认构建 `image`；
+* 如果上层已经透传了 `run`、`gdb`、`archive` 等目标，就按外部目标继续往下走。
+
+所以 AM 总控层并不是“永远只负责生成镜像”，而是：
+
+* 无目标时默认落到 `image`
+* 有目标时服从上层透传的 `MAKECMDGOALS`
+
+###### ② 不是所有目标都会做完整检查
+
+文件中还有：
+
+```makefile
+ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
+  ... checks ...
+endif
+```
+
+这表示：
+
+* `clean` / `clean-all` / `html` 这类目标，不需要完整的编译环境检查；
+* 只有真正涉及构建的目标，才要求 `AM_HOME`、`ARCH`、`SRCS` 等条件都齐备。
+
+因此 AM 总控层的第一步不是“直接开编”，而是：
+
+> **先根据当前目标类型，判断本轮到底需不需要进入完整构建语义。**
+
+##### 2）解析高层变量
+
+例如：
+
+```makefile
+ARCH_SPLIT = $(subst -, ,$(ARCH))
+ISA        = $(word 1,$(ARCH_SPLIT))
+PLATFORM   = $(word 2,$(ARCH_SPLIT))
+```
+
+这一步不是执行命令，而是在建立更细的语义变量：
+
+* `ARCH=riscv32-nemu`
+* 被拆成 `ISA=riscv32`
+* 和 `PLATFORM=nemu`
+
+这里要注意，`ARCH` 的拆分不是为了“打印得更好看”，而是为了后面两件真实事情服务：
+
+* `ISA` 继续向下传给 NEMU；
+* `PLATFORM` 决定 AM 平台侧应该补哪些源码、链接脚本和运行目标。
+
+##### 3）建立输出路径和中间产物路径
+
+例如：
+
+```makefile
+WORK_DIR  = $(shell pwd)
+DST_DIR   = $(WORK_DIR)/build/$(ARCH)
+IMAGE_REL = build/$(NAME)-$(ARCH)
+IMAGE     = $(abspath $(IMAGE_REL))
+```
+
+这里 Make 不是在“直接开始编译”，而是在先建立后续构建图里所有目标文件的落点。
+
+同时还有一个很容易被忽略的点：
+
+```makefile
+$(shell mkdir -p $(DST_DIR))
+```
+
+这条命令会在解析阶段就执行，因此 `build/$(ARCH)` 目录并不是等某条 recipe 运行时才创建，而是 AM 总控在建立构建上下文时就先准备好了对象文件目录。
+
+##### 4）建立规则图
+
+例如：
+
+```makefile
+$(DST_DIR)/%.o: %.c
+  @$(CC) -std=gnu11 $(CFLAGS) -c -o $@ $(realpath $<)
+```
+
+和：
+
+```makefile
+$(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
+  @$(LD) $(LDFLAGS) -o $@ --start-group $(LINKAGE) --end-group
+```
+
+这时 Make 已经把整个构建过程抽象成：
+
+```text
+.c / .S / .cc
+-> .o
+-> .a（可选递归库）
+-> .elf
+```
+
+所以这一层的本质是：
+
+> **Make 从“理解目标”进入“构建依赖图”。**
+
+但这张图在 `abstract-machine/Makefile` 里并不是一次性写完的，而是分两段补齐：
+
+###### 第一段：总控自己先声明通用骨架
+
+例如：
+
+* `OBJS` 如何从 `SRCS` 派生；
+* `CC/LD/AR/OBJDUMP/OBJCOPY` 如何从 `CROSS_COMPILE` 派生；
+* `.c/.cc/.cpp/.S -> .o` 的通用编译规则；
+* `$(IMAGE).elf` 的通用链接规则；
+* `image` / `archive` / `clean` 这些高层目标的基本框架。
+
+###### 第二段：再由 `ARCH` 脚本把缺失部分补齐
+
+最关键的一句是：
+
+```makefile
+-include $(AM_HOME)/scripts/$(ARCH).mk
+```
+
+以当前 `ARCH=riscv32-nemu` 为例，实际会继续纳入：
+
+```makefile
+abstract-machine/scripts/riscv32-nemu.mk
+```
+
+而这份脚本又继续纳入：
+
+* `scripts/isa/riscv.mk`
+* `scripts/platform/nemu.mk`
+
+这样 AM 总控层才真正拿到了完整运行链所需要的补充内容，例如：
+
+* `CROSS_COMPILE`
+* `COMMON_CFLAGS`
+* `LDSCRIPTS`
+* `AM_SRCS`
+* `run` / `gdb` 的平台目标实现
+
+所以从执行规则角度看，`abstract-machine/Makefile` 并不是“自己一个文件把所有事做完”，而是：
+
+> **先声明通用骨架，再通过 `ARCH` 脚本把具体平台的缺口补齐。**
+
+##### 5）规则执行顺序不是按文件从上到下，而是按依赖关系决定
+
+这也是 Makefile 最重要的执行规则之一。
+
+比如在 `abstract-machine/Makefile` 中，虽然编译规则、归档规则、链接规则是按文本顺序写出来的，但真正执行时一定是：
+
+1. 先编源文件得到 `.o`
+2. 再递归生成 `am` / `klib` 的 `.a`
+3. 最后链接生成 `.elf`
+
+这不是因为“写在前面的先执行”，而是因为：
+
+> **最终目标 `$(IMAGE).elf` 依赖 `$(LINKAGE)`，而 `$(LINKAGE)` 又依赖对象文件和库，所以依赖图强制了执行顺序。**
+
+因此在 AM 总控层里，你必须始终用这种视角读 Makefile：
+
+> **它是在声明一张构建图，而不是手写一个顺序脚本。**
+
+如果把你当前最常见的调用：
+
+```bash
+make -f Makefile.string ARCH=riscv32-nemu run
+```
+
+映射到这一层，那么第二层总控的执行链可以压成下面几步：
+
+1. 子 make 解析 `Makefile.string`，拿到 `NAME` 与 `SRCS`；
+2. `include $(AM_HOME)/Makefile` 把总控骨架读进来；
+3. 总控解析 `ARCH`、`ISA`、`PLATFORM`、`WORK_DIR`、`IMAGE`、`OBJS` 等变量；
+4. 总控再通过 `-include $(AM_HOME)/scripts/$(ARCH).mk` 把 `riscv32-nemu` 的 ISA/平台脚本并入；
+5. 平台脚本补上 `LDSCRIPTS`、`AM_SRCS`、`image` 后处理规则以及 `run` 目标；
+6. 因为当前目标是 `run`，Make 不会停在 `$(IMAGE).elf`，而是继续沿着依赖先做 `insert-arg`、`image`、`image-dep`；
+7. `image-dep` 又要求先生成 `$(IMAGE).elf`；
+8. `$(IMAGE).elf` 反过来要求先准备 `$(LINKAGE)`，也就是应用对象文件和递归库；
+9. 所有依赖满足后，才会链接出 `.elf`，再转 `.bin`，最后把控制权交给第三层 NEMU 运行层。
+
+这里最值得你记住的一点是：
+
+> **第二层总控真正做的不是“直接执行 run”，而是先把 `run` 背后整张依赖图补全，再让 Make 顺着依赖自动推导到最终动作。**
+
+#### 第三层：NEMU 运行层 —— Make 从“构建程序”切换到“驱动模拟器”
+
+当 AM 总控层把 `.elf` 做出来之后，控制权继续往下流到：
+
+* `abstract-machine/scripts/platform/nemu.mk`
+* `nemu/Makefile`
+* `nemu/scripts/native.mk`
+
+这时 Make 的角色发生了一次重要切换：
+
+> **从“客户程序构建系统”切换成“模拟器驱动系统”。**
+
+##### 1）平台脚本先把 `.elf` 变成 `.bin`
+
+例如：
+
+```makefile
+image: image-dep
+  @$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
+  @$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
+```
+
+此时 Make 已经不再只是“编译源码”，而是在做镜像后处理。
+
+##### 2）平台脚本把变量封装后递归交给 NEMU
+
+例如：
+
+```makefile
+$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
+```
+
+这一步有三个必须看清的动作：
+
+* `-C $(NEMU_HOME)`：切换工作目录，启动一个新的 Make 进程
+* `ISA=$(ISA)`：把 AM 侧拆出的 ISA 继续往下透传
+* `IMG=$(IMAGE).bin`：把刚生成的客户程序镜像交给 NEMU
+
+所以这一层已经不是简单 `include`，而是：
+
+> **递归 make + 参数透传 + 新工作目录上下文**
+
+##### 3）NEMU 侧再次建立自己的变量表和规则图
+
+进入 `nemu/Makefile` 后，会重新开始一轮 Make 的标准流程：
+
+* 读取 `auto.conf`
+* 解析 `CONFIG_ISA`
+* 生成 `GUEST_ISA`
+* 收集 `src/**/filelist.mk`
+* 拼接 `CFLAGS`
+* include `scripts/native.mk`
+
+这说明：
+
+> **递归 make 不是“接着上一次状态往下跑”，而是“在新目录里重新开启一轮 Make 生命周期”。**
+
+##### 4）最后由 `native.mk` 折叠成真实运行命令
+
+例如：
+
+```makefile
+NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+```
+
+最终真正落到 shell 的形态是：
+
+```text
+build/riscv32-nemu-interpreter -b -l ... /path/to/string-riscv32-nemu.bin
+```
+
+所以 NEMU 运行层的最终职责非常清楚：
+
+> **把前面所有构建结果和运行参数收拢成一条可执行命令。**
+
+#### 三层执行模型的总收束
+
+现在再回头看 Makefile 的执行规则，就会清楚很多。
+
+在 `ysyx-workbench` 里，Makefile 的执行逻辑不是“一份文件从上往下跑完”，而是三层协同：
+
+##### 第一层：入口调度层
+
+负责回答：
+
+* 这次跑哪个测试？
+* 当前目标是什么？
+* 命令行变量是什么？
+
+典型文件：
+
+* `am-kernels/tests/cpu-tests/Makefile`
+
+##### 第二层：AM 总控层
+
+负责回答：
+
+* 当前 `ARCH` 该怎么拆？
+* 当前应用该怎么编成 `.elf`？
+* 应该递归编哪些库？
+* 目标文件、镜像文件放在哪？
+
+典型文件：
+
+* `abstract-machine/Makefile`
+
+##### 第三层：NEMU 运行层
+
+负责回答：
+
+* `.elf` 怎么变成 `.bin`？
+* 参数如何传给 NEMU？
+* NEMU 自己怎么编？
+* 最后如何启动模拟器？
+
+典型文件：
+
+* `abstract-machine/scripts/platform/nemu.mk`
+* `nemu/Makefile`
+* `nemu/scripts/native.mk`
+
+所以最终可以把 `ysyx` 这套 Make 执行模型压缩成一句话：
+
+> **第一层决定“本轮任务是什么”，第二层决定“这个任务怎样被构建成镜像”，第三层决定“镜像怎样被交给模拟器运行”；Make 的执行顺序由依赖图决定，而变量和规则则在每一层被重新组织和下发。**
+
+#### 阅读 Makefile 时的四个检查问题
+
+以后你每次读当前工程里的 Makefile，都建议强制问自己四个问题：
+
+##### 1）当前文件属于哪一层？
+
+* 入口调度层？
+* AM 总控层？
+* NEMU 运行层？
+
+##### 2）当前文件是在“声明规则”，还是在“递归下发任务”？
+
+例如：
+
+* `include ...` 更偏向规则拼接
+* `$(MAKE) -C ...` 更偏向递归下发
+
+##### 3）当前变量是从哪来的？
+
+可能来源于：
+
+* 命令行
+* 当前 Makefile
+* include 文件
+* 配置文件
+* 上一层递归透传
+
+##### 4）当前命令为什么会在这里执行？
+
+是因为：
+
+* 当前目标被用户点名要求构建
+* 或者它是最终目标的依赖
+* 或者它在变量展开 / `$(shell ...)` 里就提前执行了
+
+只要沿着这四个问题去读，Makefile 就不再像“黑魔法”，而会变成结构非常清晰的构建系统描述语言。
+
+---
+
+<a id="section-hierarchy"></a>
+
 ## 三、全局脚本层级总图
 
 ### 1. 构建与运行总层级图
@@ -168,11 +1091,15 @@ ISA=riscv32
 
 ---
 
+<a id="section-script-breakdown"></a>
+
 ## 四、逐个脚本拆解：核心功能 + 核心变量 + 来源 + 作用
 
 下面按“从外到内”的顺序整理。
 
 ---
+
+<a id="part-workspace-app"></a>
 
 # 第一部分：工作区 / 应用选择层
 
@@ -626,6 +1553,8 @@ include $(AM_HOME)/Makefile
 
 ---
 
+<a id="part-am-core"></a>
+
 # 第二部分：AbstractMachine 总控层
 
 ## 4. `abstract-machine/Makefile`
@@ -810,6 +1739,8 @@ $(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
 > **`abstract-machine/Makefile` 是 AM 世界的总控调度器：它负责解析 `ARCH`、建立工具链框架、汇总应用/库/平台源文件，并把它们最终链接成可运行的客户程序镜像。**
 
 ---
+
+<a id="part-am-scripts"></a>
 
 # 第三部分：`abstract-machine/scripts/` 细化层
 
@@ -1125,6 +2056,8 @@ run: insert-arg
 > **地址布局的最终裁判由 `linker.ld` 负责，但“是否使用它、给它传什么符号值”由 `platform/nemu.mk` 决定。**
 
 ---
+
+<a id="part-nemu-build"></a>
 
 # 第四部分：NEMU 侧构建与运行层
 
@@ -1579,6 +2512,8 @@ run: run-env
 
 ---
 
+<a id="section-relations"></a>
+
 # 第五部分：脚本之间的逻辑关系梳理
 
 ## 13. 按职责划分的脚本关系
@@ -1725,6 +2660,8 @@ $(BINARY) $(ARGS) $(IMG)
 
 ---
 
+<a id="section-var-flow"></a>
+
 # 第六部分：变量流向图
 
 ## 15. 变量流向图（一）：从命令行到 AM 再到 NEMU
@@ -1833,6 +2770,8 @@ platform/nemu.mk 生成 NEMUFLAGS
 
 ---
 
+<a id="section-include-graph"></a>
+
 # 第七部分：include 嵌套图
 
 ## 17. include 嵌套图（一）：AM 侧
@@ -1908,6 +2847,8 @@ nemu/Makefile
 
 ---
 
+<a id="section-confusions"></a>
+
 # 第八部分：最容易混淆的几个点
 
 ## 20. 为什么 `ARCH=riscv32-nemu`，但工具链前缀却是 `riscv64-linux-gnu-`？
@@ -1968,6 +2909,8 @@ nemu/Makefile
 所以它既属于 AM 世界，又负责把构建结果递送给 NEMU 世界。
 
 ---
+
+<a id="section-summary"></a>
 
 # 第九部分：最终总结
 
