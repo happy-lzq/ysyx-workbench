@@ -15,6 +15,9 @@
   - [自动变量明细](#preface-auto-vars-detail)
   - [GNU Make 内置函数总览](#preface-functions-overview)
   - [GNU Make 内置函数明细](#preface-functions-detail)
+- [零点五、术语表 / 变量速查页](#preface-glossary)
+  - [核心变量总表](#preface-glossary-table)
+  - [最容易混淆的变量对照](#preface-glossary-confusions)
 - [一、先给出一句话总纲](#section-overview)
 - [二、阅读这套脚本前必须先建立的三层认知](#section-cognition)
   - [用 ysyx 三层执行模型理解 Makefile 执行规则](#section-cognition-exec-model)
@@ -367,6 +370,168 @@ $(foreach lib, $(LIBS), $(eval $(call LIB_TEMPLATE,$(lib))))
 所以这一节的最终目的不是记定义，而是建立这种直觉：
 
 > **后文大多数“看起来很长的 Make 表达式”，本质都是若干路径函数、列表函数和元编程函数的组合。**
+
+---
+
+<a id="preface-glossary"></a>
+
+## 零点五、术语表 / 变量速查页
+
+这一节不再讲 GNU Make 语法，而是专门把当前这套 `ysyx-workbench` 运行链里最常出现、也最容易串线的变量集中压成一页速查。
+
+如果你后面又看见：
+
+* `ARCH`
+* `ISA`
+* `PLATFORM`
+* `NAME`
+* `SRCS`
+* `IMAGE`
+* `OBJS`
+* `LINKAGE`
+* `ARGS`
+* `IMG`
+* `BINARY`
+* `NEMU_EXEC`
+
+优先回来看这一节，能比在正文里来回翻快很多。
+
+---
+
+<a id="preface-glossary-table"></a>
+
+### 1. 核心变量总表
+
+| 变量 | 主要出现层次 | 典型来源 | 核心作用 | 当前链路中的典型值/含义 |
+| :--- | :--- | :--- | :--- | :--- |
+| `ARCH` | 第一层 / 第二层 | 命令行传入 | 指定“ISA + 平台”的复合目标 | `riscv32-nemu` |
+| `ISA` | 第二层 / 第三层 | 由 `ARCH` 拆分，或外层递归透传 | 表示客户机指令集 | `riscv32` |
+| `PLATFORM` | 第二层 | 由 `ARCH` 拆分 | 表示客户程序运行平台 | `nemu` |
+| `NAME` | 第一层 / 第二层 / 第三层 | 应用入口文件定义，或 NEMU 自己派生 | 表示“当前构建对象叫什么” | 应用侧是 `string`；NEMU 侧是 `riscv32-nemu-interpreter` |
+| `SRCS` | 第一层 / 第二层 / 第三层 | 应用入口给出，或 NEMU 源码汇总 | 当前要编译的源文件集合 | 例如 `tests/string.c` 或 NEMU 的 `src/**.c` 列表 |
+| `WORK_DIR` | 第二层 / 第三层 build 规则 | `$(shell pwd)` | 当前这一轮 make 的工作目录 | 例如 `am-kernels/tests/cpu-tests` 或 `nemu/` |
+| `DST_DIR` | 第二层 | 由 `WORK_DIR` 与 `ARCH` 派生 | 应用对象文件输出目录 | `.../build/riscv32-nemu` |
+| `IMAGE` | 第二层 / 第三层前半 | 由 `NAME` 与 `ARCH` 派生 | 应用镜像的公共前缀 | `.../build/string-riscv32-nemu` |
+| `OBJS` | 第二层 / 第三层 build 规则 | 从 `SRCS` 派生 | 对象文件集合 | 例如 `.../tests/string.o` |
+| `LINKAGE` | 第二层 | 初始来自 `OBJS`，后续追加库 | 最终参与链接 ELF 的输入集合 | 应用 `.o` + `am/klib` 等 `.a` |
+| `LDSCRIPTS` | 第二层 / 第三层前半 | 平台脚本追加 | 链接脚本列表 | 例如 `abstract-machine/scripts/linker.ld` |
+| `NEMUFLAGS` | 第三层前半 | `platform/nemu.mk` 生成 | 传给 NEMU 的运行参数集合 | `-b -l .../nemu-log.txt` |
+| `ARGS` | 第三层后半 | 外层透传或 `native.mk` 默认值 | NEMU 启动参数 | 本链路里等于外层传来的 `NEMUFLAGS` |
+| `IMG` | 第三层前半 / 后半 | 外层透传 | 交给 NEMU 的客户程序镜像路径 | `.../string-riscv32-nemu.bin` |
+| `GUEST_ISA` | 第三层后半 | `auto.conf` 的 `CONFIG_ISA` | NEMU 自己按哪种客户 ISA 被编译 | `riscv32` |
+| `ENGINE` | 第三层后半 | `auto.conf` 的 `CONFIG_ENGINE` | NEMU 的执行引擎类型 | `interpreter` |
+| `BINARY` | 第三层后半 | `build.mk` 派生 | NEMU 本体可执行文件路径 | `nemu/build/riscv32-nemu-interpreter` |
+| `NEMU_EXEC` | 第三层后半 | `$(BINARY) $(ARGS) $(IMG)` | 最终真正交给 shell 执行的命令 | `NEMU 程序 + 参数 + 客户镜像` |
+
+---
+
+### 2. 按三层模型重新记这些变量
+
+#### 第一层最关键的变量
+
+* `ARCH`：用户指定的平台目标
+* `ALL`：当前要跑哪个测试
+* `MAKECMDGOALS`：当前目标，例如 `run`
+* `NAME` / `SRCS`：被写入临时 `Makefile.<test>` 的最小任务描述
+
+这一层变量的本质是：
+
+> **先把“本轮任务是什么”说清楚。**
+
+#### 第二层最关键的变量
+
+* `ARCH` -> `ISA` + `PLATFORM`
+* `WORK_DIR` / `DST_DIR`
+* `IMAGE`
+* `OBJS`
+* `LINKAGE`
+* `LDSCRIPTS`
+
+这一层变量的本质是：
+
+> **把任务转成一张可链接出 `.elf` 的构建图。**
+
+#### 第三层最关键的变量
+
+* `NEMUFLAGS`
+* `ARGS`
+* `IMG`
+* `GUEST_ISA`
+* `BINARY`
+* `NEMU_EXEC`
+
+这一层变量的本质是：
+
+> **把客户程序镜像和模拟器本体一起收拢成最终运行命令。**
+
+---
+
+<a id="preface-glossary-confusions"></a>
+
+### 3. 最容易混淆的变量对照
+
+#### 1）`ARCH` vs `ISA`
+
+* `ARCH`：复合目标，表示“指令集 + 平台”，例如 `riscv32-nemu`
+* `ISA`：只表示客户机指令集，例如 `riscv32`
+
+一句话区分：
+
+> **`ARCH` 更像“完整运行目标”，`ISA` 更像“其中的指令集部分”。**
+
+#### 2）`ISA` vs `GUEST_ISA`
+
+* `ISA`：AM 侧从 `ARCH` 拆出来并继续往下透传给 NEMU 的值
+* `GUEST_ISA`：NEMU 自己从 `auto.conf` 的 `CONFIG_ISA` 读出来的值
+
+一句话区分：
+
+> **`ISA` 是外层传给 NEMU 的期望值，`GUEST_ISA` 是 NEMU 自己内部真正采用的配置值。**
+
+#### 3）`NAME` vs `IMAGE`
+
+* `NAME`：只是当前程序的名字，例如 `string`
+* `IMAGE`：由 `NAME + ARCH` 派生出来的镜像公共前缀，例如 `.../build/string-riscv32-nemu`
+
+一句话区分：
+
+> **`NAME` 是“名字”，`IMAGE` 是“产物前缀路径”。**
+
+#### 4）`OBJS` vs `LINKAGE`
+
+* `OBJS`：当前应用自己的对象文件集合
+* `LINKAGE`：最终参与链接的更大集合，包含 `OBJS` 和递归库
+
+一句话区分：
+
+> **`OBJS` 只是应用零件，`LINKAGE` 是最终装配清单。**
+
+#### 5）`NEMUFLAGS` vs `ARGS`
+
+* `NEMUFLAGS`：`platform/nemu.mk` 在 AM 一侧准备好的运行参数
+* `ARGS`：NEMU 一侧最终实际使用的参数变量
+
+一句话区分：
+
+> **`NEMUFLAGS` 是上游打包好的参数，`ARGS` 是下游接手后的运行参数入口。**
+
+#### 6）`IMG` vs `BINARY`
+
+* `IMG`：客户程序镜像，也就是被 NEMU 加载执行的 `.bin`
+* `BINARY`：NEMU 本体，也就是运行在 Linux 上的宿主机程序
+
+一句话区分：
+
+> **`IMG` 是“被模拟执行的程序”，`BINARY` 是“执行模拟的人”。**
+
+#### 7）`BINARY` vs `NEMU_EXEC`
+
+* `BINARY`：只有 NEMU 可执行文件本体
+* `NEMU_EXEC`：`BINARY + ARGS + IMG` 折叠后的完整命令
+
+一句话区分：
+
+> **`BINARY` 是程序文件，`NEMU_EXEC` 是完整启动命令。**
 
 ---
 
@@ -847,6 +1012,143 @@ abstract-machine/scripts/riscv32-nemu.mk
 
 > **它是在声明一张构建图，而不是手写一个顺序脚本。**
 
+##### 6）单独拆开看：当前程序到底是怎么变成 `.elf` 的？
+
+你这里最容易卡住的点在于：`.elf` 不是某一条命令“突然生成”的，它是整张依赖图被满足之后，由链接规则最终产出的结果。
+
+如果还是看你当前最典型的场景：
+
+```bash
+make -f Makefile.string ARCH=riscv32-nemu run
+```
+
+那么 `.elf` 的形成链可以先压成一行：
+
+```text
+SRCS
+-> OBJS
+-> LINKAGE
+-> $(IMAGE).elf
+```
+
+把它展开后其实就是：
+
+```text
+tests/string.c
+-> build/riscv32-nemu/tests/string.o
+-> string.o + am/klib 等库
+-> string-riscv32-nemu.elf
+```
+
+这里最关键的三个变量是：
+
+```makefile
+OBJS    = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
+LINKAGE = $(OBJS)
+IMAGE   = $(abspath build/$(NAME)-$(ARCH))
+```
+
+如果当前：
+
+* `NAME = string`
+* `SRCS = tests/string.c`
+* `ARCH = riscv32-nemu`
+
+那么它们大致会变成：
+
+```text
+OBJS    = .../am-kernels/tests/cpu-tests/build/riscv32-nemu/tests/string.o
+LINKAGE = string.o + am-riscv32-nemu.a + klib-riscv32-nemu.a + ...
+IMAGE   = .../am-kernels/tests/cpu-tests/build/string-riscv32-nemu
+```
+
+于是最终的 ELF 目标就是：
+
+```text
+$(IMAGE).elf
+= .../am-kernels/tests/cpu-tests/build/string-riscv32-nemu.elf
+```
+
+下面按执行顺序拆成两步看会最清楚。
+
+###### 第一步：先把源文件编译成对象文件 `.o`
+
+规则是：
+
+```makefile
+$(DST_DIR)/%.o: %.c
+	@$(CC) -std=gnu11 $(CFLAGS) -c -o $@ $(realpath $<)
+```
+
+对 `tests/string.c` 而言，它的含义就是：
+
+```text
+把 string.c 用交叉编译器编译成 string.o
+```
+
+这一步生成的是对象文件 `.o`。你可以把它理解成“已经被编译好的零件”：
+
+* 里面已经是 RISC-V 目标代码；
+* 但它还不是完整程序；
+* 它还没有把运行时库、链接地址、入口符号组织成最终镜像。
+
+所以 `.o` 的本质是：
+
+> **单个源文件对应的编译结果，但还不是完整可运行镜像。**
+
+###### 第二步：再把 `.o` 和库链接成 `.elf`
+
+真正生成 `.elf` 的规则是：
+
+```makefile
+$(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
+	@$(LD) $(LDFLAGS) -o $@ --start-group $(LINKAGE) --end-group
+```
+
+这条规则要表达的意思是：
+
+* 目标：生成 `$(IMAGE).elf`
+* 输入：
+  * `$(LINKAGE)`：应用自己的 `.o`，再加上递归生成的 `am` / `klib` 等静态库
+  * `$(LDSCRIPTS)`：平台脚本提供的链接脚本，比如 `linker.ld`
+* 动作：用 `ld` 把这些输入正式链接成一个完整 ELF 文件
+
+这一刻做的事情，本质上就是：
+
+1. 把应用自己的对象文件放进来；
+2. 把 AM 运行时和 `klib` 这些库也放进来；
+3. 按 `linker.ld` 规定的地址布局组织 `.text/.data/.bss`；
+4. 确定程序入口，例如 `_start`；
+5. 最终输出一个带完整地址语义的 `ELF` 镜像。
+
+所以 `.elf` 可以直接理解成：
+
+> **把很多 `.o/.a` 零件，按链接脚本和入口地址组装完成之后得到的“完整客户程序”。**
+
+###### 第三步：为什么后面还要再变成 `.bin`？
+
+因为 `.bin` 不是直接从 `string.c` 编出来的，而是平台脚本后面再从：
+
+```makefile
+$(IMAGE).elf
+```
+
+里用 `objcopy` 提取出来的裸二进制。
+
+所以顺序一定是：
+
+```text
+.c/.S
+-> .o
+-> .a
+-> .elf
+-> .bin
+```
+
+如果只记一句话，就记这个：
+
+> **`.elf` 是“链接完成后的完整程序镜像”，`.bin` 是“从这个完整镜像里剥出来的纯机器码内容”。**
+
 如果把你当前最常见的调用：
 
 ```bash
@@ -893,6 +1195,124 @@ image: image-dep
 
 此时 Make 已经不再只是“编译源码”，而是在做镜像后处理。
 
+如果你把 `abstract-machine/scripts/platform/nemu.mk` 单独拎出来看，它在这一层其实承担的是一个非常明确的桥接职责：
+
+> **接住第二层已经生成好的 `$(IMAGE).elf`，把它加工成 NEMU 真正要吃的 `$(IMAGE).bin`，再把运行参数和镜像路径一起打包下发给 NEMU。**
+
+这个桥接过程可以拆成四步。
+
+###### 第一步：先补齐 NEMU 平台自己的运行时与链接条件
+
+文件开头先做的不是运行，而是补平台语义：
+
+```makefile
+AM_SRCS := platform/nemu/trm.c \
+           platform/nemu/ioe/ioe.c \
+           ...
+LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
+LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
+LDFLAGS   += --gc-sections -e _start
+```
+
+这一步的含义是：
+
+* 让 AM 知道当前平台是 `nemu`，所以应该编入 `trm/ioe/timer/gpu/...` 这些平台实现；
+* 让链接器知道当前程序要按 `linker.ld` 的规则布局；
+* 让程序的装载/入口地址锚定到 `0x80000000`；
+* 让 `_start` 成为程序入口。
+
+也就是说，`platform/nemu.mk` 并不是等 `.elf` 出来后才起作用，而是在 `.elf` 生成之前就已经参与定义：
+
+> **这个 ELF 应该按什么平台规则被链接出来。**
+
+###### 第二步：`image` 目标把完整 ELF 提炼成可运行的裸镜像
+
+规则是：
+
+```makefile
+image: image-dep
+  @$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
+  @$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
+```
+
+这里要看清两个输出：
+
+* `$(IMAGE).txt`：给人看的反汇编文本；
+* `$(IMAGE).bin`：给 NEMU 吃的裸二进制镜像。
+
+这一步本质上不是“再次编译”，而是：
+
+* 用 `objdump` 把 ELF 反汇编出来，方便阅读；
+* 用 `objcopy` 把 ELF 里的真正机器码内容抽出来，生成 `.bin`。
+
+所以这一层里：
+
+* `.elf` 仍然是“完整程序镜像”；
+* `.bin` 是“去掉 ELF 封装后留下的纯机器码内容”。
+
+###### 第三步：`insert-arg` 再对 `.bin` 做一次运行前补丁
+
+在 `platform/nemu.mk` 中还有：
+
+```makefile
+insert-arg: image
+  @python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
+```
+
+这说明 `run` 之前，Make 不会直接拿刚生成的 `.bin` 去跑，而是还会先经过一次：
+
+```text
+image
+-> insert-arg
+```
+
+这一步的作用是：
+
+* 在镜像里找到预留的参数占位区；
+* 把 `mainargs` 写进去；
+* 让客户程序启动后能读到它的参数。
+
+所以更精确地说，第三层拿到手的并不是“刚从 ELF 转出来的原始 `.bin`”，而是：
+
+> **已经经过参数注入处理的最终可运行 `.bin`。**
+
+###### 第四步：`run` 目标把镜像和参数一起下发给 NEMU
+
+真正跨到 NEMU 世界的规则是：
+
+```makefile
+run: insert-arg
+  $(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
+```
+
+它的真实意义是：
+
+* 先保证 `insert-arg` 已完成；
+* 然后启动一个新的 make 进程进入 `$(NEMU_HOME)`；
+* 把 `ISA`、`ARGS`、`IMG` 三类关键信息一起透传下去。
+
+这里最关键的是后两项：
+
+* `ARGS="$(NEMUFLAGS)"`：把 `-b -l .../nemu-log.txt` 这类运行参数传给 NEMU；
+* `IMG=$(IMAGE).bin`：把刚才生成的裸镜像路径传给 NEMU。
+
+也就是说，这一层真正做的是：
+
+> **把“客户程序镜像”和“模拟器启动参数”一起打包，递交给下一层 NEMU 构建/运行系统。**
+
+如果把 `platform/nemu.mk` 的执行顺序压成一条最短链，就是：
+
+```text
+第二层链接得到 $(IMAGE).elf
+-> image 生成 $(IMAGE).txt 和 $(IMAGE).bin
+-> insert-arg 给 $(IMAGE).bin 注入 mainargs
+-> run: make -C $(NEMU_HOME) ... IMG=$(IMAGE).bin
+```
+
+所以第三层开头最应该记住的一句话是：
+
+> **`platform/nemu.mk` 不是在“重新编程序”，而是在“把已经链接好的程序镜像加工成 NEMU 可运行格式，并正式移交给 NEMU”。**
+
 ##### 2）平台脚本把变量封装后递归交给 NEMU
 
 例如：
@@ -926,6 +1346,102 @@ $(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
 
 > **递归 make 不是“接着上一次状态往下跑”，而是“在新目录里重新开启一轮 Make 生命周期”。**
 
+如果把这一轮新的生命周期继续往下拆，`nemu/Makefile` 实际上又做了四件事。
+
+###### 第一步：先确认“这里是不是一个合法的 NEMU 工程”
+
+文件最开始就有：
+
+```makefile
+ifeq ($(wildcard $(NEMU_HOME)/src/nemu-main.c),)
+  $(error NEMU_HOME=$(NEMU_HOME) is not a NEMU repo)
+endif
+```
+
+这说明 NEMU 顶层 Makefile 的第一件事也不是“直接编译”，而是先检查：
+
+* `NEMU_HOME` 指向的目录对不对；
+* 当前工作目录下是不是一份真正的 NEMU 源码树。
+
+所以第三层在进入 NEMU 世界之后，仍然先做一轮自己的环境校验。
+
+###### 第二步：把 `menuconfig` 结果翻译成 NEMU 自己的编译语义
+
+最关键的几行是：
+
+```makefile
+-include $(NEMU_HOME)/include/config/auto.conf
+GUEST_ISA ?= $(call remove_quote,$(CONFIG_ISA))
+ENGINE ?= $(call remove_quote,$(CONFIG_ENGINE))
+NAME    = $(GUEST_ISA)-nemu-$(ENGINE)
+```
+
+这一步的作用是：
+
+* 从 `auto.conf` 里读取当前配置；
+* 提取出 `CONFIG_ISA`、`CONFIG_ENGINE`；
+* 再把它们折叠成 NEMU 自己的程序名。
+
+例如在你当前配置下，它大致会得到：
+
+```text
+GUEST_ISA = riscv32
+ENGINE    = interpreter
+NAME      = riscv32-nemu-interpreter
+```
+
+这一刻就已经确定了：
+
+> **第三层里真正要被构建并运行的宿主机程序，是 `build/riscv32-nemu-interpreter`。**
+
+###### 第三步：收集 NEMU 自己的源码和编译参数
+
+接下来是：
+
+```makefile
+FILELIST_MK = $(shell find -L ./src -name "filelist.mk")
+include $(FILELIST_MK)
+SRCS-y += $(shell find -L $(DIRS-y) -name "*.c")
+SRCS = $(filter-out $(SRCS-BLACKLIST-y),$(SRCS-y))
+```
+
+以及：
+
+```makefile
+CFLAGS_BUILD += $(call remove_quote,$(CONFIG_CC_OPT))
+CFLAGS_TRACE += -DITRACE_COND=...
+CFLAGS_TRACE += -DMTRACE_COND=...
+CFLAGS  += $(CFLAGS_BUILD) $(CFLAGS_TRACE) -D__GUEST_ISA__=$(GUEST_ISA)
+```
+
+这部分的意义是：
+
+* 收集 NEMU 自己要编译的全部源码；
+* 结合配置系统生成最终的 `CFLAGS/LDFLAGS`；
+* 把 `__GUEST_ISA__=riscv32`、`ITRACE_COND`、`MTRACE_COND` 这类宏真正传给编译器。
+
+也就是说，`platform/nemu.mk` 传进来的：
+
+* `ISA=$(ISA)`
+* `ARGS=...`
+* `IMG=...`
+
+只是告诉 NEMU “这次怎么跑”，而 `nemu/Makefile` 自己还必须决定：
+
+> **“NEMU 本体自己该按什么源码集合和配置参数被编出来。”**
+
+###### 第四步：把真正的编译/运行规则继续下发给 `native.mk`
+
+在当前常见路径下，会走到：
+
+```makefile
+include $(NEMU_HOME)/scripts/native.mk
+```
+
+这一句的语义和前面 AM 那边一样，也不是“运行时跳转”，而是：
+
+> **把 NEMU 侧真正负责 build/run/gdb 的规则继续并入当前这一轮 make 解析过程。**
+
 ##### 4）最后由 `native.mk` 折叠成真实运行命令
 
 例如：
@@ -943,6 +1459,103 @@ build/riscv32-nemu-interpreter -b -l ... /path/to/string-riscv32-nemu.bin
 所以 NEMU 运行层的最终职责非常清楚：
 
 > **把前面所有构建结果和运行参数收拢成一条可执行命令。**
+
+但如果再往下读一层，你会发现 `native.mk` 做的其实不是一句简单赋值，而是“三步收口”。
+
+###### 第一步：先把 NEMU 自己编出来
+
+`native.mk` 开头先 include：
+
+```makefile
+include $(NEMU_HOME)/scripts/build.mk
+include $(NEMU_HOME)/tools/difftest.mk
+```
+
+这表示：
+
+* `build.mk` 负责把 NEMU 源码真正编译成 `$(BINARY)`；
+* `difftest.mk` 负责差分测试相关的动态库与参数。
+
+后面还有：
+
+```makefile
+run-env: $(BINARY) $(DIFF_REF_SO)
+```
+
+这句话非常关键，它说明 `run` 之前不会直接启动，而是必须先保证：
+
+* `$(BINARY)`：NEMU 本体已经编好；
+* `$(DIFF_REF_SO)`：若开启 difftest，参考模型也已经准备好。
+
+所以在第三层最后半段，Make 仍然在遵守老规则：
+
+> **先满足依赖，再执行最终命令。**
+
+###### 第二步：再把外层透传参数和 NEMU 自己的默认参数折叠起来
+
+`native.mk` 中最关键的变量是：
+
+```makefile
+override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
+override ARGS += $(ARGS_DIFF)
+IMG ?=
+NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+```
+
+这里要分开看：
+
+* `ARGS ?=`：如果外层没传，就用 NEMU 默认日志路径；
+* `override ARGS += $(ARGS_DIFF)`：再把 difftest 相关参数拼上去；
+* `IMG ?=`：镜像路径默认可以为空；
+* `NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)`：最终折叠成一条 shell 命令。
+
+而你当前这条链里，由于 `platform/nemu.mk` 已经显式传入：
+
+```text
+ARGS="-b -l .../nemu-log.txt"
+IMG=.../string-riscv32-nemu.bin
+```
+
+所以这时 `NEMU_EXEC` 的真实含义就是：
+
+```text
+build/riscv32-nemu-interpreter + 运行参数 + 客户镜像路径
+```
+
+###### 第三步：`run` 目标最后才真正把 NEMU 作为宿主机程序启动
+
+规则是：
+
+```makefile
+run: run-env
+	$(NEMU_EXEC)
+```
+
+也就是说，前面三层所有 Makefile 兜了这么大一圈，最后真正落到 shell 的动作，其实就是：
+
+```text
+执行一条宿主机命令，把 NEMU 程序本体启动起来，并把 `.bin` 镜像作为参数交给它
+```
+
+如果把当前最常见场景代进去，这条命令就近似于：
+
+```bash
+/home/l/ysyx/ysyx-workbench/nemu/build/riscv32-nemu-interpreter \
+  -b \
+  -l /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt \
+  /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin
+```
+
+到这一步，Make 的职责就结束了，后面才正式切换到：
+
+* Linux 启动 NEMU 进程；
+* `nemu-main.c` 进入 `main(argc, argv)`；
+* `monitor.c` 解析 `-l` 与 `IMG`；
+* NEMU 装载 `.bin` 并开始执行客户程序。
+
+所以最后这一层最值得记住的一句话是：
+
+> **`nemu/Makefile` 负责“把 NEMU 本体编好并准备运行语义”，`native.mk` 负责“把这一切收拢成真正启动 NEMU 的那条命令”。**
 
 #### 三层执行模型的总收束
 
@@ -979,6 +1592,7 @@ build/riscv32-nemu-interpreter -b -l ... /path/to/string-riscv32-nemu.bin
 
 负责回答：
 
+* 当前程序如何先链接成 `.elf`，再提取成 `.bin`？
 * `.elf` 怎么变成 `.bin`？
 * 参数如何传给 NEMU？
 * NEMU 自己怎么编？
@@ -2914,7 +3528,156 @@ nemu/Makefile
 
 # 第九部分：最终总结
 
-## 24. 整套脚本系统的核心逻辑收束
+## 24. 一页纸总复盘
+
+如果你之后只想用最短时间把整套 `make ARCH=riscv32-nemu ALL=string run` 的执行链重新捡起来，可以直接回看这一节。
+
+### 1. 先记总链，不要先陷进语法细节
+
+整条最核心的执行链可以直接压成：
+
+```text
+make ARCH=riscv32-nemu ALL=string run
+-> cpu-tests/Makefile 选定测试并生成 Makefile.string
+-> Makefile.string include abstract-machine/Makefile
+-> abstract-machine/Makefile 把客户程序编成 string-riscv32-nemu.elf
+-> platform/nemu.mk 把 .elf 提成 .bin，并把参数写进镜像
+-> make -C nemu ISA=riscv32 run ARGS="..." IMG=...bin
+-> nemu/Makefile 按当前配置编出 riscv32-nemu-interpreter
+-> native.mk 折叠成 NEMU_EXEC
+-> Linux 启动 NEMU 进程
+-> NEMU 解析参数并执行客户程序
+```
+
+只要这条主链没丢，细节再复杂也不容易迷路。
+
+### 2. 三层执行模型一定要牢
+
+#### 第一层：入口调度层
+
+典型文件：
+
+* `am-kernels/tests/cpu-tests/Makefile`
+
+这一层只做三件事：
+
+1. 接收命令行变量和目标；
+2. 确定“这次到底跑哪个测试”；
+3. 生成最小桥接入口 `Makefile.<test>`。
+
+这一层不负责编译，不负责链接，也不负责运行 NEMU。
+
+它最核心的职责是：
+
+> **把用户命令翻译成一个明确、可下发的构建任务。**
+
+#### 第二层：AM 总控层
+
+典型文件：
+
+* `abstract-machine/Makefile`
+
+这一层负责：
+
+1. 检查 `AM_HOME`、`ARCH`、`SRCS` 等构建条件；
+2. 从 `ARCH=riscv32-nemu` 拆出 `ISA=riscv32` 与 `PLATFORM=nemu`；
+3. 建立 `WORK_DIR`、`DST_DIR`、`IMAGE`、`OBJS`、`LINKAGE`；
+4. 通过 `-include $(AM_HOME)/scripts/$(ARCH).mk` 补齐 ISA/平台细节；
+5. 把客户程序链接成最终的 `$(IMAGE).elf`。
+
+这一层最核心的职责是：
+
+> **把“最小任务描述”扩展成一张完整构建图，并产出完整 ELF 程序镜像。**
+
+#### 第三层：NEMU 运行层
+
+典型文件：
+
+* `abstract-machine/scripts/platform/nemu.mk`
+* `nemu/Makefile`
+* `nemu/scripts/native.mk`
+
+这一层负责：
+
+1. 把 `.elf` 提炼成 `.bin`；
+2. 把参数注入 `.bin`；
+3. 把 `ARGS` 与 `IMG` 透传给 NEMU；
+4. 把 NEMU 本体按当前配置真正编出来；
+5. 折叠成一条最终的宿主机运行命令。
+
+这一层最核心的职责是：
+
+> **把客户程序镜像交给模拟器，并把模拟器本体真正启动起来。**
+
+### 3. `.elf` 和 `.bin` 一定不要混
+
+这套系统里，文件形成顺序一定是：
+
+```text
+.c/.S
+-> .o
+-> .a
+-> .elf
+-> .bin
+```
+
+对应理解如下：
+
+* `.o`：单个源文件编译出来的对象文件，是零件；
+* `.a`：多个对象文件打包后的静态库，是零件包；
+* `.elf`：把应用对象文件、运行时库、链接脚本、入口地址全部装配完成后的完整程序；
+* `.bin`：从 ELF 里再抽出来的纯机器码裸镜像。
+
+一句话区分：
+
+> **`.elf` 是“完整程序镜像”，`.bin` 是“给 NEMU 直接加载的纯机器码内容”。**
+
+### 4. 最终真正执行的命令是什么
+
+前面这么多 Makefile 最终收敛成的，不是一种抽象概念，而是一条宿主机命令。
+
+形态大致是：
+
+```bash
+/home/l/ysyx/ysyx-workbench/nemu/build/riscv32-nemu-interpreter \
+  -b \
+  -l /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt \
+  /home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin
+```
+
+所以最后一定要看清三件事：
+
+* `BINARY`：NEMU 自己的宿主机程序；
+* `ARGS`：传给 NEMU 的启动参数；
+* `IMG`：传给 NEMU 的客户程序镜像。
+
+也就是说，`native.mk` 的：
+
+```makefile
+NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+```
+
+就是整套脚本系统的最后落点。
+
+### 5. 阅读这套脚本时永远问自己的五个问题
+
+以后你再回读任意一个相关 Makefile，都建议先强制问自己下面五个问题：
+
+1. 当前文件属于哪一层：入口调度层、AM 总控层，还是 NEMU 运行层？
+2. 当前文件是在声明规则、补变量，还是在递归下发任务？
+3. 当前目标是 `run`、`image`、`archive`，还是别的什么？
+4. 当前变量来自命令行、当前 Makefile、include 文件，还是上层递归透传？
+5. 当前动作为什么会执行：是因为被用户点名，还是因为它是最终目标的依赖？
+
+只要这五个问题不丢，你基本就不会再把整套执行链看乱。
+
+### 6. 整套链路的最终一句话
+
+> **第一层负责“决定本轮任务是什么”，第二层负责“把任务构造成完整 ELF 程序”，第三层负责“把 ELF 变成可运行镜像并真正启动 NEMU”；Make 的执行顺序始终由依赖图决定，而不是由文件书写顺序决定。**
+
+---
+
+## 25. 整套脚本系统的核心逻辑收束
 
 如果把这整套脚本逻辑压缩成四句话：
 
@@ -2925,6 +3688,6 @@ nemu/Makefile
 
 ---
 
-## 25. 一句话终极总结
+## 26. 一句话终极总结
 
 > **这套脚本系统本质上是一条“应用声明 -> AM 总控 -> ISA/平台细化 -> 镜像生成 -> NEMU 构建 -> NEMU 执行”的多级委托链；其中 `abstract-machine/Makefile` 负责把客户程序编出来，`platform/nemu.mk` 负责把客户镜像递给 NEMU，`nemu/Makefile` 负责把模拟器自己编出来，而 `native.mk` 则负责让模拟器带着镜像真正跑起来。**
