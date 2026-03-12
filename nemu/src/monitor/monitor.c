@@ -46,6 +46,7 @@ void sdb_set_batch_mode();            // 外部批处理函数声明
 static char *log_file = NULL;         // 日志文件路径 对应（-l）
 static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对应（-d）
 static char *img_file = NULL;         // 客户程序镜像路径
+static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 static char mtrace_log_file[260] = {};
 
@@ -93,6 +94,7 @@ static int parse_args(int argc, char *argv[]) {
     {"log"      , required_argument, NULL, 'l'},
     {"diff"     , required_argument, NULL, 'd'},
     {"port"     , required_argument, NULL, 'p'},
+    {"elf"      , required_argument, NULL, 'e'},
     {"help"     , no_argument      , NULL, 'h'},
     {0          , 0                , NULL,  0 },       // 选项表结束标记
   };
@@ -110,11 +112,12 @@ static int parse_args(int argc, char *argv[]) {
   3、optarg ：选项后面对应的参数字符串
 
 */ 
-  while ( (o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
+  while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:", table, NULL)) != -1) {
     switch (o) {
       case 'b': sdb_set_batch_mode(); break;
       case 'p': sscanf(optarg, "%d", &difftest_port); break;
-      case 'l': log_file = optarg; break;
+      case 'e': elf_file = optarg;  break;
+      case 'l': log_file = optarg;  break;
       case 'd': diff_so_file = optarg; break;
       case 1: img_file = optarg; return 0;          // 隐含命令行最后一个p普通参数一定是img_file对应参数字符串
       default:
@@ -129,6 +132,12 @@ static int parse_args(int argc, char *argv[]) {
   }
   return 0;
 }
+
+// ============================================ ftrace ==========================================
+
+
+
+
 
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
