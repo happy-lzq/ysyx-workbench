@@ -5,8 +5,111 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
+static int format_to_buffer(char *out, size_t n, const char *fmt, va_list ap) {
+  char *str = out;
+  size_t written = 0;
+
+  while (*fmt != '\0') {
+    if (*fmt != '%') {
+      if (written + 1 < n) {
+        *str++ = *fmt;
+      }
+      written++;
+      fmt++;
+      continue;
+    }
+
+    fmt++;
+    if (*fmt == '\0') {
+      break;
+    }
+
+    switch (*fmt) {
+      case 's': {
+        const char *s = va_arg(ap, const char *);
+        if (s == NULL) s = "(null)";
+        while (*s != '\0') {
+          if (written + 1 < n) {
+            *str++ = *s;
+          }
+          written++;
+          s++;
+        }
+        break;
+      }
+      case 'd': {
+        int d = va_arg(ap, int);
+        unsigned int ud;
+        if (d == 0) {
+          if (written + 1 < n) {
+            *str++ = '0';
+          }
+          written++;
+          break;
+        }
+
+        if (d < 0) {
+          if (written + 1 < n) {
+            *str++ = '-';
+          }
+          written++;
+          ud = -d;
+        } else {
+          ud = d;
+        }
+
+        char buf[32];
+        int i = 0;
+        while (ud > 0) {
+          buf[i++] = (ud % 10) + '0';
+          ud /= 10;
+        }
+        while (i > 0) {
+          char ch = buf[--i];
+          if (written + 1 < n) {
+            *str++ = ch;
+          }
+          written++;
+        }
+        break;
+      }
+      default: {
+        if (written + 1 < n) {
+          *str++ = '%';
+        }
+        written++;
+        if (written + 1 < n) {
+          *str++ = *fmt;
+        }
+        written++;
+        break;
+      }
+    }
+    fmt++;
+  }
+
+  if (n > 0) {
+    if (written < n) {
+      *str = '\0';
+    } else {
+      out[n - 1] = '\0';
+    }
+  }
+
+  return written;
+}
+
 int printf(const char *fmt, ...) {
-  panic("Not implemented");
+  char buf[1024];
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+
+  for (int i = 0; i < ret && i < (int)(sizeof(buf) - 1); i++) {
+    putch(buf[i]);
+  }
+  return ret;
 }
 
 int vsprintf(char *out, const char *fmt, va_list ap) {
@@ -86,11 +189,19 @@ int sprintf(char *out, const char *fmt, ...) {
 }
 
 int snprintf(char *out, size_t n, const char *fmt, ...) {
-  panic("Not implemented");
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vsnprintf(out, n, fmt, ap);
+  va_end(ap);
+  return ret;
 }
 
 int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
-  panic("Not implemented");
+  va_list ap_copy;
+  va_copy(ap_copy, ap);
+  int ret = format_to_buffer(out, n, fmt, ap_copy);
+  va_end(ap_copy);
+  return ret;
 }
 
 #endif
