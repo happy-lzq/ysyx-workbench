@@ -5,13 +5,13 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
-static int format_to_buffer(char *out, size_t n, const char *fmt, va_list ap) {
+static int kvsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   char *str = out;
   size_t written = 0;
 
   while (*fmt != '\0') {
     if (*fmt != '%') {
-      if (written + 1 < n) {
+      if (n > 0 && written + 1 < n) {
         *str++ = *fmt;
       }
       written++;
@@ -20,93 +20,113 @@ static int format_to_buffer(char *out, size_t n, const char *fmt, va_list ap) {
     }
 
     fmt++;
-    if (*fmt == '\0') {
-      break;
-    }
+    if (*fmt == '\0') break;
 
-    switch (*fmt) {
-      case 's': {
-        const char *s = va_arg(ap, const char *);
-        if (s == NULL) s = "(null)";
-        while (*s != '\0') {
-          if (written + 1 < n) {
-            *str++ = *s;
-          }
-          written++;
-          s++;
+    if (*fmt == 's') {
+      const char *s = va_arg(ap, const char *);
+      if (s == NULL) s = "(null)";
+      while (*s != '\0') {
+        if (n > 0 && written + 1 < n) {
+          *str++ = *s;
         }
-        break;
+        written++;
+        s++;
       }
-      case 'd': {
-        int d = va_arg(ap, int);
-        unsigned int ud;
-        if (d == 0) {
-          if (written + 1 < n) {
-            *str++ = '0';
-          }
-          written++;
-          break;
-        }
+    }
+    else if (*fmt == 'd' || *fmt == 'x' || *fmt == 'p') {
+      uintptr_t value = 0;
+      int base = 10;
+      char buf[32];
+      int i = 0;
 
-        if (d < 0) {
-          if (written + 1 < n) {
+      if (*fmt == 'd') {
+        int num = va_arg(ap, int);
+        if (num < 0) {
+          if (n > 0 && written + 1 < n) {
             *str++ = '-';
           }
           written++;
-          ud = -d;
+          value = 0u - (unsigned int)num;
         } else {
-          ud = d;
+          value = (unsigned int)num;
         }
+      } else if (*fmt == 'x') {
+        value = va_arg(ap, unsigned int);
+        base = 16;
+      } else {
+        if (n > 0 && written + 1 < n) {
+          *str++ = '0';
+        }
+        written++;
+        if (n > 0 && written + 1 < n) {
+          *str++ = 'x';
+        }
+        written++;
+        value = (uintptr_t)va_arg(ap, void *);
+        base = 16;
+      }
 
-        char buf[32];
-        int i = 0;
-        while (ud > 0) {
-          buf[i++] = (ud % 10) + '0';
-          ud /= 10;
+      if (value == 0) {
+        if (n > 0 && written + 1 < n) {
+          *str++ = '0';
+        }
+        written++;
+      } else {
+        while (value > 0) {
+          int digit = value % base;
+          buf[i++] = (digit < 10 ? '0' + digit : 'a' + digit - 10);
+          value /= base;
         }
         while (i > 0) {
           char ch = buf[--i];
-          if (written + 1 < n) {
+          if (n > 0 && written + 1 < n) {
             *str++ = ch;
           }
           written++;
         }
-        break;
-      }
-      default: {
-        if (written + 1 < n) {
-          *str++ = '%';
-        }
-        written++;
-        if (written + 1 < n) {
-          *str++ = *fmt;
-        }
-        written++;
-        break;
       }
     }
+    else if (*fmt == 'c' || *fmt == '%') {
+      char ch = (*fmt == '%') ? '%' : (char)va_arg(ap, int);
+      if (n > 0 && written + 1 < n) {
+        *str++ = ch;
+      }
+      written++;
+    }
+    else {
+      if (n > 0 && written + 1 < n) {
+        *str++ = '%';
+      }
+      written++;
+      if (n > 0 && written + 1 < n) {
+        *str++ = *fmt;
+      }
+      written++;
+    }
+
     fmt++;
   }
 
   if (n > 0) {
-    if (written < n) {
-      *str = '\0';
-    } else {
-      out[n - 1] = '\0';
-    }
+    if (written < n) *str = '\0';
+    else out[n - 1] = '\0';
   }
 
-  return written;
+  return (int)written;
 }
 
 int printf(const char *fmt, ...) {
   char buf[1024];
   va_list ap;
   va_start(ap, fmt);
-  int ret = vsnprintf(buf, sizeof(buf), fmt, ap);
+  int ret = kvsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
 
-  for (int i = 0; i < ret && i < (int)(sizeof(buf) - 1); i++) {
+  int limit = ret;
+  if (limit > (int)sizeof(buf) - 1) {
+    limit = sizeof(buf) - 1;
+  }
+  for (int i = 0; i < limit; i++) {
     putch(buf[i]);
   }
   return ret;
@@ -191,7 +211,7 @@ int sprintf(char *out, const char *fmt, ...) {
 int snprintf(char *out, size_t n, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int ret = vsnprintf(out, n, fmt, ap);
+  int ret = kvsnprintf(out, n, fmt, ap);
   va_end(ap);
   return ret;
 }
@@ -199,7 +219,7 @@ int snprintf(char *out, size_t n, const char *fmt, ...) {
 int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   va_list ap_copy;
   va_copy(ap_copy, ap);
-  int ret = format_to_buffer(out, n, fmt, ap_copy);
+  int ret = kvsnprintf(out, n, fmt, ap_copy);
   va_end(ap_copy);
   return ret;
 }
