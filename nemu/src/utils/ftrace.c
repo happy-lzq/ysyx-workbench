@@ -3,6 +3,10 @@
 #include <elf.h>
 #include <stdio.h>
 
+#ifndef FTRACE_COND
+#define FTRACE_COND true
+#endif
+
 typedef struct {
     vaddr_t start;
     vaddr_t end;
@@ -142,6 +146,9 @@ void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr) {
     if (ftrace_fp == NULL) {
         return;
     }
+    if (!FTRACE_COND) {
+        return;
+    }
     const FuncSymbol *callee = find_func_by_addr(target);
 
     print_indent(ftrace_fp, call_depth);
@@ -161,6 +168,9 @@ void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr) {
 
 void ftrace_ret(vaddr_t pc, vaddr_t target) {
     if (ftrace_fp == NULL) {
+        return;
+    }
+    if (!FTRACE_COND) {
         return;
     }
     if (call_depth > 0) {
