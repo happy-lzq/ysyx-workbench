@@ -48,25 +48,37 @@ static char *img_file = NULL;         // 客户程序镜像路径
 static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
+static const char *build_named_log_file(char *buf, size_t buf_size,
+                                        const char *path,
+                                        const char *default_path,
+                                        const char *suffix) {
+  if (path == NULL) {
+    return default_path;
+  }
+
+  const char *slash = strrchr(path, '/');
+  const char *name = slash == NULL ? path : slash + 1;
+  const char *dot = strrchr(name, '.');
+
+  size_t dir_len = slash == NULL ? 0 : (size_t)(slash - path + 1);
+  size_t base_len = (dot != NULL && dot > name) ? (size_t)(dot - name) : strlen(name);
+
+  int ret = snprintf(buf, buf_size, "%.*s%.*s-%s",
+                     (int)dir_len, path,
+                     (int)base_len, name,
+                     suffix);
+  Assert(ret > 0 && ret < buf_size, "log path is too long: %s", path);
+  return buf;
+}
+
 
 // ================================== Mtrace_log 路径处理 ==========================================
 #ifdef CONFIG_MTRACE
 static char mtrace_log_file[260] = {};
 static const char *get_mtrace_log_file() {
-  const char *path = log_file != NULL ? log_file : img_file;
-  if (path == NULL) {
-    return "build/mtrace-log.txt";
-  }
-
-  const char *slash = strrchr(path, '/');
-  if (slash == NULL) {
-    return "mtrace-log.txt";
-  }
-
-  size_t dir_len = slash - path + 1;
-  int ret = snprintf(mtrace_log_file, sizeof(mtrace_log_file), "%.*smtrace-log.txt", (int)dir_len, path);
-  Assert(ret > 0 && ret < sizeof(mtrace_log_file), "mtrace log path is too long: %s", path);
-  return mtrace_log_file;
+  const char *path = img_file != NULL ? img_file : log_file;
+  return build_named_log_file(mtrace_log_file, sizeof(mtrace_log_file),
+                              path, "build/mtrace-log.txt", "mtrace-log.txt");
 }
 #endif
 
@@ -75,20 +87,8 @@ static const char *get_mtrace_log_file() {
 static char ftrace_log_file[260] = {};
 
 static const char *get_ftrace_log_file() {
-  const char *path = elf_file;
-  if (path == NULL) {
-    return "build/ftrace-log.txt";
-  }
-
-  const char *slash = strrchr(path, '/');
-  if (slash == NULL) {
-    return "ftrace-log.txt";
-  }
-
-  size_t dir_len = slash - path + 1;
-  int ret = snprintf(ftrace_log_file, sizeof(ftrace_log_file), "%.*sftrace-log.txt", (int)dir_len, path);
-  Assert(ret > 0 && ret < sizeof(ftrace_log_file), "ftrace log path is too long: %s", path);
-  return ftrace_log_file;
+  return build_named_log_file(ftrace_log_file, sizeof(ftrace_log_file),
+                              elf_file, "build/ftrace-log.txt", "ftrace-log.txt");
 }
 #endif
 
