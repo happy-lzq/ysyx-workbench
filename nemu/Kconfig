@@ -172,10 +172,10 @@ config FTRACE
   depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
   bool "Enable functs tracer"
   default n
-config MTRACE COND
+config FTRACE_COND
   depends on FTRACE
   string "Only trace functs using when the condition is ture"
-  default "ture"
+  default "true"
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

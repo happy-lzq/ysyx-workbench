@@ -42,7 +42,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-#ifdef CONFIG_WATCHPOINT
+#if defined(CONFIG_WATCHPOINT) && !defined(CONFIG_TARGET_AM)
   if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
     nemu_state.state = NEMU_STOP;
   }
@@ -50,6 +50,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 }
 
 // ============================== iring_buf trace =====================================
+#ifdef CONFIG_ITRACE
  static void iringbuf(const char *log) {
   strcpy(irbuf[irbuf_pos],log);
   irbuf_pos = (irbuf_pos + 1) % IRING_BUF_SIZE;
@@ -89,6 +90,7 @@ static void display_irbuf(void){
   }
   return ;
 }
+#endif
 
 
 
@@ -128,7 +130,7 @@ static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
     exec_once(&s, cpu.pc);
-    iringbuf(s.logbuf);
+    IFDEF(CONFIG_ITRACE, iringbuf(s.logbuf));
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING) break;
@@ -147,7 +149,7 @@ static void statistic() {
 
 void assert_fail_msg() {
   isa_reg_display();
-  display_irbuf();  // 植入环形缓冲器。
+  IFDEF(CONFIG_ITRACE, display_irbuf());  // 植入环形缓冲器。
   statistic();
 }
 

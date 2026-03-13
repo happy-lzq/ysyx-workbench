@@ -48,6 +48,7 @@ static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对
 static char *img_file = NULL;         // 客户程序镜像路径
 static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
+#ifdef CONFIG_MTRACE
 static char mtrace_log_file[260] = {};
 
 // ================================== Mtrace_log 路径处理 ==========================================
@@ -67,6 +68,7 @@ static const char *get_mtrace_log_file() {
   Assert(ret > 0 && ret < sizeof(mtrace_log_file), "mtrace log path is too long: %s", path);
   return mtrace_log_file;
 }
+#endif
 // ================================== Ftrace_log ==============================================
 
 // ================================== 加载客户程序镜像函数 ==========================================
