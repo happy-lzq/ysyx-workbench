@@ -42,7 +42,6 @@ static void welcome() {
 #include <string.h>
 
 void sdb_set_batch_mode();            // 外部批处理函数声明
-
 static char *log_file = NULL;         // 日志文件路径 对应（-l）
 static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对应（-d）
 static char *img_file = NULL;         // 客户程序镜像路径
