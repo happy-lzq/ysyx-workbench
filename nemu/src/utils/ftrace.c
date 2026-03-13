@@ -151,11 +151,12 @@ void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr) {
     }
     const FuncSymbol *callee = find_func_by_addr(target);
 
+    fprintf(ftrace_fp, FMT_WORD ": ", pc);
     print_indent(ftrace_fp, call_depth);
     if (callee != NULL) {
-        fprintf(ftrace_fp, FMT_WORD ": call [%s@" FMT_WORD "]\n", pc, callee->name, target);
+        fprintf(ftrace_fp, "call [%s@" FMT_WORD "]\n", callee->name, target);
     } else {
-        fprintf(ftrace_fp, FMT_WORD ": call [unknown@" FMT_WORD "]\n", pc, target);
+        fprintf(ftrace_fp, "call [unknown@" FMT_WORD "]\n", target);
     }
     fflush(ftrace_fp);
 
@@ -180,11 +181,12 @@ void ftrace_ret(vaddr_t pc, vaddr_t target) {
     const FuncSymbol *func = (call_depth >= 0 && call_depth < MAX_CALL_DEPTH)
         ? call_stack[call_depth].func : NULL;
 
+    fprintf(ftrace_fp, FMT_WORD ": ", pc);
     print_indent(ftrace_fp, call_depth);
     if (func != NULL) {
-        fprintf(ftrace_fp, FMT_WORD ": ret  [%s] -> " FMT_WORD "\n", pc, func->name, target);
+        fprintf(ftrace_fp, "ret  [%s] -> " FMT_WORD "\n", func->name, target);
     } else {
-        fprintf(ftrace_fp, FMT_WORD ": ret  [unknown] -> " FMT_WORD "\n", pc, target);
+        fprintf(ftrace_fp, "ret  [unknown] -> " FMT_WORD "\n", target);
     }
     fflush(ftrace_fp);
 }
