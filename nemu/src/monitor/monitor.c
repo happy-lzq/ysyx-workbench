@@ -50,7 +50,7 @@ static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 static char mtrace_log_file[260] = {};
 
-// ==================================Mtrace_log 路径处理 ==========================================
+// ================================== Mtrace_log 路径处理 ==========================================
 static const char *get_mtrace_log_file() {
   const char *path = log_file != NULL ? log_file : img_file;
   if (path == NULL) {
@@ -67,6 +67,7 @@ static const char *get_mtrace_log_file() {
   Assert(ret > 0 && ret < sizeof(mtrace_log_file), "mtrace log path is too long: %s", path);
   return mtrace_log_file;
 }
+// ================================== Ftrace_log ==============================================
 
 // ================================== 加载客户程序镜像函数 ==========================================
 static long load_img() {
@@ -119,13 +120,14 @@ static int parse_args(int argc, char *argv[]) {
       case 'e': elf_file = optarg;  break;
       case 'l': log_file = optarg;  break;
       case 'd': diff_so_file = optarg; break;
-      case 1: img_file = optarg; return 0;          // 隐含命令行最后一个p普通参数一定是img_file对应参数字符串
+      case 1: img_file = optarg; break;          // 隐含命令行最后一个p普通参数一定是img_file对应参数字符串
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");      
         printf("\t-l,--log=FILE           output log to FILE\n");
         printf("\t-d,--diff=REF_SO        run DiffTest with reference REF_SO\n");
         printf("\t-p,--port=PORT          run DiffTest with port PORT\n");
+        printf("\t-e,--elf=FILE           use ELF file for ftrace\n");
         printf("\n");
         exit(0);
     }
@@ -144,6 +146,7 @@ void init_monitor(int argc, char *argv[]) {
 
   /* 用户启动 NEMU 时在命令行输入的选项和参数，解析后写入 NEMU 的全局配置变量里，供后面的初始化流程使用 */
   parse_args(argc, argv);
+  IFDEF(CONFIG_FTRACE, Assert(elf_file != NULL, "ftrace needs --elf=FILE"));
 
   /* Set random seed. */
   init_rand();
@@ -152,6 +155,7 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
 
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+  IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
 
   /* Initialize memory. */
   init_mem();

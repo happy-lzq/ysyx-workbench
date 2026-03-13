@@ -163,11 +163,19 @@ config MTRACE
   depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
   bool "Enable memory tracer"
   default n
-
 config MTRACE_COND
   depends on MTRACE
   string "Only trace memory access when the condition is true"
   default "true"
+
+config FTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable functs tracer"
+  default n
+config MTRACE COND
+  depends on FTRACE
+  string "Only trace functs using when the condition is ture"
+  default "ture"
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

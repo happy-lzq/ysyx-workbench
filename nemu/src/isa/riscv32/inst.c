@@ -151,8 +151,23 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
 
 // ==================================== 跳转指令 =================================================================
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1+imm )& ~1 );
+  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J,
+      R(rd) = s->snpc;
+      s->dnpc = s->pc + imm;
+      IFDEF(CONFIG_FTRACE, if (rd == 1) ftrace_call(s->pc, s->dnpc, s->snpc));
+  );
+  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I,
+      R(rd) = s->snpc;
+      s->dnpc = (src1 + imm) & ~1;
+      IFDEF(CONFIG_FTRACE,
+        int rs1_idx = BITS(s->isa.inst, 19, 15);
+        if (rd == 1) {
+          ftrace_call(s->pc, s->dnpc, s->snpc);
+        } else if (rd == 0 && rs1_idx == 1 && imm == 0) {
+          ftrace_ret(s->pc, s->dnpc);
+        }
+      );
+  );
 
 // ==================================== 分支指令 =================================================================
   INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);

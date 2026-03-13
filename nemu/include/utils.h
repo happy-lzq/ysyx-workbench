@@ -77,4 +77,10 @@ extern FILE *mtrace_fp;
 void init_mtrace_log(const char *mtrace_log_file);
 void mtrace_write(char type, paddr_t addr, int len, word_t data);
 
+// ----------- ftrace -----------
+
+void init_ftrace(const char *elf_file);
+void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr);
+void ftrace_ret(vaddr_t pc, vaddr_t target);
+
 #endif
