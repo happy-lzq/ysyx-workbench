@@ -79,6 +79,7 @@ void mtrace_write(char type, paddr_t addr, int len, word_t data);
 
 // ----------- ftrace -----------
 
+void init_ftrace_log(const char *ftrace_log_file);
 void init_ftrace(const char *elf_file);
 void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr);
 void ftrace_ret(vaddr_t pc, vaddr_t target);

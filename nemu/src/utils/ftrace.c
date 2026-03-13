@@ -22,6 +22,7 @@ static int func_symbol_count = 0;
 
 static CallFrame call_stack[MAX_CALL_DEPTH];
 static int call_depth = 0;
+static FILE *ftrace_fp = NULL;
 
 static const FuncSymbol *find_func_by_addr(vaddr_t addr) {
     for (int i = 0; i < func_symbol_count; i++) {
@@ -32,10 +33,20 @@ static const FuncSymbol *find_func_by_addr(vaddr_t addr) {
     return NULL;
 }
 
-static void print_indent(int depth) {
-    for (int i = 0; i < depth; i++) {
-        printf("  ");
+static void print_indent(FILE *fp, int depth) {
+    if (fp == NULL) {
+        return;
     }
+    for (int i = 0; i < depth; i++) {
+        fprintf(fp, "  ");
+    }
+}
+
+void init_ftrace_log(const char *ftrace_log_file) {
+    Assert(ftrace_log_file != NULL, "ftrace log file path is null");
+    ftrace_fp = fopen(ftrace_log_file, "w");
+    Assert(ftrace_fp != NULL, "Can not open '%s'", ftrace_log_file);
+    Log("Ftrace log is written to %s", ftrace_log_file);
 }
 
 void init_ftrace(const char *elf_file) {
@@ -128,14 +139,18 @@ void init_ftrace(const char *elf_file) {
 }
 
 void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr) {
+    if (ftrace_fp == NULL) {
+        return;
+    }
     const FuncSymbol *callee = find_func_by_addr(target);
 
-    print_indent(call_depth);
+    print_indent(ftrace_fp, call_depth);
     if (callee != NULL) {
-        printf(FMT_WORD ": call [%s@" FMT_WORD "]\n", pc, callee->name, target);
+        fprintf(ftrace_fp, FMT_WORD ": call [%s@" FMT_WORD "]\n", pc, callee->name, target);
     } else {
-        printf(FMT_WORD ": call [unknown@" FMT_WORD "]\n", pc, target);
+        fprintf(ftrace_fp, FMT_WORD ": call [unknown@" FMT_WORD "]\n", pc, target);
     }
+    fflush(ftrace_fp);
 
     if (call_depth < MAX_CALL_DEPTH) {
         call_stack[call_depth].ret_addr = ret_addr;
@@ -145,6 +160,9 @@ void ftrace_call(vaddr_t pc, vaddr_t target, vaddr_t ret_addr) {
 }
 
 void ftrace_ret(vaddr_t pc, vaddr_t target) {
+    if (ftrace_fp == NULL) {
+        return;
+    }
     if (call_depth > 0) {
         call_depth--;
     }
@@ -152,10 +170,11 @@ void ftrace_ret(vaddr_t pc, vaddr_t target) {
     const FuncSymbol *func = (call_depth >= 0 && call_depth < MAX_CALL_DEPTH)
         ? call_stack[call_depth].func : NULL;
 
-    print_indent(call_depth);
+    print_indent(ftrace_fp, call_depth);
     if (func != NULL) {
-        printf(FMT_WORD ": ret  [%s] -> " FMT_WORD "\n", pc, func->name, target);
+        fprintf(ftrace_fp, FMT_WORD ": ret  [%s] -> " FMT_WORD "\n", pc, func->name, target);
     } else {
-        printf(FMT_WORD ": ret  [unknown] -> " FMT_WORD "\n", pc, target);
+        fprintf(ftrace_fp, FMT_WORD ": ret  [unknown] -> " FMT_WORD "\n", pc, target);
     }
+    fflush(ftrace_fp);
 }

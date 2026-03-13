@@ -70,6 +70,26 @@ static const char *get_mtrace_log_file() {
 }
 #endif
 // ================================== Ftrace_log ==============================================
+#ifdef CONFIG_FTRACE
+static char ftrace_log_file[260] = {};
+
+static const char *get_ftrace_log_file() {
+  const char *path = elf_file;
+  if (path == NULL) {
+    return "build/ftrace-log.txt";
+  }
+
+  const char *slash = strrchr(path, '/');
+  if (slash == NULL) {
+    return "ftrace-log.txt";
+  }
+
+  size_t dir_len = slash - path + 1;
+  int ret = snprintf(ftrace_log_file, sizeof(ftrace_log_file), "%.*sftrace-log.txt", (int)dir_len, path);
+  Assert(ret > 0 && ret < sizeof(ftrace_log_file), "ftrace log path is too long: %s", path);
+  return ftrace_log_file;
+}
+#endif
 
 // ================================== 加载客户程序镜像函数 ==========================================
 static long load_img() {
@@ -157,6 +177,7 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
 
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+  IFDEF(CONFIG_FTRACE, init_ftrace_log(get_ftrace_log_file()));
   IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
 
   /* Initialize memory. */
