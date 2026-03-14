@@ -64,6 +64,7 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
   size_t dir_len = slash == NULL ? 0 : (size_t)(slash - path + 1);  // 获取目录长度包括/
   size_t base_len = (dot != NULL && dot > name) ? (size_t)(dot - name) : strlen(name);   // 获取名字长度
 // ret 返回值大于0  ret < buf_size 无溢出
+// 拼接逻辑：fix
   int ret = snprintf(buf, buf_size, "%.*s%.*s-%s",
                      (int)dir_len, path,
                      (int)base_len, name,
@@ -173,7 +174,6 @@ void init_monitor(int argc, char *argv[]) {
 
   /* 用户启动 NEMU 时在命令行输入的选项和参数，解析后写入 NEMU 的全局配置变量里，供后面的初始化流程使用 */
   parse_args(argc, argv);
-  IFDEF(CONFIG_FTRACE, Assert(elf_file != NULL, "ftrace needs --elf=FILE"));
 
   /* Set random seed. */
   init_rand();
@@ -182,8 +182,14 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
 
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
-  IFDEF(CONFIG_FTRACE, init_ftrace_log(get_ftrace_log_file()));
-  IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
+#ifdef CONFIG_FTRACE
+  if (elf_file != NULL) {
+    init_ftrace_log(get_ftrace_log_file());
+    init_ftrace(elf_file);
+  } else {
+    Log("ftrace is enabled but --elf is missing, skip ftrace initialization");
+  }
+#endif
 
   /* Initialize memory. */
   init_mem();
