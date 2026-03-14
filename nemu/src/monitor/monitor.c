@@ -48,19 +48,6 @@ static char *img_file = NULL;         // 客户程序镜像路径
 static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
-static const char *build_named_log_file(char *buf, size_t buf_size,
-                                        const char *path,
-                                        const char *default_path,
-                                        const char *suffix) {
-const char *dot = strrchr(path, '.');
-Assert(dot != NULL, "path has no extension: %s", path);
-
-int ret = snprintf(buf, buf_size, "%.*s-%s",
-                   (int)(dot - path), path, suffix);
-Assert(ret > 0 && ret < buf_size, "log path is too long: %s", path);
-return buf;
-}
-/*
 // ================================= 基于命令的路径处理 ===========================================
 static const char *build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
@@ -89,7 +76,6 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
   return buf;
 }
 
-*/
 
 // ================================== Mtrace_log 路径处理 ==========================================
 #ifdef CONFIG_MTRACE
@@ -196,6 +182,7 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
 
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+  // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
       if (elf_file != NULL) {
         init_ftrace_log(get_ftrace_log_file());
