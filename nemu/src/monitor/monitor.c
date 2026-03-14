@@ -182,14 +182,14 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
 
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
-#ifdef CONFIG_FTRACE
-  if (elf_file != NULL) {
-    init_ftrace_log(get_ftrace_log_file());
-    init_ftrace(elf_file);
-  } else {
-    Log("ftrace is enabled but --elf is missing, skip ftrace initialization");
-  }
-#endif
+    #ifdef CONFIG_FTRACE
+      if (elf_file != NULL) {
+        init_ftrace_log(get_ftrace_log_file());
+        init_ftrace(elf_file);
+      } else {
+        Log("ftrace is enabled but --elf is missing, skip ftrace initialization");
+      }
+    #endif
 
   /* Initialize memory. */
   init_mem();
