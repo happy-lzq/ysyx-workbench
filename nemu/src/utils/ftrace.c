@@ -45,7 +45,7 @@ static void print_indent(FILE *fp, int depth) {
         fprintf(fp, "  ");
     }
 }
-
+// ftrace_log_file 文件生成路径
 void init_ftrace_log(const char *ftrace_log_file) {
     Assert(ftrace_log_file != NULL, "ftrace log file path is null");
     ftrace_fp = fopen(ftrace_log_file, "w");
@@ -55,25 +55,46 @@ void init_ftrace_log(const char *ftrace_log_file) {
 
 void init_ftrace(const char *elf_file) {
     Assert(elf_file != NULL, "ftrace elf file is null");
-
     FILE *fp = fopen(elf_file, "rb");
     Assert(fp != NULL, "can not open ftrace elf '%s'", elf_file);
 
-    Elf32_Ehdr ehdr;
+    Elf32_Ehdr ehdr;                    // C程序数据结构 定义在系统头文件 <elf.h> ehdr属于该数据结构的起始地址
     int ret = fread(&ehdr, sizeof(ehdr), 1, fp);
     Assert(ret == 1, "read elf header failed: %s", elf_file);
 
+// ====================================== 读取并校验 ELF Header =======================================
+/*
+1、ELF Header 数据结构：Elf32_Ehdr （<elf.h>）
+    Elf32_Ehdr Elf_Ehdr: elf头表格
+    1   .e_dent[]     文件身份信息（魔数、32/64 位、小端/大端等
+    2   .e_shoff      Section Header Table 的文件偏移
+    3   .shensize     每个 Section Header 的大小
+    4   .e_shnum      Section Header 个数
+    5   .e_shstndx    section 名字字符串表（.shstrtab）在节表里的索引
+2、ELF Header Magic 
+    1   前四个字节 对应魔数
+    2   第五个字节对应 elf文件格式，当前属于elf32
+    3   第六个字节对应 内存大小端格式，当前属于little endian
+    4   第七个字节对应 version current 
+    5   第八个字节之后 ABI/填充
+3、查找对应 ： man 5 elf
+4、当前ftrace 需要检验的必须值：
+    1   魔数
+    2   EI_CLASS (32/64 位是否匹配你的解析器）
+    3   EI_DATA （大小端是否匹配）
+*/
     Assert(ehdr.e_ident[EI_MAG0] == ELFMAG0 &&
-                 ehdr.e_ident[EI_MAG1] == ELFMAG1 &&
-                 ehdr.e_ident[EI_MAG2] == ELFMAG2 &&
-                 ehdr.e_ident[EI_MAG3] == ELFMAG3,
-                 "invalid elf magic: %s", elf_file);
+           ehdr.e_ident[EI_MAG1] == ELFMAG1 &&
+           ehdr.e_ident[EI_MAG2] == ELFMAG2 &&
+           ehdr.e_ident[EI_MAG3] == ELFMAG3,
+           "invalid elf magic: %s", elf_file);
     Assert(ehdr.e_ident[EI_CLASS] == ELFCLASS32, "only support ELF32 now: %s", elf_file);
     Assert(ehdr.e_ident[EI_DATA] == ELFDATA2LSB, "only support little-endian ELF now: %s", elf_file);
 
+//  ===================================== 读取 Section Header Table =================================
     Assert(ehdr.e_shentsize == sizeof(Elf32_Shdr),
                  "section header size mismatch: e_shentsize=%u", ehdr.e_shentsize);
-
+// 确认 section header 表项大小与编译器结构体一致，避免错读。
     Elf32_Shdr *shdrs = malloc(ehdr.e_shnum * sizeof(Elf32_Shdr));
     Assert(shdrs != NULL, "malloc section headers failed");
 
@@ -81,6 +102,7 @@ void init_ftrace(const char *elf_file) {
     ret = fread(shdrs, sizeof(Elf32_Shdr), ehdr.e_shnum, fp);
     Assert(ret == ehdr.e_shnum, "read section headers failed");
 
+// ===================================== 读取 .shstrtab（section 名字表） =============================
     Assert(ehdr.e_shstrndx < ehdr.e_shnum, "invalid e_shstrndx: %u", ehdr.e_shstrndx);
     Elf32_Shdr shstr = shdrs[ehdr.e_shstrndx];
 
@@ -90,6 +112,7 @@ void init_ftrace(const char *elf_file) {
     ret = fread(shstrtab, shstr.sh_size, 1, fp);
     Assert(ret == 1, "read .shstrtab failed");
 
+// ===================================== 遍历 section，定位 .symtab 与 .strtab ========================
     Elf32_Shdr *symtab = NULL;
     Elf32_Shdr *strtab = NULL;
 
@@ -110,6 +133,7 @@ void init_ftrace(const char *elf_file) {
     ret = fread(strtab_buf, strtab->sh_size, 1, fp);
     Assert(ret == 1, "read .strtab failed");
 
+// ===================================== 遍历 .symtab 并构建函数表（核心） ========================
     int sym_count = symtab->sh_size / symtab->sh_entsize;
     func_symbol_count = 0;
 
@@ -132,7 +156,7 @@ void init_ftrace(const char *elf_file) {
         strncpy(slot->name, name, sizeof(slot->name) - 1);
         slot->name[sizeof(slot->name) - 1] = '\0';
     }
-
+// ==================================== 资源回收与结果日志       ==================================
     free(strtab_buf);
     free(shstrtab);
     free(shdrs);
