@@ -48,6 +48,7 @@ static char *img_file = NULL;         // 客户程序镜像路径
 static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
+// ================================= 基于命令的路径处理 ===========================================
 static const char *build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
                                         const char *default_path,
@@ -57,17 +58,20 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
   }
 
   const char *slash = strrchr(path, '/');
-  const char *name = slash == NULL ? path : slash + 1;
+  const char *name = slash == NULL ? path : slash + 1;              // 获取文件名起始地址
   const char *dot = strrchr(name, '.');
 
-  size_t dir_len = slash == NULL ? 0 : (size_t)(slash - path + 1);
-  size_t base_len = (dot != NULL && dot > name) ? (size_t)(dot - name) : strlen(name);
-
+  size_t dir_len = slash == NULL ? 0 : (size_t)(slash - path + 1);  // 获取目录长度包括/
+  size_t base_len = (dot != NULL && dot > name) ? (size_t)(dot - name) : strlen(name);   // 获取名字长度
+// ret 返回值大于0  ret < buf_size 无溢出
   int ret = snprintf(buf, buf_size, "%.*s%.*s-%s",
                      (int)dir_len, path,
                      (int)base_len, name,
                      suffix);
+  // 按格式化将对应的内容写入buf，且最大数据为buf_size字节大小
+  // %.*s 中：.* 对应(int)的动态长度，s 对应字符串
   Assert(ret > 0 && ret < buf_size, "log path is too long: %s", path);
+  // Assert(条件，输出文本) 条件成立，不输出；条件不成立，中断输出红色文本
   return buf;
 }
 
@@ -140,10 +144,10 @@ static int parse_args(int argc, char *argv[]) {
     switch (o) {
       case 'b': sdb_set_batch_mode(); break;
       case 'p': sscanf(optarg, "%d", &difftest_port); break;
-      case 'e': elf_file = optarg;  break;
-      case 'l': log_file = optarg;  break;
-      case 'd': diff_so_file = optarg; break;
-      case 1: img_file = optarg; break;          // 隐含命令行最后一个p普通参数一定是img_file对应参数字符串
+      case 'e': elf_file = optarg;  break;        // elf_file = /path/NAME-riscv32-nmeu.elf
+      case 'l': log_file = optarg;  break;        // log_file = /path/nemu-log.txt
+      case 'd': diff_so_file = optarg; break;      
+      case 1: img_file = optarg; break;           // img_file = /path/NAME-riscv32-nemu.bin
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");      
