@@ -58,7 +58,7 @@ void init_ftrace(const char *elf_file) {
     FILE *fp = fopen(elf_file, "rb");
     Assert(fp != NULL, "can not open ftrace elf '%s'", elf_file);
 
-    Elf32_Ehdr ehdr;                    // C程序数据结构 定义在系统头文件 <elf.h> ehdr属于该数据结构的起始地址
+    Elf32_Ehdr ehdr;                    // C程序数据结构 定义在系统头文件 <elf.h> ehdr属于该数据结构名称
     int ret = fread(&ehdr, sizeof(ehdr), 1, fp);
     Assert(ret == 1, "read elf header failed: %s", elf_file);
 
@@ -82,6 +82,25 @@ void init_ftrace(const char *elf_file) {
     1   魔数
     2   EI_CLASS (32/64 位是否匹配你的解析器）
     3   EI_DATA （大小端是否匹配）
+
+5、ELF header 数据结构
+    typedef struct {
+        unsigned char e_ident[EI_NIDENT]; 16字节身份信息
+        uint16_t      e_type;             ET_REL（可重定位）、ET_EXEC（可执行）、ET_DYN（共享库/PIE）、ET_CORE（core 文件）。
+        uint16_t      e_machine;          目标架构：EM_X86_64   EM_RISCV    EM_MIPS
+        uint32_t      e_version;          ELF格式版本 一般为 EV_CURRENT(1)
+        ElfN_Addr     e_entry;            程序入口的虚拟地址。加载并准备完成后，开始执行的起始地址
+        ElfN_Off      e_phoff;            程序头表（Program Header Table）在文件中的起始偏移(字节)
+        ElfN_Off      e_shoff;            节头表  (Section Header Table) 在文件中的起始偏移(字节)
+        uint32_t      e_flags;            架构相关标志位(不同ISA含义不同)
+        uint16_t      e_ehsize;           ELF Header 自身大小(字节)
+        uint16_t      e_phentsize;        单个程序头表项(ElfN_Phdr)大小
+        uint16_t      e_phnum;            程序头表项数目
+        uint16_t      e_shentsize;        单个节头表项(ElfN_Shdr大小
+        uint16_t      e_shnum;            节头表项数目
+        uint16_t      e_shstrndx;         "节名字符串表"所在节在节头表中的索引
+    } ElfN_Ehdr;
+
 */
     Assert(ehdr.e_ident[EI_MAG0] == ELFMAG0 &&
            ehdr.e_ident[EI_MAG1] == ELFMAG1 &&
