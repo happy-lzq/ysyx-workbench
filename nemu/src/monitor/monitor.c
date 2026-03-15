@@ -173,16 +173,16 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Open the log file. */
   init_log(log_file);
-
-  // #ifdef CONFIG_MTARCE
-  //   if (get_mtrace_log_file() != NULL)
-  //   {
-  //     init_mtrace_log(get_mtrace_log_file());
-  //   } else{
-  //     Log("Mtrace is enabled but --elf is missing, skip Mtrace initialization");
-  //   }
-  // #endif
-  IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+  
+  #ifdef CONFIG_MTRACE
+    if (get_mtrace_log_file() != NULL)
+    {
+      init_mtrace_log(get_mtrace_log_file());
+    } else{
+      Log("Mtrace is enabled but --elf is missing, skip Mtrace initialization");
+    }
+  #endif
+  // IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
   // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
