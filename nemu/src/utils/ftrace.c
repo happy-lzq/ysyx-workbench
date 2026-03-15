@@ -98,7 +98,7 @@ void init_ftrace(const char *elf_file) {
         uint16_t      e_phnum;            程序头表项数目
         uint16_t      e_shentsize;        单个节头表项(ElfN_Shdr大小
         uint16_t      e_shnum;            节头表项数目
-        uint16_t      e_shstrndx;         "节名字符串表"所在节在节头表中的索引
+        uint16_t      e_shstrndx;         "节头字名称子符串表"所在节头表数组中的索引  对应节头表中：.shstrtab 
     } ElfN_Ehdr;
 
 */
@@ -111,20 +111,45 @@ void init_ftrace(const char *elf_file) {
     Assert(ehdr.e_ident[EI_DATA] == ELFDATA2LSB, "only support little-endian ELF now: %s", elf_file);
 
 //  ===================================== 读取 Section Header Table =================================
+/*
+读 Header 拿偏移量 -> fseek 找位置 -> malloc 开空间 -> fread 读数组
+1、确认 shdr 单个节头表项大小与编译器结构体一致，避免错读。
+2、动态分配结构体数组，建立节头表数组shdrs[i]与单个节头表项之间索引映射 
+	节头：
+	  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+	  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
+	  [ 1] .text             PROGBITS        80000000 001000 000250 00  AX  0   0  4
+	  [ 2] .rodata           PROGBITS        80000250 001250 0000b8 00   A  0   0  4
+	  [ 3] .data             PROGBITS        80000308 001308 000018 00  WA  0   0  4
+	  [ 4] .sdata.str1       PROGBITS        80000320 001320 000006 00  WA  0   0  4
+	  [ 5] .bss              NOBITS          80000328 001326 000014 00  WA  0   0  4
+	  [ 6] .comment          PROGBITS        00000000 001326 00001a 01  MS  0   0  1
+	  [ 7] .riscv.attributes RISCV_ATTRIBUTE 00000000 001340 000033 00      0   0  1
+	  [ 8] .symtab           SYMTAB          00000000 001374 000300 10      9  23  4
+	  [ 9] .strtab           STRTAB          00000000 001674 0000ec 00      0   0  1
+	  [10] .shstrtab         STRTAB          00000000 001760 00005b 00      0   0  1
+3、将文件指针 fp 移动到节头表在文件中的“绝对起始偏移量”
+4、从节头表数据物理起始地址开始将整个节头表一次性加载进内存数组
+5、通过 ret 返回值确认读取是否完整 返回数目与写入字节大小一致
+*/
     Assert(ehdr.e_shentsize == sizeof(Elf32_Shdr),
                  "section header size mismatch: e_shentsize=%u", ehdr.e_shentsize);
-// 确认 section header 表项大小与编译器结构体一致，避免错读。
     Elf32_Shdr *shdrs = malloc(ehdr.e_shnum * sizeof(Elf32_Shdr));
     Assert(shdrs != NULL, "malloc section headers failed");
-
     fseek(fp, ehdr.e_shoff, SEEK_SET);
     ret = fread(shdrs, sizeof(Elf32_Shdr), ehdr.e_shnum, fp);
     Assert(ret == ehdr.e_shnum, "read section headers failed");
 
 // ===================================== 读取 .shstrtab（section 名字表） =============================
+/*
+1、确认shstrndx < e_shnum 保证 节头表字符串索引正确，不越界。否则找不到.shstrtab 
+2、从已经构建的节头表结构体数组数据中获取对应 节头表名称字符串表 存入节头表数据结构变量 shstr 中备用。
+3、为 shstrtab 分配 对应的内存大小数组 并检验分配成功？
+4、将文件内存指针移动至对应shstrtab表在物理内存中的绝对起始地址
+5、将文件中 节头表名称字符串表 数据完整读取到内存地址shstrtab数组中，并检验读取结果
+*/
     Assert(ehdr.e_shstrndx < ehdr.e_shnum, "invalid e_shstrndx: %u", ehdr.e_shstrndx);
     Elf32_Shdr shstr = shdrs[ehdr.e_shstrndx];
-
     char *shstrtab = malloc(shstr.sh_size);
     Assert(shstrtab != NULL, "malloc .shstrtab failed");
     fseek(fp, shstr.sh_offset, SEEK_SET);
