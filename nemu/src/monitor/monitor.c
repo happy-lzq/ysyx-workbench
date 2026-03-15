@@ -46,7 +46,6 @@ static char *log_file = NULL;         // 日志文件路径 对应（-l）
 static char *diff_so_file = NULL;     // 差分测试参考实现库路径，对应（-d）
 static char *img_file = NULL;         // 客户程序镜像路径
 static char *elf_file = NULL;
-static char *mtrace_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
 // ================================= 基于命令的路径处理 ===========================================
@@ -82,8 +81,9 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
 #ifdef CONFIG_MTRACE
 static char mtrace_log_file[260] = {};
 static const char *get_mtrace_log_file() {
+  const char *path = img_file !=NULL ? img_file : log_file;
   return build_named_log_file(mtrace_log_file, sizeof(mtrace_log_file),
-                              mtrace_file, "build/mtrace-log.txt", "mtrace-log.txt");
+                              path, "build/mtrace-log.txt", "mtrace-log.txt");
 }
 #endif
 
@@ -173,15 +173,15 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Open the log file. */
   init_log(log_file);
-  #ifdef CONFIG_MTARCE
-    if (mtrace_file != NULL)
-    {
-      init_mtrace_log(get_mtrace_log_file());
-    } else{
-      Log("Mtrace is enabled but --elf is missing, skip Mtrace initialization");
-    }
-  
-  #endif
+
+  // #ifdef CONFIG_MTARCE
+  //   if (get_mtrace_log_file() != NULL)
+  //   {
+  //     init_mtrace_log(get_mtrace_log_file());
+  //   } else{
+  //     Log("Mtrace is enabled but --elf is missing, skip Mtrace initialization");
+  //   }
+  // #endif
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
   // 条件避开最小内置镜像 无elf文件的处理方式。
