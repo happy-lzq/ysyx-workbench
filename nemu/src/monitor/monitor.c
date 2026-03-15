@@ -91,7 +91,6 @@ static const char *get_mtrace_log_file() {
 #ifdef CONFIG_FTRACE
 static char ftrace_log_file[260] = {};
 static const char *get_ftrace_log_file() {
-  elf_file = elf_file !=NULL ? elf_file : log_file;
   return build_named_log_file(ftrace_log_file, sizeof(ftrace_log_file),
                               elf_file, "build/ftrace-log.txt", "ftrace-log.txt");
 }
@@ -175,15 +174,7 @@ void init_monitor(int argc, char *argv[]) {
   /* Open the log file. */
   init_log(log_file);
   
-  #ifdef CONFIG_MTRACE
-    if (get_mtrace_log_file() != NULL)
-    {
-      init_mtrace_log(get_mtrace_log_file());
-    } else{
-      Log("Mtrace is enabled but --elf is missing, skip Mtrace initialization");
-    }
-  #endif
-  // IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
+  IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
   // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
