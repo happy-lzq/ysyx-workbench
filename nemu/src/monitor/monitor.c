@@ -91,6 +91,7 @@ static const char *get_mtrace_log_file() {
 #ifdef CONFIG_FTRACE
 static char ftrace_log_file[260] = {};
 static const char *get_ftrace_log_file() {
+  elf_file = elf_file !=NULL ? elf_file : log_file;
   return build_named_log_file(ftrace_log_file, sizeof(ftrace_log_file),
                               elf_file, "build/ftrace-log.txt", "ftrace-log.txt");
 }
