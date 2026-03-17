@@ -270,6 +270,7 @@ static int cmd_d(char *args){
 void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
+
 void sdb_mainloop() {
   // 持续运行直到指令结束或用户退出
   if (is_batch_mode) {

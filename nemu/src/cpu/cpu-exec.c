@@ -25,26 +25,74 @@
  * You can modify this value as you want.
  */
 #define MAX_INST_TO_PRINT 10000
+#define IRING_BUF_SIZE  16
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
+char irbuf [IRING_BUF_SIZE] [128];
+bool irbuf_full = false;
+int irbuf_pos = 0;
 
 void device_update();
-
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-#ifdef CONFIG_WATCHPOINT
+#if defined(CONFIG_WATCHPOINT) && !defined(CONFIG_TARGET_AM)
   if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
     nemu_state.state = NEMU_STOP;
   }
 #endif
 }
+
+// ============================== iring_buf trace =====================================
+#ifdef CONFIG_ITRACE
+ static void iringbuf(const char *log) {
+  strcpy(irbuf[irbuf_pos],log);
+  irbuf_pos = (irbuf_pos + 1) % IRING_BUF_SIZE;
+  if (irbuf_pos == 0){
+    // 第一轮填满之后，irbuf-full 就会永远为ture;第一轮为填满，则一直处于fasle
+    // 利用这一步来分两个打印输出方式
+    irbuf_full = true;
+  }
+  return ;
+ }
+
+static void display_irbuf(void){
+  int fail_inst = (irbuf_pos-1 +IRING_BUF_SIZE) % IRING_BUF_SIZE;
+  if (!irbuf_full)
+  {
+    for (int i = 0; i < irbuf_pos; i++)
+    {
+      if (i == fail_inst)
+      {
+        printf("--> %s\n", irbuf[i]);
+      } else{
+        printf("    %s\n", irbuf[i]);
+      }
+    }   
+  } else {
+    int pos = irbuf_pos;
+    for (int i = 0; i < IRING_BUF_SIZE; i++)
+    {
+      if (pos == fail_inst)
+      {
+        printf("--> %s\n", irbuf[pos]);
+      } else{
+        printf("    %s\n", irbuf[pos]);
+      }
+      pos = (pos +1) % IRING_BUF_SIZE;
+    }
+  }
+  return ;
+}
+#endif
+
+
 
 static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
@@ -81,13 +129,8 @@ static void exec_once(Decode *s, vaddr_t pc) {
 static void execute(uint64_t n) {
   Decode s;
   for (int i =0; i<n ; i++) {
-
-    if (check_watchpoint(&used_list) > 0){
-      nemu_state.state = NEMU_STOP;
-      break;
-    }
-
     exec_once(&s, cpu.pc);
+    IFDEF(CONFIG_ITRACE, iringbuf(s.logbuf));
     g_nr_guest_inst ++;
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING) break;
@@ -106,6 +149,7 @@ static void statistic() {
 
 void assert_fail_msg() {
   isa_reg_display();
+  IFDEF(CONFIG_ITRACE, display_irbuf());  // 植入环形缓冲器。
   statistic();
 }
 

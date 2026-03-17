@@ -1,4 +1,4 @@
-STUID = SUAT25060203
+STUID = ysyx_26010029
 STUNAME = 罗智强
 
 # DO NOT modify the following code!!!

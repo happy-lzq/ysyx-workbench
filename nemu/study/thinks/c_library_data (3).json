@@ -1,29 +1,56 @@
 [
   {
+    "name": "fread",
+    "header": "happy.h",
+    "prototype": "fread(void *ptr, size_t size, size_t nmemb, FILE *stream)",
+    "description": "ptr：读到哪里去\nsize：每块多大\nnmemb：读多少块\nstream：从哪个文件读\n把客户机物理地址 RESET_VECTOR 映射成宿主机里的真实内存地址",
+    "return_val": "成功读取整个文件返回：1\n否则不等于：1",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "word",
+    "header": "makefile",
+    "prototype": "$(word N,TEXT)",
+    "description": "N：要提取的单词的位置索引（从 1 开始计数）。\n**TEXT**：一个由空格分隔的单词列表。\n返回值：返回 TEXT 中第 N 个单词。如果 N 大于单词总数，返回空字符串",
+    "return_val": "ARCH_SPLIT = $(subst -, ,$(ARCH))\nISA        = $(word 1,$(ARCH_SPLIT))\nPLATFORM   = $(word 2,$(ARCH_SPLIT))\n\n**$(subst -, ,$(ARCH))**：\n\n将 riscv32-nemu 中的连字符 - 替换为空格，得到 riscv32 nemu。\n**$(word 1,$(ARCH_SPLIT))**：\n\nN = 1，TEXT = \"riscv32 nemu\"\n提取第 1 个单词，得到 riscv32，赋值给 ISA。\n**$(word 2,$(ARCH_SPLIT))**：\n\nN = 2，TEXT = \"riscv32 nemu\"\n提取第 2 个单词，得到 nemu，赋值给 PLATFORM。",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "subst",
+    "header": "makefile",
+    "prototype": "$(subst FROM,TO,TEXT)",
+    "description": "FROM：要查找并替换的源字符串。\nTO：替换成的目标字符串。\nTEXT：被处理的原始文本。\n返回值：将 TEXT 中所有出现的 FROM 替换为 TO 后的新字符串。\n",
+    "return_val": "ARCH_SPLIT = $(subst -, ,$(ARCH))\nISA        = $(word 1,$(ARCH_SPLIT))\nPLATFORM   = $(word 2,$(ARCH_SPLIT))\n\n**$(subst -, ,$(ARCH))**：\n\nFROM = -（连字符）\nTO = （一个空格）\nTEXT = riscv32-nemu\n结果：将 riscv32-nemu 中的连字符 - 替换为空格，得到 riscv32 nemu。\n**$(word 1,$(ARCH_SPLIT))**：\n\nword 函数从空格分隔的单词列表中提取第 n 个单词。\n从 riscv32 nemu 中提取第 1 个单词，得到 riscv32，赋值给 ISA。\n**$(word 2,$(ARCH_SPLIT))**：\n\n从 riscv32 nemu 中提取第 2 个单词，得到 nemu，赋值给 PLATFORM。\n",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "filter",
+    "header": "makefile",
+    "prototype": "$(filter pattern..., text)\n从patter中挑选出text，也就是过滤除text之外的东西。",
+    "description": "过滤函数。它从 text 中筛选出符合 pattern 模式的单词，返回匹配到的单词组成的字符串。如果没有匹配到任何单词，则返回空字符串。\n\n函数：filter-out ：排除匹配模式的单词",
+    "return_val": "1、单词匹配\n2、通配符匹配，可多个通配符使用",
+    "example": "",
+    "modes": []
+  },
+  {
+    "name": "error",
+    "header": "makefile",
+    "prototype": "$(error text ...)\n",
+    "description": "作用：立即停止构建过程并输出错误信息。\n这是一个“致命”函数，一旦被执行，Make 就会停止解析，并打印出你指定的错误文本。它通常用于检查前置条件，如果环境不满足要求，就直接报错退出。",
+    "return_val": "",
+    "example": "",
+    "modes": []
+  },
+  {
     "name": "patsubst",
     "header": "makefile",
     "prototype": "$(patsubst <pattern>, <replacement>, <text>)\n全称： Pattern Substitute\n含义： 按照指定的模式，替换列表中的单词。",
     "description": "\n1. 核心机制：神奇的 %\n理解这个函数的关键在于理解 % (通配符)：\n查找时 (<pattern>)： % 代表任意长度的非空字符串（我们称之为“茎 (stem)”）。\n替换时 (<replacement>)： % 会把刚才匹配到的那个“茎”原封不动地放回去。\n2. 最经典的用法：从 .c 生成 .o\n这是 patsubst 90% 的使用场景。假设你有源文件列表，想生成对应的 .o 文件列表。",
     "return_val": "SRCS := a.c b.c c.c\n\n# 写法 A：使用函数（标准）\nOBJS_A := $(patsubst %.c, %.o, $(SRCS))\n\n# 写法 B：使用替换引用（简写，强烈推荐）\nOBJS_B := $(SRCS:%.c=%.o)\n\n# OBJS_A 和 OBJS_B 是完全一样的",
     "example": "# 1. 原始文本 (通常来自 wildcard)\nSRCS := main.c utils.c src/config.c\n\n# 2. 执行 patsubst\n# 意思是：找到以 .c 结尾的单词，把 .c 换成 .o，前面的部分保持不变\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\n# 3. 结果\n# OBJS 的值变为: main.o utils.o src/config.o",
-    "modes": []
-  },
-  {
-    "name": "wildcard",
-    "header": "makefile",
-    "prototype": "\n语法： $(wildcard <pattern>)\n",
-    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
-    "return_val": "",
-    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
-    "modes": []
-  },
-  {
-    "name": "wildcard",
-    "header": "maekfile",
-    "prototype": "\n语法： $(wildcard <pattern>)\n",
-    "description": "含义： 查找文件系统中实际存在的、符合模式的文件。它类似于 Shell 中的 *。\n区别： 普通的字符串变量中写 *.c 只是一个字符串，只有用 wildcard 才会把它变成真正的文件列表。",
-    "return_val": "",
-    "example": "# 获取当前目录下所有的 .c 文件\nSRC := $(wildcard *.c)\n# 获取 src 目录下所有的 .c 文件\nSRC_DIR := $(wildcard src/*.c)\n\n# 1. 找到所有 .c 文件 (如: a.c b.c)\nSRCS := $(wildcard *.c)\n# 2. 将列表中的 .c 替换为 .o (如: a.o b.o)\nOBJS := $(patsubst %.c, %.o, $(SRCS))\n\napp: $(OBJS)\n    $(CC) -o app $(OBJS)",
     "modes": []
   },
   {
@@ -434,7 +461,7 @@
     "header": "string.h",
     "prototype": "int strcmp ( const char * str1, const char * str2 );",
     "description": "拆解：str (String) + cmp (Compare)\n逻辑：字符串比较。\n功能描述：逐个字符比较两个字符串的 ASCII 码值，直到出现不同或遇到 \\0。",
-    "return_val": "< 0：str1 小于 str2 (字典序 str1 在前)。\n0：str1 等于 str2。\n> 0：str1 大于 str2 (字典序 str1 在后)。",
+    "return_val": "功能：比较两个字符串，区分大小写。\n输入：两个常量字符指针 s1 和 s2。\n返回值 (int)：\n返回 0：如果当两个字符串完全相同（连同终止符 \\0 都一样）。\n返回 > 0 (正数)：如果遇到第一个不相同的字符，且 s1 里的字符 ASCII 码值大于 s2 的。\n返回 < 0 (负数)：如果遇到第一个不相同的字符，且 s1 里的字符 ASCII 码值小于 s2 的。",
     "example": "#include <stdio.h>\n#include <string.h>\n\nint main ()\n{\n  char key[] = \"apple\";\n  char buffer[80];\n  do {\n     printf (\"Guess my favorite fruit? \");\n     fflush (stdout);\n     scanf (\"%79s\",buffer);\n  } while (strcmp (key,buffer) != 0);\n  puts (\"Correct answer!\");\n  return 0;\n}",
     "modes": []
   },
@@ -665,7 +692,7 @@
     "name": "fseek",
     "header": "stdio.h",
     "prototype": "int fseek(FILE *stream, long offset, int whence);",
-    "description": "在文件流中移动文件位置指针。whence 可取 SEEK_SET（文件开头）、SEEK_CUR（当前偏移）或 SEEK_END（文件末尾）。用于随机访问文件内容。",
+    "description": "stream：文件指针，比如 fp\noffset：偏移量，移动多少字节\nwhence：从哪里开始算偏移\nSEEK_SET(文件开头)\nSEEK_END(文件结束) \nSEEK_CUR（当前位置）\n把文件读写位置指针移动到你指定的位置",
     "return_val": "成功返回 0；出错返回非 0（通常 -1）并设置 errno。",
     "example": "fseek(f, 0, SEEK_END); long len = ftell(f); fseek(f, 0, SEEK_SET);",
     "modes": []
