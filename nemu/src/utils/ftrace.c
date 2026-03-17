@@ -300,7 +300,7 @@ void ftrace_ret(vaddr_t pc, vaddr_t tar_addr) {
     const FuncSymbol *func = (call_depth >= 0 && call_depth < MAX_CALL_DEPTH)
         ? call_stack[call_depth].func : NULL;
 
-    fprintf(ftrace_fp, FMT_WORD ": ", pc);
+    fprintf(ftrace_fp, FMT_WORD " : ", pc);
     print_indent(ftrace_fp, call_depth);
     if (func != NULL) {
         fprintf(ftrace_fp, "ret  [%s] -> " FMT_WORD "\n", func->name, tar_addr);
