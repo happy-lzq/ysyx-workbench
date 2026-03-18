@@ -22,7 +22,7 @@ endif
 -include $(NEMU_HOME)/include/config/auto.conf              
 -include $(NEMU_HOME)/include/config/auto.conf.cmd          
 # 类似于C中的宏定义，将$(1)中的 "%" 替换成 % 
-remove_quote = $(strip $(patsubst "%",%,$(1)))
+remove_quote = $(patsubst "%",%,$(1))
 
 # Extract variabls from menuconfig
 GUEST_ISA ?= $(call remove_quote,$(CONFIG_ISA))
