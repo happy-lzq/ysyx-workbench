@@ -31,7 +31,7 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) -e $(IMAGE).elf" IMG=$(IMAGE).bin
 # 对应到命令行参数匹配：
 # 长选项用 --长选项=值 或 --长选项 值。
 # 短选项用 -短选项 值（或紧跟值）。
@@ -39,7 +39,7 @@ run: insert-arg
 # nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt --elf=/path/string-riscv32-nemu.elf /path/string-riscv32-nemu.bin
 
 gdb: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS) -e $(IMAGE).elf" IMG=$(IMAGE).bin
 
 .PHONY: insert-arg
 # run/gdb ——> insert-arg ——> image ——> image-dep ——> abstract-machine/Makefile中 $(IMAGE).elf ——> (LINKAGE) 和 $(LDSCRIPTS) 链接
