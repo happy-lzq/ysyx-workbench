@@ -41,6 +41,7 @@ run: run-env
   -l /home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt \
   -e /home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.elf \
   IMG=/home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin \
+
 gdb: run-env
 	$(call git_commit, "gdb NEMU")
 	gdb -s $(BINARY) --args $(NEMU_EXEC)
