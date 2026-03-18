@@ -16,6 +16,7 @@ LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt       # 增加 -b 选择nemu平台的批处理模式
+NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
@@ -31,7 +32,7 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) -e $(IMAGE).elf -i $(IMAGE).bin"
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)"
 # 对应到命令行参数匹配：
 # 长选项用 --长选项=值 或 --长选项 值。
 # 短选项用 -短选项 值（或紧跟值）。
@@ -39,7 +40,7 @@ run: insert-arg
 # nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt --elf=/path/string-riscv32-nemu.elf /path/string-riscv32-nemu.bin
 
 gdb: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS) -e $(IMAGE).elf -i $(IMAGE).bin"
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
 
 .PHONY: insert-arg
 # run/gdb ——> insert-arg ——> image ——> image-dep ——> abstract-machine/Makefile中 $(IMAGE).elf ——> (LINKAGE) 和 $(LDSCRIPTS) 链接

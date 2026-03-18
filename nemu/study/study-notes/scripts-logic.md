@@ -3825,9 +3825,9 @@ NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
 从命令参数到运行变量的映射关系如下：
 
 ```text
-ARGS 中的 --elf=$(IMAGE).elf  -> parse_args() case 'e' -> elf_file
-ARGS 中的 -l <path>           -> parse_args() case 'l' -> log_file
-NEMU_EXEC 最后的 $(IMG)       -> parse_args() case 1   -> img_file
+ARGS 中的 -e $(IMAGE).elf                                  -> parse_args() case 'e' -> elf_file
+ARGS 中的 -l $(shell dirname $(IMAGE).elf)/nemu-log.txt    -> parse_args() case 'l' -> log_file
+ARGS 中的 -i $(IMAGE).bin                                  -> parse_args() case ‘i‘ -> img_file
 ```
 
 随后初始化阶段的关键消费点：
