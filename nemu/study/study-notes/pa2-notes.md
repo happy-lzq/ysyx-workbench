@@ -7,6 +7,7 @@
   - [2. 核心命令格式](#sec-softlink-02)
   - [3. 与 C 语言指针的类比](#sec-softlink-03)
   - [4. 为什么使用软链接解决编译器前缀问题？](#sec-softlink-04)
+  - [5. 软链接查看与修改实操（含 python/python3 案例）](#sec-softlink-05)
 - [2026年2月25日 - 2月26日 Debug 记录与总结](#sec-debug-log)
   - [一、基础设施与环境配置问题](#sec-debug-01)
   - [二、指令实现 Bug 与修复记录](#sec-debug-02)
@@ -135,6 +136,104 @@ printf("%d\n", *shortcut_compiler); // 输出 100
 *   **非侵入性**：不需要修改 Abstract-Machine 的底层 Makefile (`riscv.mk`)。修改底层构建脚本可能会在未来拉取更新时产生冲突。
 *   **全局生效**：在 `/opt/riscv64/bin` (或 `/usr/local/bin` 等 PATH 目录) 下建立软链接后，整个系统任何地方调用 `riscv64-linux-gnu-gcc` 都能正确映射，一劳永逸。
 *   **批量处理**：结合 Shell 脚本的字符串替换功能（如 `${file/-unknown/}`），可以极高效率地为整个工具链（gcc, g++, objdump, objcopy 等）批量创建别名。
+
+<a id="sec-softlink-05"></a>
+### 5. 软链接查看与修改实操（含 python/python3 案例）
+
+这一小节聚焦两个高频动作：
+
+1. **我现在调用到的到底是谁？**
+2. **我该怎么安全地改掉它？**
+
+#### 5.1 先看命令解析结果（PATH 层）
+
+```bash
+which python
+which python3
+```
+
+作用：先确认 shell 最终命中的是哪个可执行路径。
+
+你给的案例中：
+
+```text
+/usr/bin/python
+/usr/bin/python3
+```
+
+说明 `python` 和 `python3` 这两个命令名都能命中 `/usr/bin` 下的条目。
+
+#### 5.2 再看它是不是软链接（文件层）
+
+```bash
+ls -l /usr/bin/python
+```
+
+典型输出：
+
+```text
+lrwxrwxrwx 1 root root 16  3月 14 22:58 /usr/bin/python -> /usr/bin/python3
+```
+
+解读要点：
+
+* 行首是 `l`：表示这是符号链接（link）。
+* `->` 右侧是当前链接目标：这里是 `/usr/bin/python3`。
+
+#### 5.3 查看最终真实落点（链路终点）
+
+```bash
+readlink -f /usr/bin/python
+```
+
+典型输出：
+
+```text
+/usr/bin/python3.10
+```
+
+这一步很关键：
+
+* `ls -l` 看到的是“下一跳”目标；
+* `readlink -f` 给的是“最终真实文件”（会把多级链接一路展开）。
+
+所以你的案例链路是：
+
+```text
+python (命令)
+-> /usr/bin/python (软链接)
+-> /usr/bin/python3 (可能仍是链接)
+-> /usr/bin/python3.10 (最终真实可执行文件)
+```
+
+#### 5.4 修改软链接的推荐方式
+
+如果需要把 `python` 改指向另一个目标，建议使用：
+
+```bash
+sudo ln -sfn /usr/bin/python3 /usr/bin/python
+```
+
+参数说明：
+
+* `-s`：创建符号链接。
+* `-f`：目标已存在时强制替换。
+* `-n`：把已存在的链接当作普通文件处理，避免把链接当目录进入。
+
+修改后建议立刻复核：
+
+```bash
+which python
+ls -l /usr/bin/python
+readlink -f /usr/bin/python
+```
+
+#### 5.5 工程实践中的稳妥原则
+
+1. **先看再改**：先 `which` + `ls -l` + `readlink -f`，确认现状。
+2. **尽量改“别名端”**：优先改命令别名，不改工具链真实二进制。
+3. **改后立刻验证**：至少验证命令解析路径和最终落点是否一致。
+4. **避免误改系统关键链接**：涉及 `/usr/bin` 时必须明确影响范围。
 
 ---
 
