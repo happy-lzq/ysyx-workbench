@@ -16,25 +16,31 @@ LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt       # 增加 -b 选择nemu平台的批处理模式
+NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
-
+# 在abstract-machine/Makefile 中确定 image-dep 对$(IMAGE).elf 链接规则依赖
 insert-arg: image
 	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
-# 本机python环境仅有Python3,无python环境，故此将python修改为python3
-# 使用ubuntu专门管理python 替换pthon3的包  来处理替换：sudo apt install python-is-python3
+# 本系统仅有 python3 并无python 而是使用软链接至python3   
+# -O $(IMAGE).elf &(IMGAE).bin   构建.bin文件
 image: image-dep
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
-# 添加：--elf=$(IMAGE).elf 然后通过ARGS传给nemu启动命令行
-# nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt --elf=/path/string-riscv32-nemu.elf /path/string-riscv32-nemu.bin
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)"
+# 对应到命令行参数匹配：
+# 长选项用 --长选项=值 或 --长选项 值。
+# 短选项用 -短选项 值（或紧跟值）。
+# 添加：ARGS IMG 命令行参数变量传给nemu启动命令行      -C 切换目录
+# nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt -e /path/string-riscv32-nemu.elf -i /path/string-riscv32-nemu.bin
+
 gdb: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
 
 .PHONY: insert-arg
+# run/gdb ——> insert-arg ——> image ——> image-dep ——> abstract-machine/Makefile中 $(IMAGE).elf ——> (LINKAGE) 和 $(LDSCRIPTS) 链接

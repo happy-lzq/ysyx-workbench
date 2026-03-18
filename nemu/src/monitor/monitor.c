@@ -90,7 +90,7 @@ static const char *get_mtrace_log_file() {
 // ================================== Ftrace_log ==============================================
 #ifdef CONFIG_FTRACE
 static char ftrace_log_file[260] = {};
-static const char *get_ftrace_log_file() {
+static const char *ftace_log_file() {
   return build_named_log_file(ftrace_log_file, sizeof(ftrace_log_file),
                               elf_file, "build/ftrace-log.txt", "ftrace-log.txt");
 }
@@ -123,6 +123,7 @@ static int parse_args(int argc, char *argv[]) {
     {"diff"     , required_argument, NULL, 'd'},
     {"port"     , required_argument, NULL, 'p'},
     {"elf"      , required_argument, NULL, 'e'},
+    {"image"    , required_argument, NULL, 'i'},
     {"help"     , no_argument      , NULL, 'h'},
     {0          , 0                , NULL,  0 },       // 选项表结束标记
   };
@@ -140,14 +141,14 @@ static int parse_args(int argc, char *argv[]) {
   3、optarg ：选项后面对应的参数字符串
 
 */ 
-  while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:", table, NULL)) != -1) {
+  while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:i:", table, NULL)) != -1) {
     switch (o) {
       case 'b': sdb_set_batch_mode(); break;
       case 'p': sscanf(optarg, "%d", &difftest_port); break;
       case 'e': elf_file = optarg;  break;        // elf_file = /path/NAME-riscv32-nmeu.elf
       case 'l': log_file = optarg;  break;        // log_file = /path/nemu-log.txt
       case 'd': diff_so_file = optarg; break;      
-      case 1: img_file = optarg; break;           // img_file = /path/NAME-riscv32-nemu.bin
+      case 'i': img_file = optarg; break;           // img_file = /path/NAME-riscv32-nemu.bin
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");      
@@ -179,8 +180,8 @@ void init_monitor(int argc, char *argv[]) {
   // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
       if (elf_file != NULL) {
-        init_ftrace_log(get_ftrace_log_file());
-        init_ftrace(elf_file);
+        init_ftrace_log(ftace_log_file());      // 检验文件路径是否成立并且打开文件写功能
+        init_ftrace(elf_file);                  // 基于elf文件读取有效信息
       } else {
         Log("ftrace is enabled but --elf is missing, skip ftrace initialization");
       }

@@ -3,70 +3,85 @@
 ## 目录
 
 - [Linux 软链接知识点总结](#sec-softlink)
-  - 1. 什么是软链接？
-  - 2. 核心命令格式
-  - 3. 与 C 语言指针的类比
-  - 4. 为什么使用软链接解决编译器前缀问题？
+  - [1. 什么是软链接？](#sec-softlink-01)
+  - [2. 核心命令格式](#sec-softlink-02)
+  - [3. 与 C 语言指针的类比](#sec-softlink-03)
+  - [4. 为什么使用软链接解决编译器前缀问题？](#sec-softlink-04)
+  - [5. 软链接查看与修改实操（含 python/python3 案例）](#sec-softlink-05)
 - [2026年2月25日 - 2月26日 Debug 记录与总结](#sec-debug-log)
-  - 一、基础设施与环境配置问题
-  - 二、指令实现 Bug 与修复记录
-  - 三、核心 Debug 思路与方法论总结
+  - [一、基础设施与环境配置问题](#sec-debug-01)
+  - [二、指令实现 Bug 与修复记录](#sec-debug-02)
+  - [三、核心 Debug 思路与方法论总结](#sec-debug-03)
 - [PA2 专题：指令修复、UB行为与运行时生命周期全景梳理](#sec-pa2-fix-lifecycle)
-  - 1. 核心架构解析：NEMU 的双重视角内存映射模型
-  - 2. AM (Abstract Machine) 解析：TRM 与堆栈初始化
-  - 3. 深度总结：从 C 源码到模拟器执行的完整生命周期
+  - [1. 核心架构解析：NEMU 的双重视角内存映射模型](#sec-fixlife-01)
+  - [2. AM (Abstract Machine) 解析：TRM 与堆栈初始化](#sec-fixlife-02)
+  - [3. 深度总结：从 C 源码到模拟器执行的完整生命周期](#sec-fixlife-03)
 - [PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转](#sec-pa2-makefile)
 - [PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结](#sec-pa2-vscode)
-  - 1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？
-  - 2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？
-  - 3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？
-  - 4. 精简后的新逻辑：为什么现在只剩几项也能正确工作？
-  - 5. 最终抽象：以后遇到新的红线，应该怎样判断是否需要修改 `json`？
-  - 6. 这次配置总结背后的方法论
-  - 7. 本次最终结论（一句话压缩）
-  - 8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法
+  - [1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？](#sec-vscode-01)
+  - [2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？](#sec-vscode-02)
+  - [3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？](#sec-vscode-03)
+  - [4. 精简后的新逻辑：为什么现在只剩几项也能正确工作？](#sec-vscode-04)
+  - [5. 最终抽象：以后遇到新的红线，应该怎样判断是否需要修改 `json`？](#sec-vscode-05)
+  - [6. 这次配置总结背后的方法论](#sec-vscode-06)
+  - [7. 本次最终结论（一句话压缩）](#sec-vscode-07)
+  - [8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法](#sec-vscode-08)
 - [PA2 专题：NEMU 执行客户程序的完整生命周期总总结](#sec-pa2-program-lifecycle)
-  - 一、总目标：NEMU 到底在完成什么任务？
-  - 二、第一层：客户程序从何而来？——源码到镜像的构建链
-  - 三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`
-  - 四、第三层：系统初始化顺序——`init_monitor()` 为什么这么排
-  - 五、第四层：`init_isa()`、`restart()`、`load_img()` 之间的关系
-  - 六、第五层：`RESET_VECTOR` 的语义——为什么它是全局锚点
-  - 七、第六层：客户机地址如何落到宿主机数组里——`paddr.c` 的核心桥梁作用
-  - 八、第七层：`load_img()` 如何借助地址映射把镜像落地
-  - 九、第八层：为什么 `.bin` 本身没有地址，但程序仍然能从 `0x80000000` 运行
-  - 十、第九层：为什么 `includePath` 与 IntelliSense 配置问题值得纳入生命周期总结
-  - 十一、第十层：CPU 真正开始执行时发生了什么
-  - 十二、全流程中的关键函数关系图
-  - 十三、这两天分析中最关键的“为什么”与“如何解决”
-  - 十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本
+  - [一、总目标：NEMU 到底在完成什么任务？](#sec-proglife-01)
+  - [二、第一层：客户程序从何而来？——源码到镜像的构建链](#sec-proglife-02)
+  - [三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`](#sec-proglife-03)
+  - [四、第三层：系统初始化顺序——`init_monitor()` 为什么这么排](#sec-proglife-04)
+  - [五、第四层：`init_isa()`、`restart()`、`load_img()` 之间的关系](#sec-proglife-05)
+  - [六、第五层：`RESET_VECTOR` 的语义——为什么它是全局锚点](#sec-proglife-06)
+  - [七、第六层：客户机地址如何落到宿主机数组里——`paddr.c` 的核心桥梁作用](#sec-proglife-07)
+  - [八、第七层：`load_img()` 如何借助地址映射把镜像落地](#sec-proglife-08)
+  - [九、第八层：为什么 `.bin` 本身没有地址，但程序仍然能从 `0x80000000` 运行](#sec-proglife-09)
+  - [十、第九层：为什么 `includePath` 与 IntelliSense 配置问题值得纳入生命周期总结](#sec-proglife-10)
+  - [十一、第十层：CPU 真正开始执行时发生了什么](#sec-proglife-11)
+  - [十二、全流程中的关键函数关系图](#sec-proglife-12)
+  - [十三、这两天分析中最关键的“为什么”与“如何解决”](#sec-proglife-13)
+  - [十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本](#sec-proglife-14)
 - [PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）](#sec-pa2-mtrace)
-  - 1. 问题是怎么被提出的？
-  - 2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？
-  - 3. 设计目标是什么？
-  - 4. 整体思路：把 `mtrace` 拆成三条链来看
-  - 5. 第一步：先解决“要不要编译 `mtrace`”的问题
-  - 6. 第二步：为什么 `CONFIG_MTRACE_COND` 还不够，必须再有 `MTRACE_COND`？
-  - 7. 第三步：为什么插桩点必须放在 `paddr_read()` / `paddr_write()`？
-  - 8. 第四步：输出层怎么设计？
-  - 9. 第五步：路径为什么成了整个 `mtrace` 设计里最关键的部分？
-  - 10. 第六步：真正应该依赖什么来推导 `mtrace` 的路径？
-  - 11. 第七步：路径最终是怎么实现的？
-  - 12. 第八步：设计过程中踩到的几个关键坑
-  - 13. 第九步：最终验证链是怎样闭环的？
-  - 14. 这次 `mtrace` 设计里最核心的“为什么”总结
-  - 15. 最终方案一句话收束
-  - 16. `mtrace` 路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链
+  - [1. 问题是怎么被提出的？](#sec-mtrace-01)
+  - [2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？](#sec-mtrace-02)
+  - [3. 设计目标是什么？](#sec-mtrace-03)
+  - [4. 整体思路：把 `mtrace` 拆成三条链来看](#sec-mtrace-04)
+  - [5. 第一步：先解决“要不要编译 `mtrace`”的问题](#sec-mtrace-05)
+  - [6. 第二步：为什么 `CONFIG_MTRACE_COND` 还不够，必须再有 `MTRACE_COND`？](#sec-mtrace-06)
+  - [7. 第三步：为什么插桩点必须放在 `paddr_read()` / `paddr_write()`？](#sec-mtrace-07)
+  - [8. 第四步：输出层怎么设计？](#sec-mtrace-08)
+  - [9. 第五步：路径为什么成了整个 `mtrace` 设计里最关键的部分？](#sec-mtrace-09)
+  - [10. 第六步：真正应该依赖什么来推导 `mtrace` 的路径？](#sec-mtrace-10)
+  - [11. 第七步：路径最终是怎么实现的？](#sec-mtrace-11)
+  - [12. 第八步：设计过程中踩到的几个关键坑](#sec-mtrace-12)
+  - [13. 第九步：最终验证链是怎样闭环的？](#sec-mtrace-13)
+  - [14. 这次 `mtrace` 设计里最核心的“为什么”总结](#sec-mtrace-14)
+  - [15. 最终方案一句话收束](#sec-mtrace-15)
+  - [16. `mtrace` 路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链](#sec-mtrace-16)
+- [PA2 专题：Ftrace 从 0 到 1 全链路设计笔记](#sec-pa2-ftrace-fullchain)
+  - [1. 全局目标与最小闭环](#sec-ftrace-01)
+  - [2. 构建与启动参数链路](#sec-ftrace-02)
+  - [3. monitor 初始化阶段的 ftrace 生命周期](#sec-ftrace-03)
+  - [4. ELF 静态解析主流程](#sec-ftrace-04)
+  - [5. 关键结构体关系图](#sec-ftrace-05)
+  - [6. 运行期 Hook：为什么是 jal/jalr](#sec-ftrace-06)
+  - [7. ftrace_call 与 ftrace_ret 的协作机制](#sec-ftrace-07)
+  - [8. 静态 ELF 与软件内存的关系](#sec-ftrace-08)
+  - [9. 设计分层与每层职责](#sec-ftrace-09)
+  - [10. 端到端时序总结](#sec-ftrace-10)
+  - [11. 常见坑与工程性检查点](#sec-ftrace-11)
 
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
 在解决交叉编译器前缀不匹配的问题时，我们使用了一种非常巧妙的方法：**建立软链接**。这不仅避免了修改项目源码（如 Makefile），还保持了环境的整洁。
 
+<a id="sec-softlink-01"></a>
 ### 1. 什么是软链接？
 
 软链接（Symbolic Link，也称符号链接）是 Linux/Unix 系统中的一种特殊文件类型。它本身不包含实际的数据，而是包含了一个指向另一个文件或目录的**路径引用**。
 
+<a id="sec-softlink-02"></a>
 ### 2. 核心命令格式
 
 创建软链接的命令是 `ln` (link)，配合 `-s` (symbolic) 参数：
@@ -87,6 +102,7 @@ sudo ln -sf "riscv64-unknown-linux-gnu-gcc" "riscv64-linux-gnu-gcc"
 *   **链接文件**：`riscv64-linux-gnu-gcc` (我们创建的“快捷方式”)
 *   **结果**：当系统或 Makefile 尝试执行 `riscv64-linux-gnu-gcc` 时，实际上会被重定向去执行 `riscv64-unknown-linux-gnu-gcc`。
 
+<a id="sec-softlink-03"></a>
 ### 3. 与 C 语言指针的类比
 
 理解软链接最直观的方式就是将其类比为 C 语言中的**指针**。
@@ -114,18 +130,118 @@ int *shortcut_compiler = &real_compiler;
 printf("%d\n", *shortcut_compiler); // 输出 100
 ```
 
+<a id="sec-softlink-04"></a>
 ### 4. 为什么使用软链接解决编译器前缀问题？
 
 *   **非侵入性**：不需要修改 Abstract-Machine 的底层 Makefile (`riscv.mk`)。修改底层构建脚本可能会在未来拉取更新时产生冲突。
 *   **全局生效**：在 `/opt/riscv64/bin` (或 `/usr/local/bin` 等 PATH 目录) 下建立软链接后，整个系统任何地方调用 `riscv64-linux-gnu-gcc` 都能正确映射，一劳永逸。
 *   **批量处理**：结合 Shell 脚本的字符串替换功能（如 `${file/-unknown/}`），可以极高效率地为整个工具链（gcc, g++, objdump, objcopy 等）批量创建别名。
 
+<a id="sec-softlink-05"></a>
+### 5. 软链接查看与修改实操（含 python/python3 案例）
+
+这一小节聚焦两个高频动作：
+
+1. **我现在调用到的到底是谁？**
+2. **我该怎么安全地改掉它？**
+
+#### 5.1 先看命令解析结果（PATH 层）
+
+```bash
+which python
+which python3
+```
+
+作用：先确认 shell 最终命中的是哪个可执行路径。
+
+你给的案例中：
+
+```text
+/usr/bin/python
+/usr/bin/python3
+```
+
+说明 `python` 和 `python3` 这两个命令名都能命中 `/usr/bin` 下的条目。
+
+#### 5.2 再看它是不是软链接（文件层）
+
+```bash
+ls -l /usr/bin/python
+```
+
+典型输出：
+
+```text
+lrwxrwxrwx 1 root root 16  3月 14 22:58 /usr/bin/python -> /usr/bin/python3
+```
+
+解读要点：
+
+* 行首是 `l`：表示这是符号链接（link）。
+* `->` 右侧是当前链接目标：这里是 `/usr/bin/python3`。
+
+#### 5.3 查看最终真实落点（链路终点）
+
+```bash
+readlink -f /usr/bin/python
+```
+
+典型输出：
+
+```text
+/usr/bin/python3.10
+```
+
+这一步很关键：
+
+* `ls -l` 看到的是“下一跳”目标；
+* `readlink -f` 给的是“最终真实文件”（会把多级链接一路展开）。
+
+所以你的案例链路是：
+
+```text
+python (命令)
+-> /usr/bin/python (软链接)
+-> /usr/bin/python3 (可能仍是链接)
+-> /usr/bin/python3.10 (最终真实可执行文件)
+```
+
+#### 5.4 修改软链接的推荐方式
+
+如果需要把 `python` 改指向另一个目标，建议使用：
+
+```bash
+sudo ln -sfn /usr/bin/python3 /usr/bin/python
+```
+
+参数说明：
+
+* `-s`：创建符号链接。
+* `-f`：目标已存在时强制替换。
+* `-n`：把已存在的链接当作普通文件处理，避免把链接当目录进入。
+
+修改后建议立刻复核：
+
+```bash
+which python
+ls -l /usr/bin/python
+readlink -f /usr/bin/python
+```
+
+#### 5.5 工程实践中的稳妥原则
+
+1. **先看再改**：先 `which` + `ls -l` + `readlink -f`，确认现状。
+2. **尽量改“别名端”**：优先改命令别名，不改工具链真实二进制。
+3. **改后立刻验证**：至少验证命令解析路径和最终落点是否一致。
+4. **避免误改系统关键链接**：涉及 `/usr/bin` 时必须明确影响范围。
+
 ---
 
 <a id="sec-debug-log"></a>
 ## 2026年2月25日 - 2月26日 Debug 记录与总结
 
-### 一、 基础设施与环境配置问题
+<a id="sec-debug-01"></a>
+### 一、基础设施与环境配置问题
 
 #### 1. 指令执行日志 (Log) 提前停止打印
 *   **现象**：在使用 `si` 单步调试时，发现执行超过 10 步后，NEMU 不再打印指令的执行日志（Log）。
@@ -140,7 +256,8 @@ printf("%d\n", *shortcut_compiler); // 输出 100
 *   **解决方案**：在 `nemu` 目录下运行 `make menuconfig`，进入 `Device` 选项，开启 `Enable hardware devices` (`CONFIG_DEVICE`)。
 *   **后续**：开启设备后，程序成功向串口输出，但随后在 `klib/src/stdio.c` 触发了 `Not implemented` 的 panic。这指明了下一步的开发任务：实现 `klib` 中的 `printf` / `vsprintf` 等格式化输出函数。
 
-### 二、 指令实现 Bug 与修复记录
+<a id="sec-debug-02"></a>
+### 二、指令实现 Bug 与修复记录
 
 #### 1. 立即数提取 (B/J/S 型) 逻辑错误
 *   **现象**：分支跳转或内存访问地址计算错误。
@@ -169,7 +286,8 @@ printf("%d\n", *shortcut_compiler); // 输出 100
         *   **Bug C (类型规范)**：算术右移需要高位补符号位，依赖于 C 语言的有符号右移。之前使用了 `(signed)`，为了跨平台安全和严谨性，应统一使用 `<stdint.h>` 中的 `(int32_t)`。
 *   **解决方案**：删除重复的指令定义，保留带有 `(src2 & 0x1F)` 掩码的版本，并将所有有符号操作的强制类型转换统一规范为 `(int32_t)`。
 
-### 三、 核心 Debug 思路与方法论总结
+<a id="sec-debug-03"></a>
+### 三、核心 Debug 思路与方法论总结
 
 1. **反向推导法 (Reverse Engineering)**
    * 当高级语言 (C语言) 的测试用例失败时，不要盲目猜测。
@@ -192,6 +310,7 @@ printf("%d\n", *shortcut_compiler); // 输出 100
 ## PA2 专题：指令修复、UB行为与运行时生命周期全景梳理
 > 记录时间：2026年3月3日 | 核心主题：指令行为 Debug，AM 运行时机制解析，程序生命周期总结
 
+<a id="sec-fixlife-01"></a>
 ### 1. 核心架构解析：NEMU 的双重视角内存映射模型 (Memory Emulation)
 * **抛出问题**：看到测试程序反汇编，想进一步深入理解 NEMU 的内存管理。
 * **分析过程与逻辑梳理**：
@@ -200,6 +319,7 @@ printf("%d\n", *shortcut_compiler); // 输出 100
   * **客体视角**：RISC-V 虚拟 CPU 认为它的内存条是从 `0x80000000` 这个物理地址起始的（对应宏 `CONFIG_MBASE`）。
   * **桥梁**：通过核心函数 `guest_to_host()` 和 `host_to_guest()`，对内存地址做线性平移映射。当客户机 CPU 想访问 `0x80000004` 时，NEMU 会拦截该地址，将其减去 `0x80000000` 得到 `0x00000004`，从而转化为真正的C数组下标 `pmem[4]` 去提取出数据。这种抽象是虚拟化最底层的根基所在。
 
+<a id="sec-fixlife-02"></a>
 ### 2. AM (Abstract Machine) 解析：TRM 与堆栈初始化
 * **抛出问题**：C 语言程序在没有操作系统的裸机环境（TRM）上是如何运行起来的？特别是堆、栈环境是如何建立的？
 * **逻辑梳理**：
@@ -208,6 +328,7 @@ printf("%d\n", *shortcut_compiler); // 输出 100
   2. **设指针（汇编入口 `start.S`）**：C 程序的函数跳转依赖栈指针寄存器 `sp`。CPU 加载 `start.S` 后的第一件事，就是 `la sp, _stack_pointer`，这确立了 C 环境可以进行参数传递和函数跳转的立足点。接着 `call _trm_init` 跃迁进 C代码。
   3. **定环境（C 入口封装 `trm.c`）**：在这个文件不仅暴露了字符设备打印 (`putch`) 和程序终止机制 (`halt`)，更利用链接器的 `_heap_start` 变量结合物理内存边界 `PMEM_END`，封装为 `Area heap` 结构体对外暴露动态内存分配池。在这里最后一次 wrapper 转发 `int ret = main(mainargs)` 从而踏入你的测试用例。
 
+<a id="sec-fixlife-03"></a>
 ### 3. 深度总结：从 C 源码到模拟器执行的完整生命周期
 结合前三部分的知识盲点，这里构建完整的生命周期认知：
 * **阶段一：跨界锻造（交叉编译与链接布局）**
@@ -276,11 +397,13 @@ void sdb_mainloop() {
 ## PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结
 > 记录时间：2026年3月6日 | 核心主题：IntelliSense 与真实编译环境对齐，两份 `json` 配置的职责拆解与收敛
 
+<a id="sec-vscode-01"></a>
 ### 1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？
 * **现象**：`nemu/src/monitor/monitor.c` 与 `nemu/src/cpu/cpu-exec.c` 中出现 `CONFIG_TRACE`、`CONFIG_DEVICE`、`__GUEST_ISA__`、`ITRACE_COND` 等“未定义标识符”提示。
 * **根因**：这不是 NEMU 源码本身错误，而是 **VS Code 的 IntelliSense 没有完整复刻 `make` 的真实编译上下文**。
 * **本质矛盾**：终端中的 `make` 知道如何传入 `-I` 头文件搜索路径、`-D` 宏定义以及 `menuconfig` 生成的配置头；但编辑器静态分析器若没有获得同样的信息，就会对源码作出错误判断。
 
+<a id="sec-vscode-02"></a>
 ### 2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？
 这一配置文件的核心逻辑可以概括为一句话：
 
@@ -317,6 +440,7 @@ void sdb_mainloop() {
 * **当前工程的合理选择**：`/usr/bin/gcc` 配合 `linux-gcc-x64`
 * **为什么要和真实环境一致**：因为 NEMU 实际构建使用的是 `gcc`，若编辑器按 `clang` 风格推断，虽然不一定立刻报错，但分析结果可能和真实编译存在偏差。
 
+<a id="sec-vscode-03"></a>
 ### 3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？
 早期那份较长的 `nemu/.vscode/c_cpp_properties.json`，逻辑上采用的是一种“**手工复制编译结果**”的策略：
 * 在 `defines` 中显式写入大批量 `CONFIG_*`，例如 `CONFIG_TRACE`、`CONFIG_MBASE`、`CONFIG_ITRACE` 等。
@@ -340,6 +464,7 @@ void sdb_mainloop() {
 * 有的搜索路径本来由 `compilerPath` 就能自动推断。
 * 如果把这些信息全部一股脑塞在一个 `json` 里，后续很难分辨“哪个字段是在弥补什么问题”。
 
+<a id="sec-vscode-04"></a>
 ### 4. 精简后的新逻辑：为什么现在只剩几项也能正确工作？
 精简后的配置不是“功能变少了”，而是**信息来源被重新分层**了：
 
@@ -366,6 +491,7 @@ void sdb_mainloop() {
 
 这两个目录已经足以覆盖本次报错链条中所需的关键头文件，继续扩大目录范围收益不高，反而可能影响分析效率。
 
+<a id="sec-vscode-05"></a>
 ### 5. 最终抽象：以后遇到新的红线，应该怎样判断是否需要修改 `json`？
 可以用一条简单的判断链处理：
 
@@ -382,6 +508,7 @@ void sdb_mainloop() {
 * **优先判断**：这个头到底位于哪个目录。
 * **处理逻辑**：把真正包含它的目录加入 `includePath`，而不是盲目扩大到整个工程树。
 
+<a id="sec-vscode-06"></a>
 ### 6. 这次配置总结背后的方法论
 这一轮处理 VS Code 红线问题，本质上不是“会不会写 `json`”的问题，而是一次典型的**构建系统认知反推**：
 
@@ -394,10 +521,12 @@ void sdb_mainloop() {
    * 编译器语义 → `compilerPath` 与 `intelliSenseMode`
 4. **遵循“最小必要集”原则**：只保留必需项，不用大而全兜底。
 
+<a id="sec-vscode-07"></a>
 ### 7. 本次最终结论（一句话压缩）
 > **`c_cpp_properties.json` 的核心逻辑，不是胡乱堆配置项，而是把 NEMU 真正的编译环境拆成“头文件路径 + 外部注入宏 + 自动生成配置头 + 编译器语义”四层，再最小化地同步给 VS Code。**
 
 
+<a id="sec-vscode-08"></a>
 ### 8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法
 > **补充时间：2026年3月6日 | 目标：解决“一个目录到底该放哪一类功能区”这个最容易混淆的问题**
 
@@ -457,6 +586,7 @@ void sdb_mainloop() {
 ## PA2 专题：NEMU 执行客户程序的完整生命周期总总结
 > 记录时间：2026年3月8日 | 核心主题：从源码构建、镜像生成、参数解析、镜像装载、地址映射到 CPU 取指执行的全流程闭环总结
 
+<a id="sec-proglife-01"></a>
 ### 一、总目标：NEMU 到底在完成什么任务？
 在这两天的分析中，最核心的问题其实只有一个：
 
@@ -485,6 +615,7 @@ void sdb_mainloop() {
 -> 进入 CPU 取指、译码、执行、写回
 ```
 
+<a id="sec-proglife-02"></a>
 ### 二、第一层：客户程序从何而来？——源码到镜像的构建链
 #### 1. 客户程序的真正来源
 NEMU 自己并不“生成程序”，它只是**执行程序**。真正的客户程序来源于：
@@ -583,6 +714,7 @@ $(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(I
 2. NEMU 在 `RESET_VECTOR` 处装载 BIN；
 3. CPU 的 `cpu.pc` 也从 `RESET_VECTOR` 开始。
 
+<a id="sec-proglife-03"></a>
 ### 三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`
 #### 1. 镜像如何从 Makefile 传给 NEMU
 在 `abstract-machine/scripts/platform/nemu.mk` 中：
@@ -689,6 +821,7 @@ NEMU [OPTION...] IMAGE
 
 也就是说，它设计上只关心一个客户机镜像文件。
 
+<a id="sec-proglife-04"></a>
 ### 四、第三层：系统初始化顺序——`init_monitor()` 为什么这么排
 `init_monitor()` 的顺序是：
 
@@ -736,6 +869,7 @@ welcome();
 
 > **先解析配置，再准备环境，再建立最小可运行 CPU 状态，再装载真正的客户程序，再挂接调试与辅助模块。**
 
+<a id="sec-proglife-05"></a>
 ### 五、第四层：`init_isa()`、`restart()`、`load_img()` 之间的关系
 这是整个启动流程中最容易混淆、但也是最关键的一条小链。
 
@@ -805,6 +939,7 @@ init_isa()
 * **CPU 从哪里开始执行**：由 `restart()` 决定；
 * **CPU 实际执行什么内容**：由 `RESET_VECTOR` 处最终存的字节决定。
 
+<a id="sec-proglife-06"></a>
 ### 六、第五层：`RESET_VECTOR` 的语义——为什么它是全局锚点
 在 `paddr.h` 中：
 
@@ -848,6 +983,7 @@ RESET_VECTOR = 0x80000000
 * 不同平台可以通过 offset 调整复位入口；
 * 更贴近真实硬件中“复位向量 = 基址 + 偏移”的设计模型。
 
+<a id="sec-proglife-07"></a>
 ### 七、第六层：客户机地址如何落到宿主机数组里——`paddr.c` 的核心桥梁作用
 这是整个系统里最底层、最本质的一步：
 
@@ -911,6 +1047,7 @@ paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
 
 > **建立一个统一的物理地址访问分发层。**
 
+<a id="sec-proglife-08"></a>
 ### 八、第七层：`load_img()` 如何借助地址映射把镜像落地
 现在把前面几层合并起来，`load_img()` 的关键一句就彻底清楚了：
 
@@ -930,6 +1067,7 @@ fread(guest_to_host(RESET_VECTOR), size, 1, fp);
 
 > **镜像不是“装进一个神秘的客户机内存”，而是被装进宿主机数组 `pmem`，只是 NEMU 把它解释成客户机物理内存。**
 
+<a id="sec-proglife-09"></a>
 ### 九、第八层：为什么 `.bin` 本身没有地址，但程序仍然能从 `0x80000000` 运行
 这是这两天里最容易混淆的问题之一。
 
@@ -967,6 +1105,7 @@ fread(guest_to_host(RESET_VECTOR), size, 1, fp);
 
 > **整个系统从链接、装载到执行三处都共同遵守了这套地址约定。**
 
+<a id="sec-proglife-10"></a>
 ### 十、第九层：为什么 `includePath` 与 IntelliSense 配置问题值得纳入生命周期总结
 虽然 VS Code 配置不是 NEMU 运行时逻辑的一部分，但在调试和阅读源码时，它直接影响我们是否能正确理解代码，因此也应该纳入总结。
 
@@ -991,6 +1130,7 @@ fread(guest_to_host(RESET_VECTOR), size, 1, fp);
 
 > **“真实编译问题”** 和 **“编辑器语义分析误报”**
 
+<a id="sec-proglife-11"></a>
 ### 十一、第十层：CPU 真正开始执行时发生了什么
 当：
 
@@ -1028,6 +1168,7 @@ paddr_read(cpu.pc, ...)
 
 > **程序能执行，不是因为 NEMU 真的拥有客户机物理内存，而是因为它把宿主机数组中的字节流解释成了客户机内存内容，再按客户机 ISA 规则解释成指令。**
 
+<a id="sec-proglife-12"></a>
 ### 十二、全流程中的关键函数关系图
 为了后续复习，可以把这几组函数关系单独记住：
 
@@ -1090,6 +1231,7 @@ cpu.pc = RESET_VECTOR
 -> 下一条指令
 ```
 
+<a id="sec-proglife-13"></a>
 ### 十三、这两天分析中最关键的“为什么”与“如何解决”
 #### 1. 为什么 `.bin` 没有地址还能跑起来？
 * **原因**：地址语义来自 ELF 链接和 NEMU 的装载策略，而不是来自 `.bin` 本身。
@@ -1111,14 +1253,16 @@ cpu.pc = RESET_VECTOR
 * **原因**：`getopt_long()` 在前导 `-` 模式下会把普通参数作为返回值 `1` 交出。
 * **解决思路**：理解 GNU `getopt` 约定，而不是把它误当成程序员随手写的魔法数字。
 
+<a id="sec-proglife-14"></a>
 ### 十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本
 > **客户程序源码先经交叉编译和链接生成带地址语义的 ELF，再提取为裸二进制 BIN；运行时该 BIN 通过命令行传入 NEMU，被 `parse_args()` 解析为 `img_file`，随后 NEMU 在 `init_mem()` 建立模拟物理内存、在 `init_isa()` 初始化 CPU 并写入内置镜像、在 `load_img()` 中把外部镜像加载到 `RESET_VECTOR` 对应的 `pmem` 区域覆盖内置镜像，同时 CPU 的 `pc` 也从 `RESET_VECTOR` 起跑，最终在宿主机进程的数组内存上完成对客户机程序的取指、译码、执行和写回，从而实现完整的软件模拟执行。**
 
 
 <a id="sec-pa2-mtrace"></a>
-## 十五、PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）
+## PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）
 > 记录时间：2026年3月9日 | 核心主题：`mtrace` 的设计目标、配置链、插桩点选择、路径处理与最终验证
 
+<a id="sec-mtrace-01"></a>
 ### 1. 问题是怎么被提出的？
 
 在已经理解 `itrace`、`watchpoint`、`iringbuf` 等调试机制之后，自然会继续追问一个更底层的问题：
@@ -1136,6 +1280,7 @@ cpu.pc = RESET_VECTOR
 
 ---
 
+<a id="sec-mtrace-02"></a>
 ### 2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？
 
 #### 2.1 直接复用普通 `log` 不够清晰
@@ -1169,6 +1314,7 @@ cpu.pc = RESET_VECTOR
 
 ---
 
+<a id="sec-mtrace-03"></a>
 ### 3. 设计目标是什么？
 
 围绕上面的需求，最终把 `mtrace` 的目标拆成了四层：
@@ -1187,6 +1333,7 @@ cpu.pc = RESET_VECTOR
 
 ---
 
+<a id="sec-mtrace-04"></a>
 ### 4. 整体思路：把 `mtrace` 拆成三条链来看
 
 从最后成功运行的结果回看，`mtrace` 实际上是三条链协同工作：
@@ -1226,6 +1373,7 @@ am-kernels/tests/cpu-tests/Makefile
 
 ---
 
+<a id="sec-mtrace-05"></a>
 ### 5. 第一步：先解决“要不要编译 `mtrace`”的问题
 
 #### 5.1 为什么要放进 `Kconfig`？
@@ -1254,6 +1402,7 @@ am-kernels/tests/cpu-tests/Makefile
 
 ---
 
+<a id="sec-mtrace-06"></a>
 ### 6. 第二步：为什么 `CONFIG_MTRACE_COND` 还不够，必须再有 `MTRACE_COND`？
 
 这是整个设计过程中最关键的“为什么”之一。
@@ -1319,6 +1468,7 @@ CFLAGS_TRACE += -DMTRACE_COND=$(if $(CONFIG_MTRACE_COND),$(call remove_quote,$(C
 
 ---
 
+<a id="sec-mtrace-07"></a>
 ### 7. 第三步：为什么插桩点必须放在 `paddr_read()` / `paddr_write()`？
 
 #### 7.1 不能放在更上层吗？
@@ -1371,6 +1521,7 @@ CFLAGS_TRACE += -DMTRACE_COND=$(if $(CONFIG_MTRACE_COND),$(call remove_quote,$(C
 
 ---
 
+<a id="sec-mtrace-08"></a>
 ### 8. 第四步：输出层怎么设计？
 
 #### 8.1 为什么单独放到 `log.c`？
@@ -1421,6 +1572,7 @@ pc=0x80000138 W addr=0x80008ffc len=4 data=0x80000010
 
 ---
 
+<a id="sec-mtrace-09"></a>
 ### 9. 第五步：路径为什么成了整个 `mtrace` 设计里最关键的部分？
 
 因为日志“写不写得出来”和“写到哪里”，是两件不同的事。
@@ -1459,6 +1611,7 @@ fopen("build/mtrace-log.txt", "w");
 
 ---
 
+<a id="sec-mtrace-10"></a>
 ### 10. 第六步：真正应该依赖什么来推导 `mtrace` 的路径？
 
 答案不是“当前目录”，而是：
@@ -1498,6 +1651,7 @@ run: insert-arg
 
 ---
 
+<a id="sec-mtrace-11"></a>
 ### 11. 第七步：路径最终是怎么实现的？
 
 在 `monitor.c` 中增加：
@@ -1562,6 +1716,7 @@ IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
 ---
 
+<a id="sec-mtrace-12"></a>
 ### 12. 第八步：设计过程中踩到的几个关键坑
 
 #### 12.1 `MTRACE_COND` 未定义
@@ -1594,6 +1749,7 @@ IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
 
 ---
 
+<a id="sec-mtrace-13"></a>
 ### 13. 第九步：最终验证链是怎样闭环的？
 
 最后用真实命令验证：
@@ -1630,6 +1786,7 @@ pc=0x80000138 W addr=0x80008ffc len=4 data=0x80000010
 
 ---
 
+<a id="sec-mtrace-14"></a>
 ### 14. 这次 `mtrace` 设计里最核心的“为什么”总结
 
 #### 14.1 为什么不能只做“能打印”就算完成？
@@ -1658,6 +1815,7 @@ pc=0x80000138 W addr=0x80008ffc len=4 data=0x80000010
 
 ---
 
+<a id="sec-mtrace-15"></a>
 ### 15. 最终方案一句话收束
 
 > **`mtrace` 的正确实现，不只是“在 `paddr_read()` / `paddr_write()` 里打印一下”，而是要把“配置开关、条件过滤、统一插桩、独立日志文件、以及跟随 `make ... run` 真实产物目录的路径推导”整个闭环全部接通；其中路径处理的核心原则是：优先复用构建系统已经算好的 `log_file` 目录，其次退回 `img_file` 目录，最后才使用默认相对路径兜底。**
@@ -1665,7 +1823,8 @@ pc=0x80000138 W addr=0x80008ffc len=4 data=0x80000010
 
 ---
 
-### 16. mtarce路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链
+<a id="sec-mtrace-16"></a>
+### 16. mtrace路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链
 
 前面已经解释了 `mtrace` 的路径策略为什么要“优先复用 `log_file` 目录”，这里再把**整条真实调用链**按时间顺序完整串起来。
 
@@ -1982,7 +2141,6 @@ while ((o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
 }
 ```
 
-其中最重要的是这两句：
 
 ```c
 case 'l': log_file = optarg; break;
@@ -2204,3 +2362,321 @@ fopen("build/mtrace-log.txt", "w");
 所以这条链最核心的原则就是：
 
 > **先让构建系统决定“日志该写到哪个产物目录”，再让 `monitor.c` 复用这条已经正确的路径链派生 `mtrace-log.txt`，而不是在 C 代码里重新猜一个 `build/`。**
+
+
+---
+
+<a id="sec-pa2-ftrace-fullchain"></a>
+## PA2 专题：Ftrace 从 0 到 1 全链路设计笔记
+
+
+本文基于当前工程中的 ftrace 相关实现，按真实执行路径整理一条完整链路：
+构建系统传参 -> monitor 初始化 -> ELF 静态解析 -> 运行期指令 Hook -> 调用栈日志输出。
+
+目标是回答 5 个问题：
+1. ftrace 的输入从哪里来，何时初始化。
+2. ELF 三类关键表如何协作得到函数地址与函数名。
+3. 为什么在 jal/jalr 译码点触发，而不是其他地方。
+4. call/ret 记录如何保证层级与函数名对应。
+5. ELF 文件里的静态字节，如何映射到 NEMU 进程中的软件内存结构。
+
+---
+
+<a id="sec-ftrace-01"></a>
+## 1. 全局目标与最小闭环
+
+ftrace 的最小闭环是：
+
+1. 在启动前拿到 ELF 路径。
+2. 启动时解析 ELF，构建 函数地址区间 -> 函数名 的查询表。
+3. 运行时在 call/ret 指令处触发记录。
+4. 输出带缩进层级的日志。
+
+这四步缺一不可：
+- 没有 ELF，运行时只有地址没有函数名。
+- 没有运行期 Hook，只有静态符号表不会产生调用序列。
+- 没有调用栈，ret 无法和之前 call 对齐。
+
+---
+
+<a id="sec-ftrace-02"></a>
+## 2. 构建与启动参数链路
+
+### 2.1 构建侧注入 ELF 参数
+
+在平台脚本 run 规则里，通过 ARGS 注入：
+- --elf=$(IMAGE).elf
+
+作用：把客户程序 ELF 的绝对路径传递给 NEMU 主程序，而不仅仅传 bin 镜像。
+
+### 2.2 monitor 参数解析
+
+monitor 的 getopt_long 选项表包含：
+- 长选项 elf
+- 短选项 e
+
+解析后把 optarg 写入全局 elf_file。后续 init_monitor 中再决定是否初始化 ftrace。
+
+结论：
+- bin 用于执行装载。
+- elf 用于符号信息解析。
+- 两者职责不同，互补而非替代。
+
+---
+
+<a id="sec-ftrace-03"></a>
+## 3. monitor 初始化阶段的 ftrace 生命周期
+
+在 init_monitor 中，ftrace 相关生命周期是：
+
+1. parse_args 完成后，得到 elf_file。
+2. 若启用 CONFIG_FTRACE 且 elf_file 非空：
+   - init_ftrace_log: 打开日志文件。
+   - init_ftrace: 解析 ELF，构建函数表。
+3. 若启用 CONFIG_FTRACE 但缺失 --elf：
+   - 打印提示并跳过初始化。
+
+这是一种“可用则启用，不可用则降级”的容错策略。
+
+---
+
+<a id="sec-ftrace-04"></a>
+## 4. ELF 静态解析主流程
+
+核心目标：把 ELF 中的符号信息，转成运行期可快速查询的函数数组。
+
+### 4.1 读取并校验 Elf32_Ehdr
+
+校验点：
+- 魔数 EI_MAG0..3
+- EI_CLASS = ELFCLASS32
+- EI_DATA = ELFDATA2LSB
+
+作用：确认当前解析器处理的是目标格式，避免后续偏移解释错误。
+
+### 4.2 读取 Section Header Table 到 shdrs 数组
+
+依据：
+- e_shoff: 节头表偏移
+- e_shnum: 节头数量
+- e_shentsize: 单项大小
+
+读取结果：
+- shdrs 是软件内存中的节描述数组，每个元素对应 ELF 的一个节。
+
+### 4.3 用 e_shstrndx 定位 .shstrtab
+
+说明：
+- e_shstrndx 只告诉“节名字符串表”的索引。
+- 它不直接告诉 .symtab/.strtab 的索引。
+
+因此流程是：
+1. 先用 e_shstrndx 读到 .shstrtab 的原始字符串池。
+2. 再遍历 shdrs，通过 sh_name 索引解析出每个节名。
+3. 在遍历中定位 .symtab 与 .strtab。
+
+### 4.4 读取 .strtab 内容
+
+- .strtab 存储符号名字符串池。
+- sym.st_name 是该池中的字节偏移。
+- 真实名字 = strtab_buf + sym.st_name。
+
+### 4.5 遍历 .symtab 构建 func_symbols
+
+计算条目数：
+- sym_count = symtab.sh_size / symtab.sh_entsize
+
+逐项读取 Elf32_Sym 并做卫语句过滤：
+- 类型必须是 STT_FUNC。
+- 不能是 SHN_UNDEF。
+- 大小不能为 0。
+- 名字偏移必须在 .strtab 边界内。
+- func_symbols 不能越界。
+
+通过后落表：
+- start = st_value
+- end = st_value + st_size
+- name = .strtab 中的字符串
+
+最终得到运行期查询表：
+- func_symbols[i] = {start, end, name}
+
+---
+
+<a id="sec-ftrace-05"></a>
+## 5. 关键结构体关系图
+
+### 5.1 文件级结构体
+
+- Elf32_Ehdr：总索引入口，给出节头表位置与规模。
+- Elf32_Shdr：描述每个节的元信息（偏移、大小、名字索引等）。
+- Elf32_Sym：.symtab 的单个条目（符号值、大小、类型、名字偏移）。
+
+### 5.2 软件内存结构体
+
+- FuncSymbol：ftrace 自定义函数条目，服务运行时快速匹配。
+- CallFrame：ftrace 自定义调用栈帧，维护 ret 对应关系。
+
+### 5.3 结构体映射关系
+
+1. Elf32_Ehdr -> 告诉如何读 Elf32_Shdr[]。
+2. Elf32_Shdr[] + .shstrtab -> 找到 .symtab/.strtab。
+3. .symtab 中 Elf32_Sym.st_name -> 到 .strtab 取字符串。
+4. Elf32_Sym -> 转译为 FuncSymbol。
+5. 运行时 FuncSymbol + CallFrame -> 输出 call/ret 树形日志。
+
+---
+
+<a id="sec-ftrace-06"></a>
+## 6. 运行期 Hook：为什么是 jal/jalr
+
+RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 的组合语义上。
+
+### 6.1 call 判定
+
+当 rd == 1（x1/ra）时，表示指令把返回地址写入 ra，这是函数调用约定的关键特征。
+
+因此在 jal/jalr 的执行体中：
+- if rd == 1 -> 触发 ftrace_call。
+
+### 6.2 ret 判定
+
+标准 ret 伪指令展开为：
+- jalr x0, 0(x1)
+
+对应判定条件：
+- rd == 0
+- rs1_idx == 1
+- imm == 0
+
+满足时触发 ftrace_ret。
+
+说明：
+- 这里判断的是寄存器编号，不是寄存器内容值。
+
+---
+
+<a id="sec-ftrace-07"></a>
+## 7. ftrace_call 与 ftrace_ret 的协作机制
+
+### 7.1 ftrace_call
+
+步骤：
+1. 前置保护：日志文件存在且条件宏允许。
+2. 通过目标地址查 FuncSymbol。
+3. 按当前 call_depth 打印缩进与 call 行。
+4. 把 ret_addr 与 func 指针压入 call_stack。
+5. call_depth++。
+
+### 7.2 ftrace_ret
+
+步骤：
+1. 前置保护同上。
+2. 若 call_depth > 0，则先 depth--。
+3. 读取对应栈帧函数名。
+4. 打印 ret 行与返回目标地址。
+
+### 7.3 为什么要软件调用栈
+
+仅靠当前 PC 无法稳定恢复“从哪个函数返回”。
+必须在 call 时保存上下文，在 ret 时回放上下文，才能得到正确层级与函数名。
+
+---
+
+<a id="sec-ftrace-08"></a>
+## 8. 静态 ELF 与软件内存的关系
+
+这个问题可以分三层理解：
+
+### 8.1 ELF 文件是只读数据源
+
+- 在 init_ftrace 阶段，fopen/fread/fseek 从磁盘读取 ELF 字节。
+- 这些字节被解释为 Ehdr、Shdr、Sym 等标准结构。
+
+### 8.2 NEMU 进程内临时解析内存
+
+- shdrs、shstrtab、strtab_buf 都是解析时动态申请的临时缓冲。
+- 这些缓冲在函数结束前被 free。
+
+### 8.3 NEMU 进程内持久运行数据
+
+- func_symbols 与 call_stack 是 ftrace 的持久状态。
+- 解析阶段从 ELF 抽取“最小必要信息”后，只保留这两个运行期需要的容器。
+
+### 8.4 与客户程序执行内存的关系
+
+- 客户程序 bin 会被加载到 pmem（guest memory）执行。
+- ftrace 不修改 pmem 指令，只在译码执行路径旁路观察 PC/dnpc。
+- 本质是“旁路观测 + 元信息映射”，非侵入执行。
+
+---
+
+<a id="sec-ftrace-09"></a>
+## 9. 设计分层与每层职责
+
+### 层 A：构建与参数层
+
+职责：把 ELF 路径与 bin 路径正确传给 NEMU。
+
+### 层 B：启动初始化层
+
+职责：解析参数，决定是否初始化 ftrace，创建日志文件。
+
+### 层 C：静态解析层
+
+职责：把 ELF 的符号体系转换为运行期可查询结构。
+
+### 层 D：运行期 Hook 层
+
+职责：在 jal/jalr 指令点识别 call/ret 事件。
+
+### 层 E：日志与可视化层
+
+职责：按调用深度输出可读日志，反映真实调用树。
+
+分层价值：
+- 易调试：每层可单独验证。
+- 易扩展：可增加过滤策略或符号来源而不破坏其他层。
+- 易降级：缺失 ELF 时可仅关闭 ftrace，不影响主执行。
+
+---
+
+<a id="sec-ftrace-10"></a>
+## 10. 端到端时序总结
+
+1. Make 侧 run 注入 --elf=xxx.elf 与 IMG=xxx.bin。
+2. monitor parse_args 收到 elf_file/img_file。
+3. init_monitor 在 CONFIG_FTRACE 下执行 init_ftrace_log + init_ftrace。
+4. init_ftrace 解析 ELF：
+   - Ehdr -> Shdr[] -> .shstrtab -> 找到 .symtab/.strtab -> 读取并过滤 Sym -> 构建 func_symbols。
+5. 客户程序开始执行，译码器进入 jal/jalr 条目：
+   - rd==1 触发 ftrace_call。
+   - rd==0 && rs1==1 && imm==0 触发 ftrace_ret。
+6. ftrace_call/ftrace_ret 维护 call_stack 与 call_depth，并持续写日志。
+
+这就是 ftrace 从“静态元数据”走到“动态行为追踪”的完整闭环。
+
+---
+
+<a id="sec-ftrace-11"></a>
+## 11. 常见坑与工程性检查点
+
+1. 只传 bin 不传 elf：
+   - 现象：可运行但无函数名追踪。
+   - 处理：补 --elf 参数。
+
+2. 把 e_shstrndx 误当成 .symtab 索引：
+   - 错因：e_shstrndx 只指向节名字符串表。
+   - 正解：遍历 shdrs 按节名匹配 .symtab/.strtab。
+
+3. 未做边界检查：
+   - 风险：st_name 越界导致非法访问。
+   - 正解：保留卫语句过滤。
+
+4. 错把寄存器索引判定当寄存器值判定：
+   - 正解：rd/rs1_idx 是寄存器编号，不是寄存器内容。
+
+5. 忽略调用栈深度上限：
+   - 风险：深递归场景下数组越界。
+   - 正解：MAX_CALL_DEPTH 上限保护。
+

@@ -32,6 +32,12 @@
 - [七、include 嵌套图](#section-include-graph)
 - [八、最容易混淆的几个点](#section-confusions)
 - [九、最终总结](#section-summary)
+- [十、实战入口链路：从 `make ARCH=riscv32-nemu ALL=string run` 到 NEMU 启动](#section-e2e-run)
+  - [1. 一图看完整调用链](#section-e2e-run-chain)
+  - [2. 分层调用明细（上游 -> 下游）](#section-e2e-run-layers)
+  - [3. 变量生命周期总表（谁产生，谁消费）](#section-e2e-run-vars)
+  - [4. 参数如何落到 monitor.c 的 `elf_file` / `img_file` / `log_file`](#section-e2e-run-parse)
+  - [5. 最终命令形态与排错抓手](#section-e2e-run-debug)
 - [文末返回顶部](#top)
 
 ---
@@ -3691,3 +3697,176 @@ NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
 ## 26. 一句话终极总结
 
 > **这套脚本系统本质上是一条“应用声明 -> AM 总控 -> ISA/平台细化 -> 镜像生成 -> NEMU 构建 -> NEMU 执行”的多级委托链；其中 `abstract-machine/Makefile` 负责把客户程序编出来，`platform/nemu.mk` 负责把客户镜像递给 NEMU，`nemu/Makefile` 负责把模拟器自己编出来，而 `native.mk` 则负责让模拟器带着镜像真正跑起来。**
+
+---
+
+<a id="section-e2e-run"></a>
+
+# 第十部分：实战入口链路：从 `make ARCH=riscv32-nemu ALL=string run` 到 NEMU 启动
+
+这一节只做一件事：以你最常用的入口命令为基准，把“谁先执行、谁后执行、变量在哪层生成、在哪层消费”完整串成一条可回放链路。
+
+入口命令：
+
+```bash
+make ARCH=riscv32-nemu ALL=string run
+```
+
+---
+
+<a id="section-e2e-run-chain"></a>
+
+## 1. 一图看完整调用链
+
+```text
+am-kernels/tests/cpu-tests/Makefile
+  (生成 Makefile.string 并递归)
+-> make -f Makefile.string ARCH=riscv32-nemu run
+-> include abstract-machine/Makefile
+-> include abstract-machine/scripts/riscv32-nemu.mk
+-> include abstract-machine/scripts/platform/nemu.mk
+  (生成 IMAGE.elf / IMAGE.bin，并执行 insert-arg)
+-> make -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
+-> nemu/Makefile
+-> include nemu/scripts/native.mk
+-> NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+-> 启动 NEMU 进程
+-> monitor.c::parse_args() 解析 -e/-l/位置参数
+-> init_monitor() 初始化 log/mtrace/ftrace + 加载 img
+```
+
+这个链条里，AM 负责“产出客户程序镜像”，NEMU 负责“构建并启动模拟器本体”。
+
+---
+
+<a id="section-e2e-run-layers"></a>
+
+## 2. 分层调用明细（上游 -> 下游）
+
+### 第一层：测试调度层（上游入口）
+
+文件：`am-kernels/tests/cpu-tests/Makefile`
+
+职责：
+
+1. 接收命令行变量：`ARCH=riscv32-nemu`、`ALL=string`、目标 `run`。
+2. 生成桥接文件 `Makefile.string`（只包含 `NAME/SRCS/include $(AM_HOME)/Makefile`）。
+3. 递归执行：`make -f Makefile.string ARCH=riscv32-nemu run`。
+
+说明：这一层不做交叉编译细节，只做“选测试 + 下发任务”。
+
+### 第二层：AM 总控 + 平台细化层（中游）
+
+文件：`abstract-machine/Makefile`、`abstract-machine/scripts/riscv32-nemu.mk`、`abstract-machine/scripts/platform/nemu.mk`
+
+职责：
+
+1. `abstract-machine/Makefile` 拆分 `ARCH` 得到 `ISA=riscv32`、`PLATFORM=nemu`。
+2. 统一建立 `IMAGE` 前缀，产出 `$(IMAGE).elf`。
+3. 在 `platform/nemu.mk` 中执行：
+  - `objcopy` 抽取 `$(IMAGE).bin`
+  - `insert-arg` 注入 `mainargs`
+  - 递归调用 NEMU：
+
+```makefile
+$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS) --elf=$(IMAGE).elf" IMG=$(IMAGE).bin
+```
+
+说明：这一层是“桥”，把 AM 产物和运行参数交给 NEMU。
+
+### 第三层：NEMU 构建与运行层（下游落地）
+
+文件：`nemu/Makefile`、`nemu/scripts/native.mk`、`nemu/src/monitor/monitor.c`
+
+职责：
+
+1. `nemu/Makefile` 组织源码和配置（`auto.conf` 等）。
+2. `nemu/scripts/native.mk` 折叠最终命令：
+
+```makefile
+NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
+```
+
+3. `run` 目标执行 `$(NEMU_EXEC)`。
+4. 运行期 `monitor.c` 解析参数并初始化各模块。
+
+---
+
+<a id="section-e2e-run-vars"></a>
+
+## 3. 变量生命周期总表（谁产生，谁消费）
+
+| 变量 | 产生层 | 首次赋值/来源 | 主要消费层 | 作用总结 |
+| :--- | :--- | :--- | :--- | :--- |
+| `ARCH` | 第一层（命令行） | `ARCH=riscv32-nemu` | AM 总控层 | 决定脚本分支与目标平台 |
+| `ALL` | 第一层（命令行） | `ALL=string` | cpu-tests 调度层 | 选择本轮测试集合 |
+| `MAKECMDGOALS` | 第一层（命令行） | `run` | 各层 Makefile | 决定执行目标 |
+| `ISA` | 第二层（AM） | `ARCH` 拆分得到 `riscv32` | `platform/nemu.mk` | 递归传给 NEMU：`ISA=$(ISA)` |
+| `IMAGE` | 第二层（AM） | `build/$(NAME)-$(ARCH)` | `platform/nemu.mk` | 派生 `.elf/.bin/.txt` |
+| `NEMUFLAGS` | 第二层（平台脚本） | `-b -l .../nemu-log.txt` | `platform/nemu.mk` | 上游准备的 NEMU 参数包 |
+| `ARGS` | 第三层（NEMU run） | 外层透传或默认值 | `nemu/scripts/native.mk` | NEMU 启动参数入口 |
+| `IMG` | 第二层传入第三层 | `IMG=$(IMAGE).bin` | `nemu/scripts/native.mk` + monitor | 客户程序裸镜像路径 |
+| `BINARY` | 第三层（NEMU 构建） | NEMU 编译产物路径 | `nemu/scripts/native.mk` | 模拟器本体可执行文件 |
+| `NEMU_EXEC` | 第三层（NEMU） | `$(BINARY) $(ARGS) $(IMG)` | `run` 目标 | 最终真正执行的宿主机命令 |
+
+记忆要点：
+
+* 上游打包参数：`NEMUFLAGS`
+* 下游接手参数：`ARGS`
+* 客户程序镜像：`IMG`
+* 最终落地命令：`NEMU_EXEC`
+
+---
+
+<a id="section-e2e-run-parse"></a>
+
+## 4. 参数如何落到 monitor.c 的 `elf_file` / `img_file` / `log_file`
+
+从命令参数到运行变量的映射关系如下：
+
+```text
+ARGS 中的 -e $(IMAGE).elf                                  -> parse_args() case 'e' -> elf_file
+ARGS 中的 -l $(shell dirname $(IMAGE).elf)/nemu-log.txt    -> parse_args() case 'l' -> log_file
+ARGS 中的 -i $(IMAGE).bin                                  -> parse_args() case ‘i‘ -> img_file
+```
+
+随后初始化阶段的关键消费点：
+
+1. `init_log(log_file)`：初始化主日志。
+2. `init_ftrace(elf_file)`：读取 ELF 符号，建立函数映射（需开启 FTRACE 且 elf_file 非空）。
+3. `load_img()`：把 `img_file` 对应的 `.bin` 加载到 NEMU 模拟内存。
+
+因此：
+
+* `.elf` 用于“符号元信息”（给 ftrace）
+* `.bin` 用于“实际执行字节流”（给 CPU 执行）
+
+两者互补，不能互相替代。
+
+---
+
+<a id="section-e2e-run-debug"></a>
+
+## 5. 最终命令形态与排错抓手
+
+最终命令形态可抽象为：
+
+```bash
+<nemu-binary> -b -l <nemu-log-path> --elf=<image.elf> <image.bin>
+```
+
+排错时按这 5 个点逆向检查，最快：
+
+1. `ARCH` 是否真的是 `riscv32-nemu`（防止走错脚本分支）。
+2. `$(IMAGE).elf`、`$(IMAGE).bin` 是否都存在。
+3. 递归调用里是否真的带了 `--elf=$(IMAGE).elf`。
+4. NEMU 实际启动命令里是否保留了 `ARGS`
+5. `monitor.c` 里 `elf_file` 与 `img_file` 是否都被成功解析。
+
+如果你只记一句工程化结论：
+
+> **这条链的本质是“上游 AM 产镜像并打包参数，下游 NEMU 接收参数并启动执行”；任何问题都可以按“变量在哪一层产生、在哪一层消费”来定位。**
+
+---
+
+[返回顶部](#top)
