@@ -55,13 +55,13 @@ CFLAGS  += $(CFLAGS_BUILD) $(CFLAGS_TRACE) -D__GUEST_ISA__=$(GUEST_ISA)
 LDFLAGS += $(CFLAGS_BUILD)
 
 
-# Include rules for menuconfig
+# include config.mk：把 menuconfig、defconfig、syncconfig 等规则加载进当前规则图。
 include $(NEMU_HOME)/scripts/config.mk
 
 ifdef CONFIG_TARGET_AM
 include $(AM_HOME)/Makefile
 LINKAGE += $(ARCHIVES)
 else
-# Include rules to build NEMU
+# include native.mk：把 run、gdb、run-env、NEMU_EXEC 等规则加载进当前规则图。
 include $(NEMU_HOME)/scripts/native.mk
 endif
