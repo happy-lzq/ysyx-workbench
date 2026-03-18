@@ -58,7 +58,7 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
   uint32_t i = s->isa.inst;
   int rs1 = BITS(i, 19, 15);
   int rs2 = BITS(i, 24, 20);
-  *rd     = BITS(i, 11, 7);
+  *rd     = BITS(i, 11, 7) ;
   switch (type) {
     case TYPE_I: src1R();          immI(); break;
     case TYPE_U:                   immU(); break;   // U无源寄存器类型
@@ -142,29 +142,29 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
 
   INSTPAT("0000000 ????? ????? 111 ????? 01100 11", and    , R, R(rd) = src1 & src2);                                                        // x[rd] = x[rs1] & x[rs2]
-  INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
+  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));     INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
   INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
   INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
-  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                                              // x[rd] = (x[rs1] ≫𝑢 x[rs2])
+                                           // x[rd] = (x[rs1] ≫𝑢 x[rs2])
   INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
   INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
   INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
 
 // ==================================== 跳转指令 =================================================================
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J,
-      R(rd) = s->snpc;
-      s->dnpc = s->pc + imm;
-      IFDEF(CONFIG_FTRACE, if (rd == 1) ftrace_call(s->pc, s->dnpc, s->snpc));
-  );
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I,
-      R(rd) = s->snpc;
-      s->dnpc = (src1 + imm) & ~1;
+  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;              // rd 默认为 x1(ra=返回寄存器)
+      IFDEF(CONFIG_FTRACE, 
+        if (rd == 1) {  // 约定：x1=ra返回寄存器在32个通用寄存器中的索引为：1 当该寄存器被写入数据时，说明存在函数调用。
+        ftrace_call(s->pc, s->dnpc, s->snpc);
+        }
+      )
+    );
+  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1;       // ret伪指令实际被扩展为 jalr x0, 0(x1)
       IFDEF(CONFIG_FTRACE,
-        int rs1_idx = BITS(s->isa.inst, 19, 15);
+        int rs1_idx = BITS(s->isa.inst, 19, 15);                                                                    // src1 对应源寄存器索引
         if (rd == 1) {
           ftrace_call(s->pc, s->dnpc, s->snpc);
-        } else if (rd == 0 && rs1_idx == 1 && imm == 0) {
-          ftrace_ret(s->pc, s->dnpc);
+        } else if (rd == 0 && rs1_idx == 1 && imm == 0) {       // ret 返程不需要返回地址。rd=x0,并且src1索引为返回寄存器，并且imm=0,说明执行返回栈 ret 伪指令
+          ftrace_ret(s->pc, s->dnpc);                           
         }
       );
   );

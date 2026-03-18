@@ -90,7 +90,7 @@ static const char *get_mtrace_log_file() {
 // ================================== Ftrace_log ==============================================
 #ifdef CONFIG_FTRACE
 static char ftrace_log_file[260] = {};
-static const char *get_ftrace_log_file() {
+static const char *ftace_log_file() {
   return build_named_log_file(ftrace_log_file, sizeof(ftrace_log_file),
                               elf_file, "build/ftrace-log.txt", "ftrace-log.txt");
 }
@@ -179,8 +179,8 @@ void init_monitor(int argc, char *argv[]) {
   // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
       if (elf_file != NULL) {
-        init_ftrace_log(get_ftrace_log_file());
-        init_ftrace(elf_file);
+        init_ftrace_log(ftace_log_file());      // 检验文件路径是否成立并且打开文件写功能
+        init_ftrace(elf_file);                  // 基于elf文件读取有效信息
       } else {
         Log("ftrace is enabled but --elf is missing, skip ftrace initialization");
       }
