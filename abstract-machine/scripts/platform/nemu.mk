@@ -37,7 +37,7 @@ run: insert-arg
 # 长选项用 --长选项=值 或 --长选项 值。
 # 短选项用 -短选项 值（或紧跟值）。
 # 添加：ARGS IMG 命令行参数变量传给nemu启动命令行      -C 切换目录
-# nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt --elf=/path/string-riscv32-nemu.elf /path/string-riscv32-nemu.bin
+# nemu 启动行真实命令：nemu -b -l /path/nemu-log.txt -e /path/string-riscv32-nemu.elf -i /path/string-riscv32-nemu.bin
 
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"

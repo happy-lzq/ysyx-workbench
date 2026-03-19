@@ -1,0 +1,97 @@
+flowchart TB
+  %% NEMU 构建与运行：按脚本路径拆解 输入参数 核心功能 输出产物
+
+  classDef entry fill:#FDF6E3,stroke:#B58900,stroke-width:1px,color:#3C2F00;
+  classDef testmk fill:#EAF4FF,stroke:#2A6DB0,stroke-width:1px,color:#0B2F52;
+  classDef ammk fill:#E8FFF3,stroke:#1E8A5A,stroke-width:1px,color:#0F4A31;
+  classDef nemumk fill:#FFF6E8,stroke:#B36B00,stroke-width:1px,color:#5A3300;
+  classDef runtime fill:#F6EDFF,stroke:#6C47A8,stroke-width:1px,color:#32195E;
+  classDef artifact fill:#F5F5F5,stroke:#666666,stroke-width:1px,color:#222222;
+
+  U0[入口命令 make ARCH=riscv32-nemu ALL=string run]
+
+  subgraph S1[脚本框 S1]
+    S1P[路径 am-kernels/tests<br/>/cpu-tests/Makefile]
+    S1I[输入参数 ARCH ALL MAKECMDGOALS]
+    S1C[核心功能 生成临时测试脚本并递归调用 make -f 临时脚本]
+    S1O[输出产物 Makefile.string 与测试结果文件 .result]
+    S1P --> S1I --> S1C --> S1O
+  end
+
+  subgraph S2[脚本框 S2]
+    S2P[路径 abstract-machine<br/>/Makefile]
+    S2I[输入参数 NAME SRCS ARCH AM_HOME]
+    S2C[核心功能 编译 SRCS 生成 OBJS 并链接为 IMAGE.elf]
+    S2O[输出产物 build/name-arch.elf 与 build/arch/*.o]
+    S2P --> S2I --> S2C --> S2O
+  end
+
+  subgraph S3[脚本框 S3]
+    S3P[路径 abstract-machine/scripts<br/>/platform/nemu.mk]
+    S3I[输入参数 ISA IMAGE.elf NEMU_HOME mainargs]
+    S3C[核心功能 组装 NEMUFLAGS 含 -b -l -e -i 并执行 objcopy]
+    S3O[输出产物 IMAGE.bin 与递归参数 ARGS=NEMUFLAGS]
+    S3P --> S3I --> S3C --> S3O
+  end
+
+  subgraph S4[脚本框 S4]
+    S4P[路径 nemu<br/>/Makefile]
+    S4I[输入参数 auto.conf 配置项 CONFIG_ISA CONFIG_ENGINE]
+    S4C[核心功能 生成 NAME 汇总 SRCS 并包含 native.mk 与 build.mk]
+    S4O[输出产物 NAME SRCS CFLAGS 传递给子脚本]
+    S4P --> S4I --> S4C --> S4O
+  end
+
+  subgraph S5[脚本框 S5]
+    S5P[路径 nemu/scripts<br/>/build.mk]
+    S5I[输入参数 NAME SRCS CFLAGS ARCHIVES]
+    S5C[核心功能 映射 OBJS 编译对象文件并链接生成 BINARY]
+    S5O[输出产物 nemu/build/riscv32-nemu-interpreter]
+    S5P --> S5I --> S5C --> S5O
+  end
+
+  subgraph S6[脚本框 S6]
+    S6P[路径 nemu/scripts<br/>/native.mk]
+    S6I[输入参数 BINARY ARGS ARGS_DIFF DIFF_REF_SO]
+    S6C[核心功能 拼接 NEMU_EXEC 并通过 run-env 保障依赖]
+    S6O[输出产物 最终命令行 argv 传给 NEMU 运行时]
+    S6P --> S6I --> S6C --> S6O
+  end
+
+  subgraph R1[运行时调用框]
+    R1P[路径 nemu/src/nemu-main.c<br/>与 nemu/src/monitor/monitor.c]
+    R1I[输入参数 argv 含 -b -l -e ELF -i BIN]
+    R1C[核心功能 init_monitor parse_args load_img engine_start cpu_exec]
+    R1O[输出产物 客户程序在 guest 内存运行并产生日志]
+    R1P --> R1I --> R1C --> R1O
+  end
+
+  subgraph A0[关键文件产物]
+    F1[am-kernels/tests/cpu-tests/tests/string.c]
+    F2[am-kernels/tests/cpu-tests/build/string-riscv32-nemu.elf]
+    F3[am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin]
+    F4[nemu/build/riscv32-nemu-interpreter]
+  end
+
+  U0 --> S1I
+  S1O --> S2I
+  S2O --> S3I
+  S3O --> S4I
+  S4O --> S5I
+  S5O --> S6I
+  S6O --> R1I
+
+  F1 -.源码输入.-> S2I
+  S2O --> F2
+  S3O --> F3
+  S5O --> F4
+  F2 -.参数 e.-> R1I
+  F3 -.参数 i.-> R1I
+  F4 -.BINARY 命令本体.-> S6I
+
+  class U0 entry;
+  class S1P,S1I,S1C,S1O testmk;
+  class S2P,S2I,S2C,S2O,S3P,S3I,S3C,S3O ammk;
+  class S4P,S4I,S4C,S4O,S5P,S5I,S5C,S5O,S6P,S6I,S6C,S6O nemumk;
+  class R1P,R1I,R1C,R1O runtime;
+  class F1,F2,F3,F4 artifact;
