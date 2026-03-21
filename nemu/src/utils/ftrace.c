@@ -263,10 +263,7 @@ Symbol table '.symtab' contains 48 entries:     下面的每一条数据大小�
 
 // ==================================== ftrace cell/ret log ====================================
 void ftrace_call(vaddr_t pc, vaddr_t tar_addr, vaddr_t ret_addr) {
-    if (ftrace_fp == NULL) {
-        return;
-    }
-    if (!FTRACE_COND) {
+    if (ftrace_fp == NULL || !FTRACE_COND) {
         return;
     }
     const FuncSymbol *callee = find_func_by_addr(tar_addr);
