@@ -28,6 +28,7 @@ static CallFrame call_stack[MAX_CALL_DEPTH];   // 调用栈
 static int call_depth = 0;                     // 调用深度
 static FILE *ftrace_fp = NULL;                 // ftrace-log.txt 文件写入指针
 
+// elf文件中选择出来的symtab目标条目的结构体数组中基于目标地址寻找对应的条目
 static const FuncSymbol *find_func_by_addr(vaddr_t addr) {
     for (int i = 0; i < func_symbol_count; i++) {
         if (addr >= func_symbols[i].start && addr < func_symbols[i].end) {
@@ -266,6 +267,7 @@ void ftrace_call(vaddr_t pc, vaddr_t tar_addr, vaddr_t ret_addr) {
     if (ftrace_fp == NULL || !FTRACE_COND) {
         return;
     }
+
     const FuncSymbol *callee = find_func_by_addr(tar_addr);
 
     fprintf(ftrace_fp, FMT_WORD " : ", pc);

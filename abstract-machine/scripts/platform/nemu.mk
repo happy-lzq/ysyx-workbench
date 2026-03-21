@@ -15,9 +15,10 @@ LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 # 链接地址 = 加载地址 = CPU 启动地址 = 0x80000000 从而确定.bin文件对应的程序指令数据内容是从0x80000000开始
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
-NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt       # 增加 -b 选择nemu平台的批处理模式
+NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt      
 NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
-
+#NEMUFLAGS += -b 
+#增加 -b 选择nemu平台的批处理模式
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
