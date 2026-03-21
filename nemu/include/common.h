@@ -31,7 +31,8 @@
 #include <stdlib.h>
 #endif
 
-#if CONFIG_MBASE + CONFIG_MSIZE > 0x100000000ul
+#if CONFIG_MBASE + CONFIG_MSIZE > 0x100000000ul   
+//（物理内存基址 + 大小）超过 32-bit 上限（0x1_0000_0000），就需要用 64-bit 类型来表示物理地址 -> 设置 PMEM64 为真
 #define PMEM64 1
 #endif
 

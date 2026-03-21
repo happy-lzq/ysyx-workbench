@@ -149,7 +149,7 @@ ELF header 数据结构体
 4、Elf32_Sym 数据结构如下：设计目的就是为了存放符号表(.symtab)中的符号条目信息，符号表中的每个符号都对应一个 Elf32_Sym 结构体实例。
     typedef struct {
         uint32_t st_name;       // 符号名字在.strtab中的索引 实际上只是在字符串表里的索引偏移
-        uint32_t st_value;      // 符号的值（地址）
+        uint32_t st_value;      // 符号的值（地址）  
         uint32_t st_size;       // 符号的大小（字节）
         unsigned char st_info;  // 符号类型和绑定属性   
             STT_NOTYPE      (0)：未知类型
@@ -248,7 +248,7 @@ Symbol table '.symtab' contains 48 entries:     下面的每一条数据大小�
         const char *name = strtab_buf + sym.st_name;
         FuncSymbol *sel_enrty = &func_symbols[func_symbol_count++];  // 相同结构体指针指向该有效symtab条目
         sel_enrty->start = (vaddr_t)sym.st_value;                    // 有效起始地址
-        sel_enrty->end = (vaddr_t)(sym.st_value + sym.st_size);      // 有效结束地址
+        sel_enrty->end = (vaddr_t)(sym.st_value + sym.st_size);      // 有效起始地址+有效大小
         snprintf(sel_enrty->name,sizeof(sel_enrty->name),"%s",name);
     }
 
@@ -270,7 +270,7 @@ void ftrace_call(vaddr_t pc, vaddr_t tar_addr, vaddr_t ret_addr) {
 
     const FuncSymbol *callee = find_func_by_addr(tar_addr);
 
-    fprintf(ftrace_fp, FMT_WORD " : ", pc);
+    fprintf(ftrace_fp, FMT_WORD " : ", pc);          // FMT_WORD  32、64位的输出模式选择
     print_indent(ftrace_fp, call_depth);
     if (callee != NULL) {
         fprintf(ftrace_fp, "call [%s@" FMT_WORD "]\n", callee->name, tar_addr);
