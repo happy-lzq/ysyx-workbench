@@ -1,5 +1,6 @@
 # PA2 学习笔记
 
+<a id="sec-pa2-toc"></a>
 ## 目录
 
 - [Linux 软链接知识点总结](#sec-softlink)
@@ -70,6 +71,10 @@
   - [9. 设计分层与每层职责](#sec-ftrace-09)
   - [10. 端到端时序总结](#sec-ftrace-10)
   - [11. 常见坑与工程性检查点](#sec-ftrace-11)
+  - [12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结](#sec-ftrace-stack)
+  - [13. 目标函数匹配问题的引出与逻辑总结](#sec-ftrace-symbol-match)
+- [PA2 专题补充](#sec-pa2-supplement)
+  - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
 
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
@@ -2433,7 +2438,7 @@ monitor 的 getopt_long 选项表包含：
 2. 若启用 CONFIG_FTRACE 且 elf_file 非空：
    - init_ftrace_log: 打开日志文件。
    - init_ftrace: 解析 ELF，构建函数表。
-3. 若启用 CONFIG_FTRACE 但缺失 --elf：
+3. 若启用 CONFIG_FTRACE 但缺失 elf：
    - 打印提示并跳过初始化。
 
 这是一种“可用则启用，不可用则降级”的容错策略。
@@ -2516,6 +2521,7 @@ monitor 的 getopt_long 选项表包含：
 
 - FuncSymbol：ftrace 自定义函数条目，服务运行时快速匹配。
 - CallFrame：ftrace 自定义调用栈帧，维护 ret 对应关系。
+
 
 ### 5.3 结构体映射关系
 
@@ -2680,3 +2686,211 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
    - 风险：深递归场景下数组越界。
    - 正解：MAX_CALL_DEPTH 上限保护。
 
+<a id="sec-ftrace-stack"></a>
+## 12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结
+
+#### 12.1 问题来源与现象
+在实现 ftrace 过程中，最常见的疑问是：
+- **如何保证 call/ret 日志的缩进层级与真实函数调用树一致？**
+- **为什么要在 call 时保存 FuncSymbol 指针，而不是只保存返回地址？**
+
+#### 12.2 逻辑梳理与原理
+1. **call 指令（jal/jalr rd==1）时：**
+   - 通过目标地址查找对应的 FuncSymbol（即函数名、起止区间）。
+   - 打印带缩进的 call 日志。
+   - 将 {ret_addr, func} 作为 CallFrame 压入 call_stack[]。
+   - call_depth++。
+2. **ret 指令（jalr rd==0, rs1==1, imm==0）时：**
+   - 先判断 call_depth>0，防止栈下溢。
+   - call_depth--，弹出栈顶 CallFrame。
+   - 直接用 frame->func->name 打印 ret 日志，保证与 call 时函数名一一对应。
+
+#### 12.3 为什么不能只保存返回地址？
+因为同一个返回地址可能属于不同函数（如递归/多分支），只有保存 call 时查到的 FuncSymbol 指针，才能保证 ret 时准确还原“从哪个函数返回”。
+
+#### 12.4 典型问题与解决
+- **问题：只保存返回地址，ret 时如何还原函数名？**
+  - 解决：call 时就查好 FuncSymbol 指针，ret 时直接用，无需再查。
+- **问题：递归/多分支下如何保证层级？**
+  - 解决：call_stack[] + call_depth 形成 LIFO 结构，天然支持嵌套与递归。
+- **问题：栈溢出/下溢？**
+  - 解决：MAX_CALL_DEPTH 上限保护，ret 前判断 call_depth>0。
+
+#### 12.5 总结一句话
+> ftrace 的 call/ret 日志层级完全依赖于“每次 call 时保存的 {ret_addr, func}”，只有这样才能保证任意复杂调用树下的日志与真实执行路径一一对应。
+
+---
+
+<a id="sec-ftrace-symbol-match"></a>
+## 13. 目标函数匹配问题的引出与逻辑总结
+
+#### 13.1 问题引出
+ftrace 运行时如何通过目标地址（tar_addr）找到对应的函数名？为什么只要满足 start <= addr < end 就能唯一确定？
+
+#### 13.2 ELF 符号表的本质
+- 每个函数在 ELF .symtab 里有唯一的 st_value（起始地址）和 st_size（长度）。
+- 编译/链接时，所有函数的地址区间不会重叠。
+- ftrace 启动时将所有 STT_FUNC 类型的符号转为 {start, end, name} 数组。
+
+#### 13.3 匹配原理
+1. 运行时遇到 call 指令，得到目标地址 tar_addr。
+2. 遍历 func_symbols[]，查找满足 start <= tar_addr < end 的条目。
+3. 若找到，说明 tar_addr 落在该函数区间内，直接返回 name。
+4. 若找不到，说明该地址不属于任何已知函数（如裸跳转/异常）。
+
+#### 13.4 为什么区间匹配一定成立？
+- 链接器保证每个函数的 [start, end) 区间互不重叠。
+- tar_addr 必然落在某个函数体内（只要是合法 call）。
+- 只要区间查找实现无误，匹配结果唯一。
+
+#### 13.5 典型问题与解决
+- **问题：如果 st_size=0 怎么办？**
+  - 解决：解析时过滤掉 size=0 的符号。
+- **问题：目标地址正好等于 end？**
+  - 解决：区间采用左闭右开 [start, end)，end 不属于该函数。
+- **问题：有重叠区间怎么办？**
+  - 解决：链接器不会生成重叠函数区间，若有则为 ELF 错误。
+
+#### 13.6 总结一句话
+> ftrace 通过 ELF 符号表的唯一性，将目标地址映射为函数名，区间匹配 [start, end) 是链接器保证的唯一分区，保证了运行时任意 call/ret 都能准确还原函数名。
+
+---
+
+<a id="sec-pa2-supplement"></a>
+# PA2 专题补充
+
+<a id="sec-native-build-mismatch"></a>
+## cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记
+
+[返回目录](#sec-pa2-toc)
+
+### 1. 问题来源
+在执行 `make ALL=string ARCH=native run` 时，链接阶段报错：
+
+```text
+/usr/bin/ld: ...platform.o: undefined reference to `__isoc23_strtol'
+```
+
+表面上看，错误发生在 `abstract-machine/am/src/native/platform.c` 中两处 `atoi()` 相关逻辑；但深入排查后确认，问题本质并不是源码逻辑错误，而是 native 构建产物与当前宿主机工具链、运行库不匹配。
+
+### 2. 现象与关键线索
+排查时得到两组关键信息：
+
+1. 当前宿主机环境为：
+   - `gcc 11.4.0`
+   - `glibc 2.35`
+2. 参与链接的归档文件 `abstract-machine/am/build/am-native.a` 内部记录的编译器却是：
+   - `GCC 13.3.0 (Ubuntu 24.04)`
+
+这说明当前构建过程中复用了另一台机器生成的旧 archive，而不是由当前机器重新编译得到。
+
+### 3. 处理逻辑梳理
+整个分析过程遵循了“先分离源码问题，再定位环境问题”的思路：
+
+1. 先看报错位置，确认 `platform.c` 里的代码只是正常的 `atoi()` 调用，本身没有明显业务错误。
+2. 再检查 `am-native.a` 的符号，确认 archive 中确实残留了对 `__isoc23_strtol` 的依赖。
+3. 然后对比当前机器的 `gcc/glibc` 版本，发现当前 libc 中并没有这个符号。
+4. 最后查看 archive 的编译器标记，确认它来自另一台 Ubuntu 24.04 / GCC 13.3.0 环境。
+
+由此可以推出完整逻辑链：
+
+- `ARCH=native` 的构建依赖宿主机本地 libc。
+- `make` 会按时间戳复用已有 `build/` 产物。
+- 从另一台机器 `scp` 过来的工作区把旧的 `build/` 目录也带过来了。
+- 于是出现“旧机器编出来的 archive + 当前机器的 libc”混合链接。
+- 最终触发 `__isoc23_strtol` 符号不兼容。
+
+### 4. 根因本质
+这次问题的根因不是 NEMU 配置改错，也不是 `string` 测试写错，而是 native 目标对宿主环境强依赖，但构建缓存没有和宿主 ABI 绑定。
+
+换句话说，构建系统默认假设：
+
+> 只要 `build/` 目录里的文件时间戳没问题，这些 archive/object 就可以继续复用。
+
+这个假设在同一台机器上通常成立，但在“跨机器拷贝工作区”场景下就会失效，因为：
+
+- 编译器版本可能不同。
+- glibc 版本可能不同。
+- 头文件与运行库导出的符号集合可能不同。
+
+### 5. 解决方案
+解决思路不是修改源码，而是清理旧机器遗留的 native 构建缓存，并在当前机器上完整重编。
+
+实际处理步骤：
+
+```bash
+make -C "$AM_HOME/am" ARCH=native clean
+make -C "$AM_HOME/klib" ARCH=native clean
+make clean
+make ALL=string ARCH=native run
+```
+
+清理后，`abstract-machine/am/build/am-native.a` 会由当前机器重新生成，不再继续复用旧环境产物。
+
+### 6. 处理结果
+重建之后：
+
+- `string` 测试结果变为 `PASS`
+- 新生成的 `am-native.a` 显示的编译器版本已经变成：
+  - `GCC 11.4.0 (Ubuntu 22.04)`
+
+这说明参与链接的 archive 已经和当前宿主环境一致，`__isoc23_strtol` 的符号错配问题被彻底消除。
+
+### 7. 一句话总结
+> 这次 `__isoc23_strtol` 链接错误的本质，是从另一台机器拷贝过来的 native 构建缓存污染了当前环境；清理旧 `build/` 产物并在本机重新编译后，问题即可恢复正常。
+
+### 8. 链接期与装载期典型报错、常见原因与 Debug 逻辑对照表
+
+这一节的目标不是记住所有命令，而是先建立一个判断框架：
+
+- 如果错误发生在 `make` 过程中，通常优先归入链接期问题。
+- 如果程序已经生成成功，但运行时启动失败，通常优先归入装载期问题。
+- 真正的根因不一定在链接器或装载器本身，而往往在它们的输入出了问题。
+
+#### 8.1 链接期问题：典型报错、常见原因、Debug 逻辑
+
+| 典型报错 | 常见原因 | 推荐 Debug 逻辑 |
+| :--- | :--- | :--- |
+| `undefined reference to xxx` | 只有声明没有定义；实现文件未参与链接；缺少静态库/动态库；库版本或 ABI 不匹配；旧产物污染 | 先看完整链接命令；再用 `nm -A` 查谁在引用 `xxx`、谁真正定义了 `xxx`；最后确认定义来源是否真的参与了本次链接 |
+| `multiple definition of xxx` | 同一个全局符号被多个 `.o` 或 `.a` 重复定义；头文件里直接写了非 `static` / 非 `inline` 的定义 | 用 `nm -A` 或报错中的对象名定位重复定义来自哪些文件，再回查是否把变量/函数定义写进了头文件或重复编进多个目标 |
+| `cannot find -lxxx` | 链接器搜索路径里没有对应库；库名写错；库未安装 | 先检查链接命令里是否有 `-L`；再确认磁盘上是否存在 `libxxx.so`/`libxxx.a`；最后确认库名和平台是否匹配 |
+| `skipping incompatible xxx` | 架构不匹配，例如 32 位/64 位混用，或主机架构与目标架构混用 | 用 `file`、`readelf -h` 检查参与链接的目标文件和库，确认架构、位数、ABI 是否一致 |
+| `file format not recognized` | 输入文件损坏；把源码、文本文件或错误架构文件当作目标文件/库传给了链接器 | 先用 `file` 看该文件到底是不是 ELF/归档；再检查构建脚本是否把错误输入喂给了链接器 |
+| `DSO missing from command line` | 需要的共享库没有显式出现在链接命令里，或者库顺序不正确 | 检查最终链接命令，补齐缺失库，并把依赖者放前面、被依赖库放后面 |
+| `relocation ... can not be used` / `recompile with -fPIC` | 位置无关代码、PIE、静态/动态链接方式不匹配 | 检查目标文件是否带 `-fPIC`/`-fpie`，以及最终链接目标是否要求 PIE/PIC |
+
+#### 8.2 装载期问题：典型报错、常见原因、Debug 逻辑
+
+| 典型报错 | 常见原因 | 推荐 Debug 逻辑 |
+| :--- | :--- | :--- |
+| `error while loading shared libraries: libxxx.so: cannot open shared object file` | 运行时找不到共享库；`LD_LIBRARY_PATH`、`RPATH`、`RUNPATH` 不正确 | 用 `ldd` 看程序依赖的共享库；再用 `readelf -d` 看 `NEEDED/RPATH/RUNPATH`；最后检查环境变量和库实际路径 |
+| `symbol lookup error: undefined symbol: xxx` | 程序运行时加载到的共享库里没有该符号；加载到了错误版本的库 | 先用 `ldd` 看实际加载了哪份库；再用 `nm -D` 或 `readelf -Ws` 看该库是否导出 `xxx` |
+| `version 'GLIBC_x.y' not found` | 程序或库依赖了更高版本的 glibc / libstdc++，当前机器版本过低 | 对比程序和共享库所需的版本信息，确认是不是跨系统复制产物导致的版本错配 |
+| `wrong ELF class: ELFCLASS32/ELFCLASS64` | 程序与共享库位数不一致 | 用 `file` 检查程序和 `.so` 的架构与位数是否一致 |
+| 程序文件存在，但启动时仍报 `No such file or directory` | 解释器路径不存在，例如 ELF 头里记录的动态装载器路径无效 | 用 `readelf -l` 查看 `interpreter` 字段，确认动态装载器是否在当前系统存在 |
+
+#### 8.3 统一 Debug 顺序：先判断阶段，再判断符号归属
+
+以后遇到类似问题，建议固定按下面顺序排：
+
+1. 先判断错误发生在链接期还是装载期。
+2. 如果是链接期，先看最终链接命令，再看符号由谁引用、由谁定义。
+3. 如果是装载期，先看程序实际加载了哪些共享库，再确认符号是否存在于那份实际被加载的库里。
+4. 再回到源码与构建系统，确认是不是声明/定义缺失、条件编译、库顺序、架构不匹配、ABI 不兼容或旧产物污染。
+
+#### 8.4 这次 `__isoc23_strtol` 案例在这张表里属于哪一类
+
+本次错误属于：
+
+- 阶段：链接期
+- 表现：`undefined reference to __isoc23_strtol`
+- 表面现象：`platform.o` 引用了一个当前系统 libc 中不存在的符号
+- 根因：旧机器生成的 `am-native.a` 与当前机器 `glibc 2.35` 不兼容
+
+所以它符合上表中的这一类：
+
+> `undefined reference to xxx` 不一定意味着“源码没写实现”，也可能是“对象文件来自另一套工具链/运行库环境，导致链接时找不到兼容符号定义”。
+
+#### 8.5 一句话方法论
+
+> 看到“未定义符号”时，不要立刻认定源码写错；先判断它本该来自哪里，再判断它为什么没有在当前这次链接或装载过程中被正确解析出来。
