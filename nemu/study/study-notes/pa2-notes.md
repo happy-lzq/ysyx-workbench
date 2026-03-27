@@ -73,6 +73,17 @@
   - [11. 常见坑与工程性检查点](#sec-ftrace-11)
   - [12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结](#sec-ftrace-stack)
   - [13. 目标函数匹配问题的引出与逻辑总结](#sec-ftrace-symbol-match)
+- [PA2 专题：klib 测试全链路设计、Debug 与闭环验证](#sec-pa2-klib-tests)
+  - [1. 为什么需要单独设计 `klib-tests`？](#sec-klibtest-01)
+  - [2. 直接测试对象、间接运行平台与最终验证目标](#sec-klibtest-02)
+  - [3. 测试分类为什么最终定成 `write/read/format/stdlib`？](#sec-klibtest-03)
+  - [4. 项目结构的演化：为什么最后采用 `cpu-tests` 风格？](#sec-klibtest-04)
+  - [5. `Makefile` 的核心逻辑：谁负责筛选测试，谁负责真正编译？](#sec-klibtest-05)
+  - [6. 测试执行闭环：从 `make ... run` 到 `PASS/FAIL` 的完整路径](#sec-klibtest-06)
+  - [7. `ARCH=native` 与 `ARCH=riscv32-nemu` 的本质区别](#sec-klibtest-07)
+  - [8. 断言系统的设计：从普通 `check()` 到可定位报错](#sec-klibtest-08)
+  - [9. 设计与 Debug 过程中踩到的关键问题、根因与解决](#sec-klibtest-09)
+  - [10. 最终结果、验证结论与方法论总结](#sec-klibtest-10)
 - [PA2 专题补充](#sec-pa2-supplement)
   - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
 
@@ -2753,6 +2764,683 @@ ftrace 运行时如何通过目标地址（tar_addr）找到对应的函数名�
 
 #### 13.6 总结一句话
 > ftrace 通过 ELF 符号表的唯一性，将目标地址映射为函数名，区间匹配 [start, end) 是链接器保证的唯一分区，保证了运行时任意 call/ret 都能准确还原函数名。
+
+---
+
+<a id="sec-pa2-klib-tests"></a>
+## PA2 专题：klib 测试全链路设计、Debug 与闭环验证
+
+[返回目录](#sec-pa2-toc)
+
+<a id="sec-klibtest-01"></a>
+### 1. 为什么需要单独设计 `klib-tests`？
+
+在 `PA2` 里，`string` 等已有客户程序虽然会间接调用 `klib`，但它们并不适合作为系统性的 `klib` 专项测试，原因主要有三点：
+
+1. **覆盖面太窄**  
+   现成测试往往只顺手调用了少量函数，难以覆盖 `memset/strcpy/strncpy/strcat/memmove/strlen/strcmp/snprintf/atoi/rand` 这些不同语义的接口。
+
+2. **oracle 不独立**  
+   如果用一个尚未证明正确的库函数去验证另一个库函数，就会出现“错误互相掩盖”的风险。例如用 `memcmp()` 去验证 `memset()`，如果 `memcmp()` 自己也错了，测试就会失真。
+
+3. **不能精准归因**  
+   把多个函数串在一条语句里测试（如 `strcat(strcpy(...), ...)`）会让失败点模糊，不利于快速定位到底是哪一个库函数出了问题。
+
+因此，`klib-tests` 的核心目标不是“随便跑一个客户程序看看能不能过”，而是：
+
+> **为 `klib` 的不同类别函数建立独立、清晰、可复用的测试用例与判断标准，并分别在 `native` 和 `riscv32-nemu` 两种环境中验证它们。**
+
+---
+
+<a id="sec-klibtest-02"></a>
+### 2. 直接测试对象、间接运行平台与最终验证目标
+
+`klib-tests` 的关系链必须先分清四层：
+
+1. **测试程序**
+   - 位于 `am-kernels/tests/klib-tests/src/*.c`
+   - 这些文件本身不是 `klib` 实现，而是“客户程序形式的测试代码”
+   - 它们负责：
+     - 调用 `klib` 函数
+     - 构造输入
+     - 用 `check()` 断言输出或返回值
+
+2. **被测对象**
+   - 位于 `abstract-machine/klib/src/*.c`
+   - 真正被测的是这里的实现：
+     - `string.c`
+     - `stdio.c`
+     - `stdlib.c`
+
+3. **装配者**
+   - `abstract-machine/Makefile`
+   - 它负责把：
+     - 测试程序源码
+     - `am` 运行时
+     - `klib`
+     一起编译链接成可执行目标
+
+4. **执行者**
+   - `ARCH=native` 时：宿主机环境直接执行
+   - `ARCH=riscv32-nemu` 时：NEMU 逐条执行生成的客户程序指令
+
+因此，`klib-tests` 的准确定位是：
+
+> **写一个 AM 客户程序去测试 `klib`；`native` 用来隔离验证测试逻辑与基础语义，`riscv32-nemu` 用来验证 `klib + AM + NEMU` 这一整条链。**
+
+---
+
+<a id="sec-klibtest-03"></a>
+### 3. 测试分类为什么最终定成 `write/read/format/stdlib`？
+
+最初容易想到的分法是按头文件来分，例如：
+
+- `string`
+- `stdio`
+- `stdlib`
+
+但从测试设计角度看，更合理的主结构其实是按**测试方法**和**oracle 构造方式**来分。
+
+最终形成的四类是：
+
+1. **`write`**
+   - 代表函数：
+     - `memset`
+     - `strcpy`
+     - `strncpy`
+     - `strcat`
+     - `memmove`
+   - 关注点：
+     - 返回值是否为原始目标指针
+     - 目标缓冲区最终布局是否正确
+     - 未覆盖区域是否保持原值
+     - 是否正确处理边界与重叠
+
+2. **`read`**
+   - 代表函数：
+     - `strlen`
+     - `strcmp`
+     - `strncmp`
+     - `memcmp`
+   - 关注点：
+     - 返回值是否正确
+     - 比较关系是否正确（`<0` / `==0` / `>0`）
+     - `n=0`、中间 `'\0'`、前缀相同但后续不同等边界语义
+
+3. **`format`**
+   - 代表函数：
+     - `sprintf`
+     - `snprintf`
+   - 关注点：
+     - 输出字符串内容
+     - 返回值
+     - 截断行为
+     - `'\0'` 终止
+
+4. **`stdlib`**
+   - 代表函数：
+     - `abs`
+     - `atoi`
+     - `srand`
+     - `rand`
+   - 关注点：
+     - 数学语义
+     - 字符串解析规则
+     - 随机序列的确定性
+
+这种划分的优点是：
+
+- 每类函数的测试方法更统一；
+- 每个 `.c` 文件职责更单纯；
+- 失败时更容易从“类别 -> 函数 -> case”逐级定位。
+
+---
+
+<a id="sec-klibtest-04"></a>
+### 4. 项目结构的演化：为什么最后采用 `cpu-tests` 风格？
+
+`klib-tests` 的设计经历了一个关键演化过程。
+
+#### 4.1 初始思路：一个总入口 + 多个分类模块
+
+最开始容易想到的结构是：
+
+- 一个总 `main()`
+- `write/read/format/stdlib` 各自提供一个入口函数
+- 运行时通过参数选择执行哪个分类
+
+这种方案的优点是直观，但有两个明显问题：
+
+1. **与 `cpu-tests` 的组织方式不一致**
+2. **所有分类 `.c` 会一起编进同一个程序**
+   - 公共头文件里的普通函数定义更容易引发 `multiple definition`
+   - Makefile 上的“单测/全测”选择不够干净
+
+#### 4.2 最终思路：每个分类 `.c` 都是一个独立测试程序
+
+最终结构改成：
+
+- `src/write.c`
+- `src/read.c`
+- `src/format.c`
+- `src/stdlib.c`
+
+每个文件都：
+
+- 自己包含测试函数
+- 自己有 `main()`
+- 成功时 `return 0`
+- 失败时由 `check()` -> `assert_fail()` -> `halt(1)` 终止
+
+这样做的好处是：
+
+1. 和 `cpu-tests` 的“每个测试项对应一个独立程序”完全同构
+2. Makefile 只需要在外层决定“这次编哪一个 `.c`”
+3. 不再需要中央分发 `mainargs`
+4. 每个测试项天然可以单独执行：
+   - `make ARCH=native ALL=write run`
+   - `make ARCH=riscv32-nemu ALL=format run`
+
+---
+
+<a id="sec-klibtest-05"></a>
+### 5. `Makefile` 的核心逻辑：谁负责筛选测试，谁负责真正编译？
+
+`klib-tests` 最终采用的是和 `cpu-tests/Makefile` 同源的设计思想：
+
+> **测试筛选发生在外层 `klib-tests/Makefile`，真正的编译链接执行仍然交给 `abstract-machine/Makefile`。**
+
+#### 5.1 `abstract-machine/Makefile` 不负责筛选测试项
+
+这是整个理解里最容易混淆的一点。
+
+`abstract-machine/Makefile` 的职责是：
+
+- 编译 `SRCS`
+- 链接 `am` 与 `klib`
+- 生成镜像
+- 执行 `run/gdb/clean`
+
+它不会理解：
+
+- `ALL=write`
+- `ALL=format`
+- 默认跑全部还是单个测试
+
+它只会“老老实实编译传给它的 `SRCS`”。
+
+#### 5.2 真正的测试筛选发生在外层 `Makefile`
+
+`klib-tests/Makefile` 的关键思路是：
+
+```make
+ALL = $(basename $(notdir $(shell find src/. -name "*.c")))
+all: $(addprefix Makefile., $(ALL))
+
+Makefile.%: src/%.c latest
+	@/bin/echo -e "NAME = $*\nSRCS = $<\nINC_PATH += .../include\ninclude $${AM_HOME}/Makefile" > $@
+	@if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then ...; fi
+```
+
+它做了三件核心事情：
+
+1. **收集测试项名**
+   - 从 `src/*.c` 推导出：
+     - `write`
+     - `read`
+     - `format`
+     - `stdlib`
+
+2. **为每个测试项生成一个临时 wrapper Makefile**
+   - 例如 `Makefile.write`
+   - 内容类似：
+     ```make
+     NAME = write
+     SRCS = src/write.c
+     INC_PATH += /.../include
+     include ${AM_HOME}/Makefile
+     ```
+
+3. **递归调用 wrapper**
+   - 由 wrapper 再去调用 `abstract-machine/Makefile`
+   - 这时 `SRCS` 已经被缩小成单个测试源文件
+
+因此，“筛选测试项”的本质不是 AM 在做，而是：
+
+> **外层 Makefile 先把 `SRCS` 收缩成单个 `.c`，再把这个单文件程序交给 AM 去真正构建。**
+
+#### 5.3 为什么 `cpu-tests` 里要写 `$${AM_HOME}`？
+
+在生成 wrapper 时，必须区分当前层与下一层 Makefile。
+
+- 当前层 Makefile 里如果写 `$${AM_HOME}`
+- 第一层 `make` 会把 `$$` 变成字面量 `$`
+- 最终写进临时文件的是：
+  ```make
+  include ${AM_HOME}/Makefile
+  ```
+- 这才会在下一层 wrapper 里被正确展开
+
+因此：
+
+- `$(AM_HOME)`：是“当前层 make 立即展开”
+- `$${AM_HOME}`：是“保留给下一层 Makefile 再展开”
+- `$$(AM_HOME)`：则是错误写法，因为 shell 会把 `$(...)` 当成命令替换
+
+#### 5.4 PASS/FAIL 是怎么打印出来的？
+
+Makefile 里引入了：
+
+- `RESULT = .result`
+- 颜色变量
+- `if make ...; then printf PASS; else printf FAIL; fi`
+
+也就是说：
+
+- 每个单项测试先由 wrapper 执行
+- wrapper 根据退出码把结果追加到 `.result`
+- 最后 `run: all` 统一 `cat $(RESULT)` 打印汇总
+
+这也是为什么最终输出会像：
+
+```text
+test list [1 item(s)]: format
+[        format] PASS
+```
+
+---
+
+<a id="sec-klibtest-06"></a>
+### 6. 测试执行闭环：从 `make ... run` 到 `PASS/FAIL` 的完整路径
+
+这一条闭环是整个 `klib-tests` 设计中最关键的主线。
+
+以：
+
+```bash
+make ARCH=riscv32-nemu ALL=write run
+```
+
+为例，完整链路是：
+
+1. **外层 `klib-tests/Makefile`**
+   - 解析 `ALL=write`
+   - 生成 `Makefile.write`
+
+2. **临时 wrapper**
+   - 指定：
+     - `NAME = write`
+     - `SRCS = src/write.c`
+     - `INC_PATH += include`
+   - 再 `include ${AM_HOME}/Makefile`
+
+3. **`abstract-machine/Makefile`**
+   - 编译 `src/write.c`
+   - 编译 `am`
+   - 编译 `klib`
+   - 链接成目标程序
+
+4. **运行时**
+   - `write.c` 的 `main()` 顺序调用各个测试函数
+   - 测试函数内部调用对应库函数
+   - 再用 `check(...)` 验证返回值或内存布局
+
+5. **断言通过/失败**
+   - 若全部 `check()` 通过：`main()` 返回 `0`
+   - 若任一 `check()` 失败：`assert_fail()` 打印定位信息并 `halt(1)`
+
+6. **wrapper 回收退出码**
+   - 退出码为 `0`：追加 `PASS`
+   - 非 `0`：追加 `***FAIL***`
+
+7. **最终 `run` 目标输出汇总结果**
+
+因此，`klib-tests` 的成功标准并不是“程序看起来跑了”，而是：
+
+> **每一个测试 case 的断言都成立，程序最终以 0 正常退出，由 Makefile 汇总打印为 PASS。**
+
+---
+
+<a id="sec-klibtest-07"></a>
+### 7. `ARCH=native` 与 `ARCH=riscv32-nemu` 的本质区别
+
+这是整个 `klib-tests` 分析里最关键的认知点之一。
+
+#### 7.1 `ARCH=native` 默认不等于“正在测试自己的 klib”
+
+虽然 `abstract-machine/Makefile` 总会链接 `klib`，但 `klib/src/string.c`、`stdio.c`、`stdlib.c` 里都带有：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+而 `ARCH=native` 时：
+
+- `__ISA_NATIVE__` 会被定义
+- `__NATIVE_USE_KLIB__` 默认没有开启
+
+所以默认 native 下：
+
+- 这些 `klib` 实现并不会真正作为当前生效实现参与
+- 字符串/stdio/stdlib 行为更偏向宿主机 `libc/glibc`
+
+因此：
+
+> **`ARCH=native` 默认主要用于验证测试代码本身和通用语义，不等于已经验证了你自己的 `klib` 实现。**
+
+#### 7.2 `ARCH=riscv32-nemu` 才真正落到你自己的 `klib`
+
+当 `ARCH=riscv32-nemu` 时：
+
+- `__ISA_NATIVE__` 不成立
+- `klib/src/string.c`、`stdio.c`、`stdlib.c` 会真正参与
+- 客户程序中的 `strlen/strcpy/snprintf/atoi/...` 会落到你自己的 `klib` 实现
+- 最后再由 NEMU 逐条解释执行
+
+所以可以把两者压缩成一句：
+
+- `ARCH=native`：默认更像宿主 glibc 路径
+- `ARCH=riscv32-nemu`：真正测试 `klib + AM + NEMU`
+
+#### 7.3 这对 Debug 的意义
+
+它直接决定了排障优先级：
+
+1. **如果 `ARCH=native` 都失败**
+   - 优先怀疑：
+     - 测试代码写错
+     - 断言对象写错
+     - case 设计不独立
+
+2. **如果 `ARCH=native` 过、`ARCH=riscv32-nemu` 失败**
+   - 优先怀疑：
+     - `klib` 实现不完整
+     - NEMU 执行链问题
+     - 串口/设备/外层构建环境问题
+
+---
+
+<a id="sec-klibtest-08"></a>
+### 8. 断言系统的设计：从普通 `check()` 到可定位报错
+
+#### 8.1 最初需求
+
+最开始的 `check()` 只有：
+
+- 条件成立：继续执行
+- 条件失败：`halt(1)`
+
+这样虽然能让测试程序返回非零，但问题是：
+
+- 只能看到 `Exit code = 01h`
+- 不知道哪一条断言失败
+- 不知道是哪个测试函数挂了
+
+因此必须把它升级成：
+
+> **既能终止，也能输出精确定位信息的断言系统。**
+
+#### 8.2 为什么不能只用普通函数？
+
+因为要打印完整定位信息，需要这四样东西：
+
+- `__FILE__`：文件名
+- `__LINE__`：行号
+- `__func__`：函数名
+- `#cond`：断言表达式原文
+
+其中：
+
+- `__FILE__`、`__LINE__`、`__func__` 来自编译器/预处理器上下文
+- `#cond` 来自宏参数字符串化
+
+普通函数只能拿到 `cond` 的真假，拿不到表达式原文，因此：
+
+> **`check` 的最外层必须写成宏。**
+
+#### 8.3 最终断言分层
+
+最终结构分成两层：
+
+1. **宏层**
+   - `check(cond)`
+   - 负责：
+     - 判断条件
+     - 自动抓取调用点上下文
+
+2. **底层失败处理函数**
+   - `assert_fail(file, line, func, expr)`
+   - 负责：
+     - 打印：
+       ```text
+       check failed at write.c:145 in test_xxx: buf[3] == '\0'
+       ```
+     - `halt(1)`
+
+#### 8.4 为什么要写成 `do { ... } while (0)`？
+
+多语句宏如果直接裸展开，会在 `if/else` 场景下出现语法绑定问题。
+
+把宏写成：
+
+```c
+do {
+  if (!(cond)) {
+    assert_fail(...);
+  }
+} while (0)
+```
+
+可以让 `check(...)` 在语法上始终表现得像“一条普通语句”，这是标准安全写法。
+
+#### 8.5 颜色输出的补充
+
+后续又给 `assert_fail()` 的 `printf` 增加了 ANSI 颜色码，使断言失败时能以红色输出，更利于快速观察。
+
+---
+
+<a id="sec-klibtest-09"></a>
+### 9. 设计与 Debug 过程中踩到的关键问题、根因与解决
+
+这一部分按“问题 -> 根因 -> 解决”统一梳理。
+
+#### 9.1 头文件里普通函数定义导致 `multiple definition of check`
+
+**现象：**
+
+链接时报：
+
+```text
+multiple definition of `check'
+```
+
+**根因：**
+
+- 当时还是“多源文件编进同一个程序”的结构
+- `klib-test.h` 里直接放了普通全局 `check()` 定义
+- 每个 `.c` 都包含一次头文件，就各自产生一个外部符号
+
+**解决：**
+
+- 要么把定义移到单独 `.c`
+- 要么在头文件里改成 `static inline`
+
+最终在断言系统升级后，采用了：
+
+- `static inline assert_fail(...)`
+- `#define check(cond) ...`
+
+#### 9.2 `cpu-tests` 风格 Makefile 迁移时，外层 wrapper 生成失败
+
+**典型问题：**
+
+- `ALL` 推导和文件名模式不匹配
+- `src/%-test.c` 与重命名后的 `src/%.c` 不一致
+- `INC_PATH += ...` 被 shell 当成命令执行，而不是写入临时 wrapper
+- 错把 `$$(AM_HOME)` 当成了正确写法，导致 shell 试图执行 `AM_HOME`
+
+**根因：**
+
+- 没把“当前层 Makefile”和“下一层 wrapper Makefile”分开理解
+- 没意识到 `abstract-machine/Makefile` 不负责筛选测试项
+
+**解决：**
+
+- 统一文件名为：
+  - `write.c`
+  - `read.c`
+  - `format.c`
+  - `stdlib.c`
+- 让 `ALL` 与 `Makefile.%: src/%.c` 保持一致
+- 把 `INC_PATH` 一并写进临时 wrapper
+- 用 `$${AM_HOME}` 正确保留下一层再展开
+
+#### 9.3 `native` 过、`riscv32-nemu` 下断言输出却没有出现
+
+**现象：**
+
+- 故意制造 `check()` 失败后，在 `riscv32-nemu` 下没有看到自定义报错信息
+- 反而先触发了：
+  - `address = 0xa00003f8 is out of bound of pmem`
+
+**根因：**
+
+- `assert_fail()` 里调用了 `printf`
+- 在 `riscv32-nemu` 下，`printf -> klib stdio -> putch -> serial MMIO`
+- 如果当前实际运行的 NEMU 没有正确带上设备配置，串口 MMIO 访问会先炸掉
+
+**解决：**
+
+- 开启：
+  - `CONFIG_DEVICE=y`
+  - `CONFIG_HAS_SERIAL=y`
+  - `CONFIG_SERIAL_MMIO=0xa00003f8`
+- 并确保当前运行的 NEMU 二进制确实已经按这份配置重新构建
+
+这说明：
+
+> **断言输出本身也依赖底层设备链路是否正常。**
+
+#### 9.4 `format` 在 native 下通过，在 `riscv32-nemu` 下失败
+
+**现象：**
+
+`format.c` 中关于：
+
+- `%x`
+- `%c`
+- `%%`
+
+的 `sprintf` 测试在 `native` 下通过，但在 `riscv32-nemu` 下失败。
+
+**根因：**
+
+- `native` 默认走宿主 glibc 的 `sprintf`
+- `riscv32-nemu` 走的是自己的 `klib sprintf`
+- 进一步排查发现：
+  - `sprintf()` 调的是 `vsprintf()`
+  - 当前 `vsprintf()` 只真正实现了 `%s` 和 `%d`
+  - 但 `vsnprintf()` 已经支持 `%s/%d/%x/%p/%c/%%`
+
+也就是说：
+
+> **不是测试错了，而是 `klib/src/stdio.c` 的实现覆盖面本身不一致。**
+
+**解决：**
+
+把 `vsprintf()` 直接收敛到 `vsnprintf()` 的逻辑上，使：
+
+- `sprintf/vsprintf`
+- `snprintf/vsnprintf`
+
+支持同一套格式语义。
+
+**结果：**
+
+- `make ARCH=native ALL=format run` 通过
+- `make ARCH=riscv32-nemu ALL=format run` 通过
+
+#### 9.5 测试用例本身的典型错误模式
+
+在设计测试过程中，还多次暴露出“不是库错，而是测试写错”的问题，典型包括：
+
+1. **检查了错误的缓冲区**
+   - 例如 `strncpy(buf_1, ...)` 之后却去检查 `buf[...]`
+
+2. **把 `NULL` 当成空字符串**
+   - 例如 `strcat(dst, NULL)` 不是“空串测试”，而是未定义行为
+   - 正确空串应写成 `""`
+
+3. **把字符串字面量当作可写目标缓冲区**
+   - 例如把 `"lzqzmm"` 当成 `dst`
+   - 这会落入只读存储区，属于未定义行为
+
+4. **测试 case 之间共用状态导致耦合**
+   - 一个 case 的结果被下一个 case 直接当输入
+   - 这样会降低独立性，失败时不易定位
+
+5. **`memcmp` 长度超过数组容量**
+   - 这是读类测试里必须避免的 UB
+
+这些问题的共同教训是：
+
+> **先保证测试代码自身语义正确，再谈用它去验证 `klib`。**
+
+---
+
+<a id="sec-klibtest-10"></a>
+### 10. 最终结果、验证结论与方法论总结
+
+#### 10.1 最终达成的结构
+
+`klib-tests` 最终形成了如下稳定结构：
+
+- `src/write.c`
+- `src/read.c`
+- `src/format.c`
+- `src/stdlib.c`
+- `include/klib-test.h`
+- 外层 `Makefile` 采用 `cpu-tests` 风格的 wrapper + `.result` 汇总机制
+
+#### 10.2 当前已经打通的闭环
+
+1. **测试结构闭环**
+   - 每个分类测试都有独立 `main()`
+   - 每个 `.c` 可单独编译成测试程序
+
+2. **Makefile 选择闭环**
+   - 默认可全量跑
+   - `ALL=<name>` 可单独跑某一类
+
+3. **断言定位闭环**
+   - 失败时可输出：
+     - 文件
+     - 行号
+     - 函数名
+     - 断言表达式
+
+4. **运行环境认知闭环**
+   - 已明确：
+     - `native` 默认偏宿主 glibc
+     - `riscv32-nemu` 才真正测试 `klib + NEMU`
+
+5. **`stdio` 实现差异闭环**
+   - 已定位并修复 `vsprintf`/`vsnprintf` 能力不一致问题
+   - `format` 测试在 NEMU 下也已通过
+
+#### 10.3 这次 `klib-tests` 设计中最重要的方法论
+
+可以压缩成五句话：
+
+1. **先分层**：测试程序、被测对象、构建系统、执行平台必须分开理解。
+2. **先分阶段**：先用 `native` 验证测试本身，再用 `riscv32-nemu` 验证 `klib + NEMU`。
+3. **先分类型**：按 `write/read/format/stdlib` 分类，比按头文件表面分更适合测试设计。
+4. **先分职责**：外层 Makefile 负责“选谁测”，AM Makefile 负责“怎么编怎么跑”。
+5. **先让报错会说话**：没有精确断言定位，后续一切 Debug 成本都会急剧上升。
+
+#### 10.4 一句话总收束
+
+> `klib-tests` 的真正价值，不只是“给 klib 补了一组 case”，而是建立了一整套从测试分类、Makefile 选择、构建装配、运行平台区分，到断言定位与差异 Debug 的完整方法论闭环。
 
 ---
 
