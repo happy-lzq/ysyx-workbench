@@ -6,7 +6,7 @@ html:
 .PHONY: html
 
 ## 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定
--include $(AM_HOME)/scripts/$(ARCH).mk
+
 
 ## ===================================== 1、基础设定与检查 =========================================== 
 # 设定默认目标 如果用户只输入 make，没有写 run/clean/archive 这类目标  默认就构建 image
@@ -56,8 +56,7 @@ LINKAGE   = $(OBJS)
 
 ## ===================================== 3、通用编译与标志 ============================================= 
 # CROSS_COMPILE	通过展开 ：$(AM_HOME)/scripts/$(ARCH).mk 
-# 进一步展开ISA指令架构脚本：include $(AM_HOME)/scripts/isa/riscv.mk    
-# ARCH=native  为空 使用系统gcc        
+# 进一步展开ISA指令架构脚本：include $(AM_HOME)/scripts/isa/riscv.mk         
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -83,8 +82,9 @@ CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
-## 5. Compilation Rules
+-include $(AM_HOME)/scripts/$(ARCH).mk
 
+## 5. Compilation Rules
 ### Rule (compile): a single `.c` -> `.o` (gcc)
 $(DST_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
