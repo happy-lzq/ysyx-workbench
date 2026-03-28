@@ -3142,7 +3142,130 @@ make ARCH=riscv32-nemu ALL=write run
 - `ARCH=native`：默认更像宿主 glibc 路径
 - `ARCH=riscv32-nemu`：真正测试 `klib + AM + NEMU`
 
-#### 7.3 这对 Debug 的意义
+<a id="sec-klibtest-07-3"></a>
+**7.3 ISA_NATIVE 和 NATIVE_USE_KLIB 的来源与选择逻辑**
+
+这一点是理解整条 native/klib 选择链的关键。
+
+在 `klib/src/string.c`、`stdio.c`、`stdlib.c` 里，经常能看到：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+这两个宏的来源并不相同。
+
+<a id="sec-klibtest-07-3-1"></a>
+**7.3.1 __ISA_NATIVE__ 的来源：由构建系统通过 -D 自动注入**
+
+它不是在源码里手写 `#define` 的，而是由 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L34) 到 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L36) 先解析 `ARCH`：
+
+```make
+ARCH_SPLIT = $(subst -, ,$(ARCH))
+ISA        = $(word 1,$(ARCH_SPLIT))
+PLATFORM   = $(word 2,$(ARCH_SPLIT))
+```
+
+然后在 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L83) 里注入编译宏：
+
+```make
+-D__ISA__=\"$(ISA)\" -D__ISA_$(shell echo $(ISA) | tr a-z A-Z)__
+```
+
+因此：
+
+- 当 `ARCH=native`
+  - `ISA = native`
+  - 编译器会收到：
+    ```c
+    -D__ISA_NATIVE__
+    ```
+
+- 当 `ARCH=riscv32-nemu`
+  - `ISA = riscv32`
+  - 编译器会收到：
+    ```c
+    -D__ISA_RISCV32__
+    ```
+
+也就是说：
+
+> **`__ISA_NATIVE__` 不是源码里固定写死的宏，而是构建系统根据 `ARCH=native` 自动注入的编译期开关。**
+
+<a id="sec-klibtest-07-3-2"></a>
+**7.3.2 __NATIVE_USE_KLIB__ 的来源：klib 自己预留的显式开关**
+
+这个宏可以直接在 [klib.h](/home/luo/ysyx/ysyx-workbench/abstract-machine/klib/include/klib.h#L12) 看到：
+
+```c
+//#define __NATIVE_USE_KLIB__
+```
+
+它当前默认是注释掉的，因此默认情况下没有定义。
+
+它的设计意图是：
+
+- native 默认优先使用宿主 libc/glibc；
+- 如果用户想在 native 下也强制走自己实现的 `klib`，就显式打开这个宏。
+
+因此：
+
+> **`__NATIVE_USE_KLIB__` 是 `klib` 侧手动预留的开关，默认关闭，只有显式启用时 native 才会改走 `klib`。**
+
+<a id="sec-klibtest-07-3-3"></a>
+**7.3.3 这条 #if 的选择逻辑到底是什么？**
+
+把条件拆开看：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+它的含义是：
+
+1. **如果当前不是 native**
+   - 即 `!defined(__ISA_NATIVE__)` 为真
+   - 那就直接启用这份 `klib` 实现
+
+2. **如果当前是 native**
+   - 那么第一项为假
+   - 这时只有在 `defined(__NATIVE_USE_KLIB__)` 为真时，才启用 `klib`
+
+于是四种典型情况可以整理成下面这张表：
+
+| 当前构建场景 | `__ISA_NATIVE__` | `__NATIVE_USE_KLIB__` | 条件结果 | 最终行为 |
+| :--- | :--- | :--- | :--- | :--- |
+| `ARCH=native`，默认状态 | 已定义 | 未定义 | `false || false` | 不启用 `klib`，更偏宿主 libc/glibc |
+| `ARCH=native`，显式开启 `__NATIVE_USE_KLIB__` | 已定义 | 已定义 | `false || true` | native 下也启用 `klib` |
+| `ARCH=riscv32-nemu` | 未定义 | 无论是否开启都不重要 | `true || ...` | 启用 `klib` |
+| 其他非 native 架构 | 未定义 | 无论是否开启都不重要 | `true || ...` | 启用 `klib` |
+
+所以这条 `#if` 的本质可以压缩成一句话：
+
+> **非 native 默认启用 `klib`；native 默认关闭 `klib`，除非显式打开 `__NATIVE_USE_KLIB__`。**
+
+<a id="sec-klibtest-07-3-4"></a>
+**7.3.4 为什么要这样设计？**
+
+这是一个很典型的“按平台区分默认行为”的设计：
+
+- **native 默认路径**
+  - 尽量复用宿主机成熟的 libc/glibc
+  - 更适合先验证测试代码本身是否合理
+
+- **非 native 默认路径**
+  - 没有宿主 libc 可以依赖
+  - 必须走自己实现的 `klib`
+
+- **保留额外开关**
+  - 允许开发者在 native 下也强制测试自实现 `klib`
+
+因此，`ARCH=native` 与 `ARCH=riscv32-nemu` 的行为差异，并不是“运行时动态切换”，而是：
+
+> **在编译期通过 `__ISA_NATIVE__` 与 `__NATIVE_USE_KLIB__` 共同决定，某份 `klib` 源文件里的实现到底会不会被编进最终程序。**
+
+<a id="sec-klibtest-07-4"></a>
+**7.4 这对 Debug 的意义**
 
 它直接决定了排障优先级：
 
