@@ -1,10 +1,12 @@
-
 #1、AM裸机总控脚本 由上层脚本提供 NAME SRCS ARCH 等变量 
 #2、本层统一完成检查、编译、递归构建依赖库、链接、清理
 
 html:
 	cat Makefile | sed 's/^\([^#]\)/    \1/g' | markdown_py > Makefile.html
 .PHONY: html
+
+## 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定
+-include $(AM_HOME)/scripts/$(ARCH).mk
 
 ## ===================================== 1、基础设定与检查 =========================================== 
 # 设定默认目标 如果用户只输入 make，没有写 run/clean/archive 这类目标  默认就构建 image
@@ -37,25 +39,25 @@ endif
 endif
 
 ## ===================================== 2、 通用编译目标设置 ============================================= 
-
 # WORK_DIR=/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
 WORK_DIR  = $(shell pwd)
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
-### Compilation targets (a binary image or archive)
-IMAGE_REL = build/$(NAME)-$(ARCH)    # 编译-链接产生的文件路径前缀
+### 编译产物的路径变量
+IMAGE_REL = build/$(NAME)-$(ARCH)
 IMAGE     = $(abspath $(IMAGE_REL))
 ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
-### Collect the files to be linked: object files (`.o`) and libraries (`.a`)
+### 基于SRC获取目标文件路径变量  .o + .a 文件
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
 LIBS     := $(sort $(LIBS) am klib)
 LINKAGE   = $(OBJS)
 
-## 3. General Compilation Flags
-
-### CROSS_COMPILE 编译工具绑定
+## ===================================== 3、通用编译与标志 ============================================= 
+# CROSS_COMPILE	通过展开 ：$(AM_HOME)/scripts/$(ARCH).mk 
+# 进一步展开ISA指令架构脚本：include $(AM_HOME)/scripts/isa/riscv.mk    
+# ARCH=native  为空 使用系统gcc        
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -67,7 +69,7 @@ READELF   = $(CROSS_COMPILE)readelf
 
 ### Compilation flags
 INC_PATH += $(WORK_DIR)/include $(addsuffix /include/, $(addprefix $(AM_HOME)/, $(LIBS)))
-INCFLAGS += $(addprefix -I, $(INC_PATH))     # 构建编译器参数
+INCFLAGS += $(addprefix -I, $(INC_PATH))
 
 ARCH_H := arch/$(ARCH).h
 CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
@@ -80,11 +82,6 @@ CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
 CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
-
-## 4. Arch-Specific Configurations
-
-### 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定，保证完全调用以及RISCV平台处理进而获取完整0-1指令可执行文件.bin
--include $(AM_HOME)/scripts/$(ARCH).mk
 
 ## 5. Compilation Rules
 
