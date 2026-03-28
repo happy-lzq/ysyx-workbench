@@ -1,53 +1,44 @@
-# Makefile for AbstractMachine Kernels and Libraries
 
-### *Get a more readable version of this Makefile* by `make html` (requires python-markdown)
+#1、AM裸机总控脚本 由上层脚本提供 NAME SRCS ARCH 等变量 
+#2、本层统一完成检查、编译、递归构建依赖库、链接、清理
+
 html:
 	cat Makefile | sed 's/^\([^#]\)/    \1/g' | markdown_py > Makefile.html
 .PHONY: html
 
-## 1. Basic Setup and Checks
-
-### Default to create a bare-metal kernel image
-ifeq ($(MAKECMDGOALS),)            # MAKECMDGOALS ：make run make clean 对应make的执行目标变量
+## ===================================== 1、基础设定与检查 =========================================== 
+# 设定默认目标 如果用户只输入 make，没有写 run/clean/archive 这类目标  默认就构建 image
+ifeq ($(MAKECMDGOALS),)        
   MAKECMDGOALS  = image
   .DEFAULT_GOAL = image
 endif
-
-### Override checks when `make clean/clean-all/html`
+# make 目标 不在clean|clean-all|html 范围内都需要进行下列的基础设定与检查
 ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
 
-### Print build info message     
-$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])     # ARCH属于内置环境变量 ：ARCH=riscv32-nemu
-
-### Check: environment variable `$AM_HOME` looks sane
-ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)        # 获取路径
+$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])
+# 检验裸机核心头文件是否存在
+ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)
   $(error $$AM_HOME must be an AbstractMachine repo)
 endif
-
-### Check: environment variable `$ARCH` must be in the supported list
+# 获取所有架构名称
 ARCHS = $(basename $(notdir $(shell ls $(AM_HOME)/scripts/*.mk)))
 ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### 提取指令架构与平台：ISA=RISCV   PLATFORM=NEMU   
-ARCH_SPLIT = $(subst -, ,$(ARCH))                
+ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
-
-### Check if there is something to build   检查变量的性质属性
+# 检验上层传入的SRCS 是否被定义 是否有效，
 ifeq ($(flavor SRCS), undefined)
   $(error Nothing to build)
 endif
-
-### Checks end here
+# 基础设定与检查结束
 endif
 
-## 2. General Compilation Targets
+## ===================================== 2、 通用编译目标设置 ============================================= 
 
-### Create the destination directory (`build/$ARCH`)
-#make 进程的工作目录（current working directory）shell 执行时的工作路径
-#/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
+# WORK_DIR=/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
 WORK_DIR  = $(shell pwd)
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
@@ -59,8 +50,8 @@ ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
 ### Collect the files to be linked: object files (`.o`) and libraries (`.a`)
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
-LIBS     := $(sort $(LIBS) am klib)  #增加运行时环境的库列表
-LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
+LIBS     := $(sort $(LIBS) am klib)
+LINKAGE   = $(OBJS)
 
 ## 3. General Compilation Flags
 
