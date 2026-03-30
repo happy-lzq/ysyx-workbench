@@ -148,7 +148,7 @@ static int parse_args(int argc, char *argv[]) {
       case 'e': elf_file = optarg;  break;        // elf_file = /path/NAME-riscv32-nmeu.elf
       case 'l': log_file = optarg;  break;        // log_file = /path/nemu-log.txt
       case 'd': diff_so_file = optarg; break;      
-      case 'i': img_file = optarg; break;           // img_file = /path/NAME-riscv32-nemu.bin
+      case 'i': img_file = optarg; break;         // img_file = /path/NAME-riscv32-nemu.bin
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
         printf("\t-b,--batch              run with batch mode\n");      
