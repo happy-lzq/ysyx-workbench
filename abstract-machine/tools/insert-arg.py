@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+# 用于将命令行参数（mainargs）嵌入到编译生成的二进制文件中，替换掉一个预定义的占位符（placeholder）
+# 当二进制文件运行时，main 函数的 args 参数就能接收到实际的参数字符串。
 from sys import argv
 
 bin = argv[1]
