@@ -19,14 +19,15 @@ NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
 NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
 NEMUFLAGS += -b 
  # 增加 -b 选择nemu平台的批处理模式
+
+# python脚本处理insert-arg 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
-# 在abstract-machine/Makefile 中确定 image-dep 对$(IMAGE).elf 链接规则依赖
+
 insert-arg: image
 	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
 # 利用python脚本规定 修改 guest 二进制文件（image.bin），写入占位符处 → 运行时 guest 程序内的 mainargs 读取到这个值   该脚本在.bin生成之后，run之前处理完成
-
 
 
 # ARGS="$(NEMUFLAGS)" :传给宿主模拟器 NEMU 的命令行选项，控制模拟器行为（启动镜像、日志、端口等）

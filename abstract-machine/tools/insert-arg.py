@@ -6,7 +6,7 @@ from sys import argv
 bin = argv[1]
 max_len = int(argv[2])
 placeholder = argv[3]          # 占位符字符串参数
-mainargs = argv[4]
+mainargs = argv[4]             # 占位符实际参数内容
 
 if len(mainargs) >= max_len:
     print("Error: mainargs should not be longer than {0} bytes\n".format(max_len))
