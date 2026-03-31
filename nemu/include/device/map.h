@@ -21,6 +21,7 @@
 typedef void(*io_callback_t)(uint32_t, int, bool);
 uint8_t* new_space(int size);
 
+// 内存映射MMIO设备地图：描述和管理所有通过内存映射I/O（MMIO）方式访问的外部设备。
 typedef struct {
   const char *name;
   // we treat ioaddr_t as paddr_t here

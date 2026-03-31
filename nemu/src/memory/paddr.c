@@ -30,8 +30,8 @@ uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
 paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
 /*
   1、paddr 客户机程序基于RISCV32交叉编译后产生的实际内存数据地址：0x80000000 ;返回对应nemu物理内存pmem中相对应的存储地址
-    去掉基于真实RISCV32机器下的物理内存基址偏移，转换成模拟器nmeu宿主机数组中相对应的地址pmem数组下标
-  2、haddr 宿主机nmeu内存pmem下的数组下标，进而反向转化为相对应的真实RISCV32机器下的物理内存地址
+    去掉基于真实RISCV32机器下的物理内存基址偏移，转换成模拟器nemu宿主机数组中相对应的地址pmem数组下标
+  2、haddr 宿主机nemu内存pmem下的数组下标，进而反向转化为相对应的真实RISCV32机器下的物理内存地址
 */
 static word_t pmem_read(paddr_t addr, int len) {
   word_t ret = host_read(guest_to_host(addr), len);
@@ -62,8 +62,8 @@ void init_mem() {
 // 正式的物理内存读写功能的API函数
 
 word_t paddr_read(paddr_t addr, int len) {
-  if (likely(in_pmem(addr))) {
-    word_t pr_data = pmem_read(addr,len);
+  if (likely(in_pmem(addr))) {                // 检验addr属于位于指令数据物理内存地址内
+    word_t pr_data = pmem_read(addr,len);     // 读取地址并返回对应数据
     #ifdef CONFIG_MTRACE
       if (MTRACE_COND)
       {
