@@ -18,16 +18,26 @@
 
 #include <cpu/difftest.h>
 
-typedef void(*io_callback_t)(uint32_t, int, bool);
 uint8_t* new_space(int size);
+typedef void(*io_callback_t)(uint32_t, int, bool);
+/* 回调函数的理解
+1、cpu与外设通信的回调函数定义规范（协议）
+  uint32_t offset 相对该设备起始地址的偏移量
+  int len         访问字节大小 通常按 1、2、4、8四种读取字节类别进行读写
+  bool            读写标志位    ture代表cpu写设备  false代表cpu读设备 
+2、串口设备回调函数定义：
+  void serial_io_handler(uint32_t offset, int len, bool is_write)
+*/
 
-// 内存映射MMIO设备地图：描述和管理所有通过内存映射I/O（MMIO）方式访问的外部设备。
+
+
+// 内存映射MMIO设备地图：描述和管理所有通过内存映射I/O（MMIO）方式访问的外部设备。 
 typedef struct {
   const char *name;
   // we treat ioaddr_t as paddr_t here
   paddr_t low;
   paddr_t high;
-  void *space;
+  void *space;    //nemu模拟设备内部状态的内存区域   它将写入的数据复制到设备内部状态区的对应偏移处
   io_callback_t callback;
 } IOMap;
 

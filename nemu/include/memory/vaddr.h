@@ -22,8 +22,8 @@ word_t vaddr_ifetch(vaddr_t addr, int len);
 word_t vaddr_read(vaddr_t addr, int len);
 void vaddr_write(vaddr_t addr, int len, word_t data);
 
-#define PAGE_SHIFT        12
-#define PAGE_SIZE         (1ul << PAGE_SHIFT)
-#define PAGE_MASK         (PAGE_SIZE - 1)
+#define PAGE_SHIFT        12                        // MMU内存管理单元按页(4kb=4096 byte)管理
+#define PAGE_SIZE         (1ul << PAGE_SHIFT)       // page_size=2^12=4090 (字节)
+#define PAGE_MASK         (PAGE_SIZE - 1)           // 掩码用于过滤内存地址中的页面偏移量 4095=0xFFF
 
 #endif

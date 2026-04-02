@@ -30,3 +30,4 @@ void _trm_init() {
   int ret = main(mainargs);  // 指向只读数据段的 mainargs 数组
   halt(ret);
 }
+

@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+// native 未被定义,显示要求native使用当前klib 
 int printf(const char *fmt, ...) {
   char buf[1024];
   va_list ap;
