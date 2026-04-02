@@ -28,8 +28,8 @@
 // 内存映射I/O
 #define SERIAL_PORT     (DEVICE_BASE + 0x00003f8)     // 串口数据端口内存映射
 #define KBD_ADDR        (DEVICE_BASE + 0x0000060)     //
-#define RTC_ADDR        (DEVICE_BASE + 0x0000048)
-#define VGACTL_ADDR     (DEVICE_BASE + 0x0000100)     // 
+#define RTC_ADDR        (DEVICE_BASE + 0x0000048)     // 时钟计时器
+#define VGACTL_ADDR     (DEVICE_BASE + 0x0000100)     // VGA
 #define AUDIO_ADDR      (DEVICE_BASE + 0x0000200)
 #define DISK_ADDR       (DEVICE_BASE + 0x0000300)
 #define FB_ADDR         (MMIO_BASE   + 0x1000000)
