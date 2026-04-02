@@ -49,6 +49,10 @@ static char *elf_file = NULL;
 static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 
 // ================================= 基于命令的路径处理 ===========================================
+/* build_named_log_file is only needed when mtrace or ftrace support is
+   enabled; guard its definition to avoid -Wunused-function when those
+   features are disabled. */
+#if defined(CONFIG_MTRACE) || defined(CONFIG_FTRACE)
 static const char *build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
                                         const char *default_path,
@@ -63,8 +67,8 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
 
   size_t dir_len = slash == NULL ? 0 : (size_t)(slash - path + 1);  // 获取目录长度包括/
   size_t base_len = (dot != NULL && dot > name) ? (size_t)(dot - name) : strlen(name);   // 获取名字长度
-// ret 返回值大于0  ret < buf_size 无溢出
-// 拼接逻辑：fix
+  // ret 返回值大于0  ret < buf_size 无溢出
+  // 拼接逻辑：fix
   int ret = snprintf(buf, buf_size, "%.*s%.*s-%s",
                      (int)dir_len, path,
                      (int)base_len, name,
@@ -75,6 +79,7 @@ static const char *build_named_log_file(char *buf, size_t buf_size,
   // Assert(条件，输出文本) 条件成立，不输出；条件不成立，中断输出红色文本
   return buf;
 }
+#endif
 
 
 // ================================== Mtrace_log 路径处理 ==========================================
