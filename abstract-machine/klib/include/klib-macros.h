@@ -12,6 +12,9 @@
 #define _CONCAT(x, y)       x ## y
 #define CONCAT(x, y)        _CONCAT(x, y)
 
+// ##   C预处理器的连接符
+// ({}) gcc语句表达式，允许括号内写多条语句，最后一条表达的值就是整个宏展开后的值
+// 
 #define putstr(s) \
   ({ for (const char *p = s; *p; p++) putch(*p); })
 

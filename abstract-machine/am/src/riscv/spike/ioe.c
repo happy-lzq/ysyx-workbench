@@ -17,9 +17,10 @@ static void *lut[128] = {
 static void fail(void *buf) { panic("access nonexist register"); }
 
 bool ioe_init() {
+// 宏LENGTH的作用是获取数组成员的个数
   for (int i = 0; i < LENGTH(lut); i++)
     if (!lut[i]) lut[i] = fail;
-  __am_timer_init();
+  __am_timer_init();                        //abstract-machine/am/src/platform/nemu/ioe/timer.c
   return true;
 }
 

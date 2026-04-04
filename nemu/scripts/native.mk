@@ -28,14 +28,19 @@ override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
 override ARGS += $(ARGS_DIFF)
 
 # Command to execute NEMU
-IMG ?=
-NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
-
+# IMG ?=    可以省略当前行
+NEMU_EXEC := $(BINARY) $(ARGS) # $(IMG) parsr_arg()中使用-i 匹配镜像文件image 
+# 确保二进制.bin存在，如果若启用 difftest，再确保参考 so 已经准备好。
 run-env: $(BINARY) $(DIFF_REF_SO)
 
 run: run-env
 	$(call git_commit, "run NEMU")
 	$(NEMU_EXEC)
+# $(NEMU_EXEC) 展开变量，把它变成一条完整命令，然后交给 shell 执行
+# /home/luo/ysyx/ysyx-workbench/nemu/build/riscv32-nemu-interpreter -b \
+  -l /home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/nemu-log.txt \
+  -e /home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.elf \
+  IMG=/home/luo/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests/build/string-riscv32-nemu.bin \
 
 gdb: run-env
 	$(call git_commit, "gdb NEMU")

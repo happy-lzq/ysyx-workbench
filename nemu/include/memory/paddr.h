@@ -18,10 +18,15 @@
 
 #include <common.h>
 
-#define PMEM_LEFT  ((paddr_t)CONFIG_MBASE)
-#define PMEM_RIGHT ((paddr_t)CONFIG_MBASE + CONFIG_MSIZE - 1)
-#define RESET_VECTOR (PMEM_LEFT + CONFIG_PC_RESET_OFFSET)
-
+#define PMEM_LEFT  ((paddr_t)CONFIG_MBASE)                      // nemu物理内存起始地址
+#define PMEM_RIGHT ((paddr_t)CONFIG_MBASE + CONFIG_MSIZE - 1)   // nemu物理内存终止地址
+#define RESET_VECTOR (PMEM_LEFT + CONFIG_PC_RESET_OFFSET)       // 对应宿主机nemu的物理内存起始地址pmem
+/*
+  1、客户机.c程序链接确定elf文件的链接地址：0x800000000 （nmeu.mk）
+  2、宿主机nmeu将.bin文件加载到起始地址：RESET_VECTOR=0x80000000 (init.c)
+  3、宿主机cpu.pc 起始地址：RESET_VECTOR=0x80000000  (init.c)
+  4、总上三者约定好数据对应的起始地址，进而在进行cpu处理时地址与数据一一对应
+*/
 /* convert the guest physical address in the guest program to host virtual address in NEMU */
 uint8_t* guest_to_host(paddr_t paddr);
 /* convert the host virtual address in NEMU to guest physical address in the guest program */

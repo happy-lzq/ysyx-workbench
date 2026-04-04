@@ -23,6 +23,14 @@ typedef struct {
   vaddr_t pc;
 } MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state);
 
+/*
+CPU_state  根据系统选择的ISA构建对应的cpu_state 结构体
+typedef struct {
+  uint32_t gpr[32];
+  uint32_t pc;
+} riscv32_CPU_state;
+
+*/
 // decode
 typedef struct {
   uint32_t inst;

@@ -1,3 +1,5 @@
+# 脚本的核心作用：指令集设定，设定RSICV编译参数
+
 CROSS_COMPILE := riscv64-linux-gnu-
 COMMON_CFLAGS := -fno-pic -march=rv64g -mcmodel=medany -mstrict-align
 CFLAGS        += $(COMMON_CFLAGS) -static
