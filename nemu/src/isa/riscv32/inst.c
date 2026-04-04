@@ -190,6 +190,7 @@ static int decode_exec(Decode *s) {
 
   }
 
+/*
   // =================================== 末尾兜底无效指令 ==========================================================
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
 
@@ -272,6 +273,7 @@ static int decode_exec(Decode *s) {
                                                                         (int32_t) src1 % (int32_t) src2 ))) ;  
   INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
 
+*/  
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0
