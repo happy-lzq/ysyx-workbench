@@ -42,6 +42,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+  
 #if defined(CONFIG_WATCHPOINT) && !defined(CONFIG_TARGET_AM)
   if (nemu_state.state == NEMU_RUNNING && check_watchpoint(&used_list) > 0) {
     nemu_state.state = NEMU_STOP;
@@ -95,10 +96,10 @@ static void display_irbuf(void){
 
 
 static void exec_once(Decode *s, vaddr_t pc) {
-  s->pc = pc;
+  s->pc = pc;       // 当前pc
   s->snpc = pc;
-  isa_exec_once(s);   // 由具体的指令集实现
-  cpu.pc = s->dnpc;
+  isa_exec_once(s);   
+  cpu.pc = s->dnpc;  // 下一条pc
   
 #ifdef CONFIG_ITRACE
   char *p = s->logbuf;

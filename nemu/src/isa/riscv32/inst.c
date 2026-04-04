@@ -83,74 +83,130 @@ static int decode_exec(Decode *s) {
 }
 // INSTPAT条目核心：opcode functs3 functs7 ；源寄存器，目标寄存器，以及立即数利用 ? 表示 
   INSTPAT_START();
-// =================================== 长立即数指令 ==================================================================
-  INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm);                             // x[rd] = sext(immediate[31:12] << 12)
-  INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);                     // x[rd] = pc + sext(immediate[31:12] << 12)
 
-// =================================== 加载和存储指令 ==================================================================
-  INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
-  INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
-  INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));               // x[rd] = M[x[rs1] + sext(offset)][15:0]
-  INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));               // x[rd] = M[x[rs1] + sext(offset)][7:0]
+  // 1. 系统指令 (系统调用、断点) 放在最前面
+  INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); 
+  // 在 NEMU 的测试框架中，ebreak 被用作程序结束的标志，并根据 a0 的值判断测试是否通过：a0 = 0 表示成功（GOOD TRAP），a0 ≠ 0 表示失败（BAD TRAP）。
+
+  // 2. 根据 opcode 进行 case 分类 (顺序: R I S B U J)
+  switch (BITS(s->isa.inst, 6, 0)) {
+
+    // =================================== R-Type (opcode = 0x33) ==================================================
+    case 0x33:
+      // 算数逻辑运算按常用程度排序
+      INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);                     // x[rd] = x[rs1] + x[rs2]
+      INSTPAT("0100000 ????? ????? 000 ????? 01100 11", sub    , R, R(rd) = src1 - src2);                     // x[rd] = x[rs1] - x[rs2]
+      INSTPAT("0000000 ????? ????? 111 ????? 01100 11", and    , R, R(rd) = src1 & src2);                                                        // x[rd] = x[rs1] & x[rs2]
+      INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
+      INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
+      INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
+      INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                                              // x[rd] = (x[rs1] ≫𝑢 x[rs2])
+      INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
+      INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
+      INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
+      
+      // 乘除法运算指令 (M-Extension)
+      INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);                                                        // x[rd] = x[rs1] × x[rs2]
+      INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = ((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32);            // x[rd] = (x[rs1] 𝑠 ×𝑠 x[rs2]) ≫𝑠 XLEN
+      INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
+      INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
+      INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
+                                                                            ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
+                                                                            (int32_t) src1 / (int32_t) src2 )));  
+      INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
+      INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
+                                                                            ((src1 == 0x80000000 && src2 == -1) ? 0x00000000 : 
+                                                                            (int32_t) src1 % (int32_t) src2 ))) ;  
+      INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
+      break;
+
+    // =================================== I-Type (opcode = 0x13, 0x03, 0x67) ==============================================
+    case 0x13: // ALU-I
+    case 0x03: // Load 
+    case 0x67: // jalr
+      // I-Type 按照 最常用内存读和立即数算数排序
+      INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);                      // x[rd] = x[rs1] + sext(immediate)
+      INSTPAT("??????? ????? ????? 010 ????? 00000 11", lw     , I, R(rd) = Mr(src1 + imm, 4));               // x[rd] = sext(M[x[rs1] + sext(offset)][31:0])
+      INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1;       // ret伪指令实际被扩展为 jalr x0, 0(x1)
+          IFDEF(CONFIG_FTRACE,
+            int rs1_idx = BITS(s->isa.inst, 19, 15);                                                                    // src1 对应源寄存器索引
+            if (rd == 1) {
+              ftrace_call(s->pc, s->dnpc, s->snpc);
+            } else if (rd == 0 && rs1_idx == 1 && imm == 0) {       // ret 返程不需要返回地址。rd=x0,并且src1索引为返回寄存器，并且imm=0,说明执行返回栈 ret 伪指令
+              ftrace_ret(s->pc, s->dnpc);                           
+            }
+          );
+      );
+      INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
+      INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
+      INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1F));   // x[rd] = (x[rs1] ≫𝑠 shamt)
+      INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);                      // x[rd] = x[rs1] & sext(immediate)
+      INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);                      // x[rd] = x[rs1] | sext(immediate)
+      INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);                      // x[rd] = x[rs1] ^ sext(immediate)
+      INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int32_t)src1 < (int32_t)imm) ;                                      // x[rd] = (x[rs1] <𝑠 sext(immediate))
+      INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                                                         // x[rd] = (x[rs1] <𝑢 sext(immediate))
+      
+      // 字寻址存储装载指令 (Sub-word Load)
+      INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));               // x[rd] = M[x[rs1] + sext(offset)][15:0]
+      INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));               // x[rd] = M[x[rs1] + sext(offset)][7:0]
+      INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
+      INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
+      break;
+
+    // =================================== S-Type (opcode = 0x23) ==================================================
+    case 0x23:
+      INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));                 // M[x[rs1] + sext(offset) = x[rs2][31: 0]
+      INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));                 // M[x[rs1] + sext(offset) = x[rs2][15: 0]
+      INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));                 // M[x[rs1] + sext(offset) = x[rs2][7: 0]
+      break;
+
+    // =================================== B-Type (opcode = 0x63) ==================================================
+    case 0x63:
+      INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
+      INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
+      INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
+      INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
+      INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
+      INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
+      break;
+
+    // =================================== U-Type (opcode = 0x37, 0x17) ============================================
+    case 0x37: // lui
+    case 0x17: // auipc
+      INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm);                             // x[rd] = sext(immediate[31:12] << 12)
+      INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);                     // x[rd] = pc + sext(immediate[31:12] << 12)
+      break;
+
+    // =================================== J-Type (opcode = 0x6f) ==================================================
+    case 0x6f: // jal
+      INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;   // rd 默认为 x1(ra=返回寄存器)
+          IFDEF(CONFIG_FTRACE, 
+            if (rd == 1) {  // 约定：x1=ra返回寄存器在32个通用寄存器中的索引为：1 当该寄存器被写入数据时，说明存在函数调用。
+            ftrace_call(s->pc, s->dnpc, s->snpc);
+            }
+          )
+        );
+      break;
+
+  }
+
+/*
+  // =================================== 末尾兜底无效指令 ==========================================================
+  INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
+
+// =================================== 2. 最常用算术指令 (I-Type ALU & Load/Store Word) ==================================================
+  INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);                      // x[rd] = x[rs1] + sext(immediate)
   INSTPAT("??????? ????? ????? 010 ????? 00000 11", lw     , I, R(rd) = Mr(src1 + imm, 4));               // x[rd] = sext(M[x[rs1] + sext(offset)][31:0])
-  INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));                 // M[x[rs1] + sext(offset) = x[rs2][7: 0]
-  INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));                 // M[x[rs1] + sext(offset) = x[rs2][15: 0]
   INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));                 // M[x[rs1] + sext(offset) = x[rs2][31: 0]
 
-//==================================== 立即数运算指令 ===================================================================
-  INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);                      // x[rd] = x[rs1] + sext(immediate)
-  INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);                      // x[rd] = x[rs1] & sext(immediate)
-  INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);                      // x[rd] = x[rs1] | sext(immediate)
-  INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);                      // x[rd] = x[rs1] ^ sext(immediate)
-  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                    // x[rd] = x[rs1] ≪ x[rs2]
-  INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
-  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                    // x[rd] = (x[rs1] ≫𝑢 x[rs2])
-  INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
-  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));            // x[rd] = (x[rs1] ≫𝑠 x[rs2])
-  INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1F));    // x[rd] = (x[rs1] ≫𝑠 shamt)
-  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2) ;   // x[rd] = (x[rs1] <𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                      // x[rd] = (x[rs1] <𝑢 x[rs2])
-  INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int32_t)src1 < (int32_t)imm) ;    // x[rd] = (x[rs1] <𝑠 sext(immediate))
-  INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                       // x[rd] = (x[rs1] <𝑢 sext(immediate))
+// ==================================== 3. 分支跳转核心指令 (Branch & Jump) =================================================================
+  INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
+  INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
 
-// ==================================== 算术运算指令 =====================================================================
-  INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);                     // x[rd] = x[rs1] + x[rs2]
-  INSTPAT("0100000 ????? ????? 000 ????? 01100 11", sub    , R, R(rd) = src1 - src2);                     // x[rd] = x[rs1] - x[rs2]
-  INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);                                                        // x[rd] = x[rs1] × x[rs2]（32位无符号乘法，结果32位整数，溢出自动丢掉）
-  INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = ((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32);            // x[rd] = (x[rs1] 𝑠 ×𝑠 x[rs2]) ≫𝑠 XLEN
-  INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
-  INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
-
-/*       除法与取余的操作
- 1、  ~0的二进制表示为：0xffffffff（全1）
-      有符号处理：~0 = 0xffffffff 代表-1的补码 RISC-V 规定有符号除法除以 0 时，结果为 -1
-      无符号处理：~0 = 0xffffffff 代表2^32-1 32位计算机能表示的最大数，RISC-V 规定无符号除法除以 0 时，结果为全 1。
-2、   RISC-V 指令集规范的定义。当除数为 0 时，取余运算的结果规定为被除数本身。
-3、   有符号的除法需要考虑溢出，无符号不需要。有符号定义：最高位0为正，最高位1为负
-      32位有符号整数的最小值是 0x80000000（即 -2147483648）。32位有符号整数的最大值是 0x7FFFFFFF（2147483647），无法存下 
-      负数在计算机中存的是补码的形式：补码=源码进行（反码+1）；
-      计算机中进行有符号查看：最高位0：直接处理；最高位1：减1取反
-      加权计算：数值=符号位x（-2^N-1）+ 其他位x（2^N）（位数）
-*/
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
-                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
-                                                                        (int32_t) src1 / (int32_t) src2 )));  
-  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
-  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
-                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x00000000 : 
-                                                                        (int32_t) src1 % (int32_t) src2 ))) ;  
-  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
-
-  INSTPAT("0000000 ????? ????? 111 ????? 01100 11", and    , R, R(rd) = src1 & src2);                                                        // x[rd] = x[rs1] & x[rs2]
-  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));     INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
-  INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
-  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
-                                           // x[rd] = (x[rs1] ≫𝑢 x[rs2])
-  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
-
-// ==================================== 跳转指令 =================================================================
   INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;              // rd 默认为 x1(ra=返回寄存器)
       IFDEF(CONFIG_FTRACE, 
         if (rd == 1) {  // 约定：x1=ra返回寄存器在32个通用寄存器中的索引为：1 当该寄存器被写入数据时，说明存在函数调用。
@@ -169,18 +225,55 @@ static int decode_exec(Decode *s) {
       );
   );
 
-// ==================================== 分支指令 =================================================================
-  INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
+// =================================== 4. 常见算术逻辑指令 (ALU R-type & I-Type Others) ==================================================
+  INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);                     // x[rd] = x[rs1] + x[rs2]
+  INSTPAT("0100000 ????? ????? 000 ????? 01100 11", sub    , R, R(rd) = src1 - src2);                     // x[rd] = x[rs1] - x[rs2]
+  INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
+  INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
+  INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1F));   // x[rd] = (x[rs1] ≫𝑠 shamt)
+  INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);                      // x[rd] = x[rs1] & sext(immediate)
+  INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);                      // x[rd] = x[rs1] | sext(immediate)
+  INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);                      // x[rd] = x[rs1] ^ sext(immediate)
 
-// =================================== 系统指令以及无效指令 ==================================================================
-  INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); 
-  // 在 NEMU 的测试框架中，ebreak 被用作程序结束的标志，并根据 a0 的值判断测试是否通过：a0 = 0 表示成功（GOOD TRAP），a0 ≠ 0 表示失败（BAD TRAP）。
-  INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
+  INSTPAT("0000000 ????? ????? 111 ????? 01100 11", and    , R, R(rd) = src1 & src2);                                                        // x[rd] = x[rs1] & x[rs2]
+  INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
+  INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
+  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
+  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                                              // x[rd] = (x[rs1] ≫𝑢 x[rs2])
+  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
+
+  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
+  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
+  INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int32_t)src1 < (int32_t)imm) ;                                      // x[rd] = (x[rs1] <𝑠 sext(immediate))
+  INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                                                         // x[rd] = (x[rs1] <𝑢 sext(immediate))
+
+// =================================== 5. 地址加载指令 (U-Type) ==================================================================
+  INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm);                             // x[rd] = sext(immediate[31:12] << 12)
+  INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);                     // x[rd] = pc + sext(immediate[31:12] << 12)
+
+// =================================== 6. 次寻址存储装载指令 (Sub-word Load/Store) ==================================================================
+  INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));               // x[rd] = M[x[rs1] + sext(offset)][15:0]
+  INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));               // x[rd] = M[x[rs1] + sext(offset)][7:0]
+  INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
+  INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
+  INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));                 // M[x[rs1] + sext(offset) = x[rs2][15: 0]
+  INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));                 // M[x[rs1] + sext(offset) = x[rs2][7: 0]
+
+// ==================================== 7. 乘除法运算指令 (M-Extension) ==============================================================
+  INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);                                                        // x[rd] = x[rs1] × x[rs2]
+  INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = ((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32);            // x[rd] = (x[rs1] 𝑠 ×𝑠 x[rs2]) ≫𝑠 XLEN
+  INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
+  INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
+  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
+                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
+                                                                        (int32_t) src1 / (int32_t) src2 )));  
+  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
+  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
+                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x00000000 : 
+                                                                        (int32_t) src1 % (int32_t) src2 ))) ;  
+  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
+
+*/  
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0

@@ -1,5 +1,23 @@
 [
   {
+    "name": "puts",
+    "header": "stdio.h",
+    "prototype": "int puts(const char *s);",
+    "description": "功能：将字符串 s 写入标准输出，并自动在末尾添加一个换行符 '\\n'。\n\n参数：指向以 '\\0' 结尾的字符串的指针。",
+    "return_val": "返回值：成功返回非负整数，失败返回 EOF\nputs(s) 等价于 fputs(s, stdout) 后跟 fputc('\\n', stdout)\nfputs 不自动添加换行符，而 puts 总是添加",
+    "example": "#include <stdio.h>\n\nint main() {\n    puts(\"Hello\");          // 输出 \"Hello\\n\"\n    puts(\"World\");          // 输出 \"World\\n\"\n    fputs(\"No newline\", stdout); // 输出 \"No newline\"\n    return 0;\n}",
+    "modes": []
+  },
+  {
+    "name": "putchar",
+    "header": "stdio.h",
+    "prototype": "int putchar(int c);",
+    "description": "等价于 putc(c, stdout)，将字符 c 写入标准输出",
+    "return_val": "成功返回 c，失败返回 EOF",
+    "example": "#include <stdio.h>\n\nint main() {\n    for (char ch = 'A'; ch <= 'Z'; ch++) {\n        putchar(ch);\n    }\n    putchar('\\n');\n    return 0;\n}",
+    "modes": []
+  },
+  {
     "name": "fread",
     "header": "happy.h",
     "prototype": "fread(void *ptr, size_t size, size_t nmemb, FILE *stream)",

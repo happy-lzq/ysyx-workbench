@@ -1,70 +1,67 @@
-# Makefile for AbstractMachine Kernels and Libraries
 
-### *Get a more readable version of this Makefile* by `make html` (requires python-markdown)
+# 1、接收上层传入的：NAME SRCS ARCH AM_HOME
+# 2、校验环境
+# 3、从 ARCH 推导：ISA PLATFORM
+# 4、设置工具链和编译宏
+# 5、编译当前项目源文件成 .o
+# 6、递归构建依赖库：am klib
+# 7、把 .o + .a + LDSCRIPT 链成 .elf
+# 8、再由平台脚本决定：
+# 	   如何生成 .bin
+# 	   如何 run
 html:
 	cat Makefile | sed 's/^\([^#]\)/    \1/g' | markdown_py > Makefile.html
 .PHONY: html
 
-## 1. Basic Setup and Checks
-
-### Default to create a bare-metal kernel image
-ifeq ($(MAKECMDGOALS),)            # MAKECMDGOALS ：make run make clean 对应make的执行目标变量
+## ===================================== 1、基础设定与检查 =========================================== 
+# 设定默认目标 如果用户只输入 make，没有写 run/clean/archive 这类目标  默认就构建 image
+ifeq ($(MAKECMDGOALS),)        
   MAKECMDGOALS  = image
   .DEFAULT_GOAL = image
 endif
-
-### Override checks when `make clean/clean-all/html`
+# make 目标 不在clean|clean-all|html 范围内都需要进行下列的基础设定与检查
 ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
 
-### Print build info message     
-$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])     # ARCH属于内置环境变量 ：ARCH=riscv32-nemu
-
-### Check: environment variable `$AM_HOME` looks sane
-ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)        # 获取路径
+$(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])
+# 检验裸机核心头文件是否存在
+ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)
   $(error $$AM_HOME must be an AbstractMachine repo)
 endif
-
-### Check: environment variable `$ARCH` must be in the supported list
+# 获取所有架构名称
 ARCHS = $(basename $(notdir $(shell ls $(AM_HOME)/scripts/*.mk)))
 ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### 提取指令架构与平台：ISA=RISCV   PLATFORM=NEMU   
-ARCH_SPLIT = $(subst -, ,$(ARCH))                
+ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
-
-### Check if there is something to build   检查变量的性质属性
+# 检验上层传入的SRCS 是否被定义 是否有效，
 ifeq ($(flavor SRCS), undefined)
   $(error Nothing to build)
 endif
-
-### Checks end here
+# 基础设定与检查结束
 endif
 
-## 2. General Compilation Targets
-
-### Create the destination directory (`build/$ARCH`)
-#make 进程的工作目录（current working directory）shell 执行时的工作路径
-#/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
+## ===================================== 2、 通用编译目标设置 ============================================= 
+# WORK_DIR=/home/l/ysyx/ysyx-workbench/am-kernels/tests/cpu-tests
 WORK_DIR  = $(shell pwd)
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
-### Compilation targets (a binary image or archive)
-IMAGE_REL = build/$(NAME)-$(ARCH)    # 编译-链接产生的文件路径前缀
+### 编译产物的路径变量
+IMAGE_REL = build/$(NAME)-$(ARCH)
 IMAGE     = $(abspath $(IMAGE_REL))
 ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
-### Collect the files to be linked: object files (`.o`) and libraries (`.a`)
+### 基于SRC获取目标文件路径变量  .o + .a 文件
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
-LIBS     := $(sort $(LIBS) am klib)  #增加运行时环境的库列表
-LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
+LIBS     := $(sort $(LIBS) am klib)
+LINKAGE   = $(OBJS)
 
-## 3. General Compilation Flags
-
-### CROSS_COMPILE 编译工具绑定
+## ===================================== 3、通用编译与标志 ============================================= 
+# CROSS_COMPILE	通过展开 ：$(AM_HOME)/scripts/$(ARCH).mk 
+# 进一步展开ISA指令架构脚本：include $(AM_HOME)/scripts/isa/riscv.mk         
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -76,7 +73,7 @@ READELF   = $(CROSS_COMPILE)readelf
 
 ### Compilation flags
 INC_PATH += $(WORK_DIR)/include $(addsuffix /include/, $(addprefix $(AM_HOME)/, $(LIBS)))
-INCFLAGS += $(addprefix -I, $(INC_PATH))     # 构建编译器参数
+INCFLAGS += $(addprefix -I, $(INC_PATH))
 
 ARCH_H := arch/$(ARCH).h
 CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
@@ -90,13 +87,10 @@ CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
-## 4. Arch-Specific Configurations
-
-### 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定，保证完全调用以及RISCV平台处理进而获取完整0-1指令可执行文件.bin
+## 添加子脚本路径文件：am/scripts/riscv32-nemu.mk  获取编译与链接的架构设定
 -include $(AM_HOME)/scripts/$(ARCH).mk
 
-## 5. Compilation Rules
-
+## ===================================== 4、编译规则 ============================================= 
 ### Rule (compile): a single `.c` -> `.o` (gcc)
 $(DST_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
@@ -117,6 +111,7 @@ $(DST_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
 
+## ===================================== 5、递归构建链接依赖库 ============================================= 
 ifeq ($(MAKECMDGOALS),archive)
 ### Rule (archive): objects (`*.o`) -> `ARCHIVE.a` (ar)
 $(ARCHIVE): $(OBJS)
@@ -135,6 +130,7 @@ endef
 $(foreach lib, $(LIBS), $(eval $(call LIB_TEMPLATE,$(lib))))
 endif
 
+## ===================================== 6、链接规则 ============================================= 
 ### Rule (link): 将*.o *.a 等编译文件利用riscv64-linux-gnu-ld链接器构建连接处理构成elf文件
 $(IMAGE).elf: $(LINKAGE) $(LDSCRIPTS)
 	@echo \# Creating image [$(ARCH)]
@@ -149,7 +145,7 @@ endif
 ### Rule (`#include` dependencies): paste in `.d` files generated by gcc on `-MMD`
 -include $(addprefix $(DST_DIR)/, $(addsuffix .d, $(basename $(SRCS))))
 
-## 6. Miscellaneous
+# ===================================== 7、构建依赖顺序 =============================================
 
 ### Build order control
 image: image-dep
@@ -172,3 +168,4 @@ clean-all: $(CLEAN_ALL) clean
 $(CLEAN_ALL):
 	-@$(MAKE) -s -C $@ clean
 .PHONY: clean-all $(CLEAN_ALL)
+

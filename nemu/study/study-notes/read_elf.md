@@ -91,7 +91,7 @@
 
 | 成员 | 类型 | 描述与作用 |
 | :--- | :--- | :--- |
-| `sh_name` | `Elf32_Word` | **节的名称索引**。（注意：这是一个整数！是 `.shstrtab` 字符串表中的索引）。 |
+| `sh_name` | `Elf32_Word` | **节的名称索引**。（是 `.shstrtab` 字符串表中的索引，节表名地址在shstrtab中的相对偏移）。 |
 | `sh_type` | `Elf32_Word` | **节的类型**。`SHT_PROGBITS`(程序数据如代码/变量)、`SHT_SYMTAB`(符号表)、`SHT_STRTAB`(字符串表) 等。 |
 | `sh_flags` | `Elf32_Word` | **节的标志**。`SHF_ALLOC`(运行时需分配内存)、`SHF_EXECINSTR`(可执行代码) 等。 |
 | `sh_addr` | `Elf32_Addr` | **虚拟地址**。期望被加载到的内存地址（对于未链接的目标文件通常是 0）。 |
@@ -343,18 +343,18 @@ hexdump -C <file> | less
 <a id="q3-3"></a>
 ### 3.3 Section 偏移表（真实数据）
 
-|  # | Name                | Type            |      Off |     Size | 说明             |
-| -: | :------------------ | :-------------- | -------: | -------: | :--------------- |
-|  1 | `.text`             | PROGBITS        | `0x1000` | `0x0250` | 代码段           |
-|  2 | `.rodata`           | PROGBITS        | `0x1250` | `0x00b8` | 只读数据         |
-|  3 | `.data`             | PROGBITS        | `0x1308` | `0x0018` | 已初始化可写数据 |
-|  4 | `.sdata.str1`       | PROGBITS        | `0x1320` | `0x0006` | 小数据字符串     |
-|  5 | `.bss`              | NOBITS          | `0x1326` | `0x0014` | 不占文件字节     |
-|  6 | `.comment`          | PROGBITS        | `0x1326` | `0x001a` | 编译注释信息     |
-|  7 | `.riscv.attributes` | RISCV_ATTRIBUTE | `0x1340` | `0x0033` | RISC-V 属性      |
-|  8 | `.symtab`           | SYMTAB          | `0x1374` | `0x0300` | 符号表           |
-|  9 | `.strtab`           | STRTAB          | `0x1674` | `0x00ec` | 字符串表         |
-| 10 | `.shstrtab`         | STRTAB          | `0x1760` | `0x005b` | 节名字符串表     |
+|  # | Name                | Type            |      Off |     Size | 说明             
+| -: | :------------------ | :-------------- | -------: | -------: | :--------------- 
+|  1 | `.text`             | PROGBITS        | `0x1000` | `0x0250` | 代码段           
+|  2 | `.rodata`           | PROGBITS        | `0x1250` | `0x00b8` | 只读数据         
+|  3 | `.data`             | PROGBITS        | `0x1308` | `0x0018` | 已初始化可写数据 
+|  4 | `.sdata.str1`       | PROGBITS        | `0x1320` | `0x0006` | 小数据字符串     
+|  5 | `.bss`              | NOBITS          | `0x1326` | `0x0014` | 不占文件字节     
+|  6 | `.comment`          | PROGBITS        | `0x1326` | `0x001a` | 编译注释信息             
+|  7 | `.riscv.attributes` | RISCV_ATTRIBUTE | `0x1340` | `0x0033` | RISC-V 属性            
+|  8 | `.symtab`           | SYMTAB          | `0x1374` | `0x0300` | 存放函数名 变量等信息节表
+|  9 | `.strtab`           | STRTAB          | `0x1674` | `0x00ec` | symtab节表项名称字符串表
+| 10 | `.shstrtab`         | STRTAB          | `0x1760` | `0x005b` | 节名字符串表     
 
 <a id="q3-4"></a>
 ### 3.4 五个关键字段如何落在文件中

@@ -1,5 +1,6 @@
 # PA2 学习笔记
 
+<a id="sec-pa2-toc"></a>
 ## 目录
 
 - [Linux 软链接知识点总结](#sec-softlink)
@@ -70,6 +71,27 @@
   - [9. 设计分层与每层职责](#sec-ftrace-09)
   - [10. 端到端时序总结](#sec-ftrace-10)
   - [11. 常见坑与工程性检查点](#sec-ftrace-11)
+  - [12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结](#sec-ftrace-stack)
+  - [13. 目标函数匹配问题的引出与逻辑总结](#sec-ftrace-symbol-match)
+- [PA2 专题：klib 测试全链路设计、Debug 与闭环验证](#sec-pa2-klib-tests)
+  - [1. 为什么需要单独设计 `klib-tests`？](#sec-klibtest-01)
+  - [2. 直接测试对象、间接运行平台与最终验证目标](#sec-klibtest-02)
+  - [3. 测试分类为什么最终定成 `write/read/format/stdlib`？](#sec-klibtest-03)
+  - [4. 项目结构的演化：为什么最后采用 `cpu-tests` 风格？](#sec-klibtest-04)
+  - [5. `Makefile` 的核心逻辑：谁负责筛选测试，谁负责真正编译？](#sec-klibtest-05)
+  - [6. 测试执行闭环：从 `make ... run` 到 `PASS/FAIL` 的完整路径](#sec-klibtest-06)
+  - [7. `ARCH=native` 与 `ARCH=riscv32-nemu` 的本质区别](#sec-klibtest-07)
+  - [8. 断言系统的设计：从普通 `check()` 到可定位报错](#sec-klibtest-08)
+  - [9. 设计与 Debug 过程中踩到的关键问题、根因与解决](#sec-klibtest-09)
+  - [10. 最终结果、验证结论与方法论总结](#sec-klibtest-10)
+- [PA2 专题补充](#sec-pa2-supplement)
+  - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
+- [PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
+  - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
+  - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
+  - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
+  - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
+
 
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
@@ -2433,7 +2455,7 @@ monitor 的 getopt_long 选项表包含：
 2. 若启用 CONFIG_FTRACE 且 elf_file 非空：
    - init_ftrace_log: 打开日志文件。
    - init_ftrace: 解析 ELF，构建函数表。
-3. 若启用 CONFIG_FTRACE 但缺失 --elf：
+3. 若启用 CONFIG_FTRACE 但缺失 elf：
    - 打印提示并跳过初始化。
 
 这是一种“可用则启用，不可用则降级”的容错策略。
@@ -2516,6 +2538,7 @@ monitor 的 getopt_long 选项表包含：
 
 - FuncSymbol：ftrace 自定义函数条目，服务运行时快速匹配。
 - CallFrame：ftrace 自定义调用栈帧，维护 ret 对应关系。
+
 
 ### 5.3 结构体映射关系
 
@@ -2679,4 +2702,1131 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 5. 忽略调用栈深度上限：
    - 风险：深递归场景下数组越界。
    - 正解：MAX_CALL_DEPTH 上限保护。
+
+<a id="sec-ftrace-stack"></a>
+## 12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结
+
+#### 12.1 问题来源与现象
+在实现 ftrace 过程中，最常见的疑问是：
+- **如何保证 call/ret 日志的缩进层级与真实函数调用树一致？**
+- **为什么要在 call 时保存 FuncSymbol 指针，而不是只保存返回地址？**
+
+#### 12.2 逻辑梳理与原理
+1. **call 指令（jal/jalr rd==1）时：**
+   - 通过目标地址查找对应的 FuncSymbol（即函数名、起止区间）。
+   - 打印带缩进的 call 日志。
+   - 将 {ret_addr, func} 作为 CallFrame 压入 call_stack[]。
+   - call_depth++。
+2. **ret 指令（jalr rd==0, rs1==1, imm==0）时：**
+   - 先判断 call_depth>0，防止栈下溢。
+   - call_depth--，弹出栈顶 CallFrame。
+   - 直接用 frame->func->name 打印 ret 日志，保证与 call 时函数名一一对应。
+
+#### 12.3 为什么不能只保存返回地址？
+因为同一个返回地址可能属于不同函数（如递归/多分支），只有保存 call 时查到的 FuncSymbol 指针，才能保证 ret 时准确还原“从哪个函数返回”。
+
+#### 12.4 典型问题与解决
+- **问题：只保存返回地址，ret 时如何还原函数名？**
+  - 解决：call 时就查好 FuncSymbol 指针，ret 时直接用，无需再查。
+- **问题：递归/多分支下如何保证层级？**
+  - 解决：call_stack[] + call_depth 形成 LIFO 结构，天然支持嵌套与递归。
+- **问题：栈溢出/下溢？**
+  - 解决：MAX_CALL_DEPTH 上限保护，ret 前判断 call_depth>0。
+
+#### 12.5 总结一句话
+> ftrace 的 call/ret 日志层级完全依赖于“每次 call 时保存的 {ret_addr, func}”，只有这样才能保证任意复杂调用树下的日志与真实执行路径一一对应。
+
+---
+
+<a id="sec-ftrace-symbol-match"></a>
+## 13. 目标函数匹配问题的引出与逻辑总结
+
+#### 13.1 问题引出
+ftrace 运行时如何通过目标地址（tar_addr）找到对应的函数名？为什么只要满足 start <= addr < end 就能唯一确定？
+
+#### 13.2 ELF 符号表的本质
+- 每个函数在 ELF .symtab 里有唯一的 st_value（起始地址）和 st_size（长度）。
+- 编译/链接时，所有函数的地址区间不会重叠。
+- ftrace 启动时将所有 STT_FUNC 类型的符号转为 {start, end, name} 数组。
+
+#### 13.3 匹配原理
+1. 运行时遇到 call 指令，得到目标地址 tar_addr。
+2. 遍历 func_symbols[]，查找满足 start <= tar_addr < end 的条目。
+3. 若找到，说明 tar_addr 落在该函数区间内，直接返回 name。
+4. 若找不到，说明该地址不属于任何已知函数（如裸跳转/异常）。
+
+#### 13.4 为什么区间匹配一定成立？
+- 链接器保证每个函数的 [start, end) 区间互不重叠。
+- tar_addr 必然落在某个函数体内（只要是合法 call）。
+- 只要区间查找实现无误，匹配结果唯一。
+
+#### 13.5 典型问题与解决
+- **问题：如果 st_size=0 怎么办？**
+  - 解决：解析时过滤掉 size=0 的符号。
+- **问题：目标地址正好等于 end？**
+  - 解决：区间采用左闭右开 [start, end)，end 不属于该函数。
+- **问题：有重叠区间怎么办？**
+  - 解决：链接器不会生成重叠函数区间，若有则为 ELF 错误。
+
+#### 13.6 总结一句话
+> ftrace 通过 ELF 符号表的唯一性，将目标地址映射为函数名，区间匹配 [start, end) 是链接器保证的唯一分区，保证了运行时任意 call/ret 都能准确还原函数名。
+
+---
+
+<a id="sec-pa2-klib-tests"></a>
+## PA2 专题：klib 测试全链路设计、Debug 与闭环验证
+
+[返回目录](#sec-pa2-toc)
+
+<a id="sec-klibtest-01"></a>
+### 1. 为什么需要单独设计 `klib-tests`？
+
+在 `PA2` 里，`string` 等已有客户程序虽然会间接调用 `klib`，但它们并不适合作为系统性的 `klib` 专项测试，原因主要有三点：
+
+1. **覆盖面太窄**  
+   现成测试往往只顺手调用了少量函数，难以覆盖 `memset/strcpy/strncpy/strcat/memmove/strlen/strcmp/snprintf/atoi/rand` 这些不同语义的接口。
+
+2. **oracle 不独立**  
+   如果用一个尚未证明正确的库函数去验证另一个库函数，就会出现“错误互相掩盖”的风险。例如用 `memcmp()` 去验证 `memset()`，如果 `memcmp()` 自己也错了，测试就会失真。
+
+3. **不能精准归因**  
+   把多个函数串在一条语句里测试（如 `strcat(strcpy(...), ...)`）会让失败点模糊，不利于快速定位到底是哪一个库函数出了问题。
+
+因此，`klib-tests` 的核心目标不是“随便跑一个客户程序看看能不能过”，而是：
+
+> **为 `klib` 的不同类别函数建立独立、清晰、可复用的测试用例与判断标准，并分别在 `native` 和 `riscv32-nemu` 两种环境中验证它们。**
+
+---
+
+<a id="sec-klibtest-02"></a>
+### 2. 直接测试对象、间接运行平台与最终验证目标
+
+`klib-tests` 的关系链必须先分清四层：
+
+1. **测试程序**
+   - 位于 `am-kernels/tests/klib-tests/src/*.c`
+   - 这些文件本身不是 `klib` 实现，而是“客户程序形式的测试代码”
+   - 它们负责：
+     - 调用 `klib` 函数
+     - 构造输入
+     - 用 `check()` 断言输出或返回值
+
+2. **被测对象**
+   - 位于 `abstract-machine/klib/src/*.c`
+   - 真正被测的是这里的实现：
+     - `string.c`
+     - `stdio.c`
+     - `stdlib.c`
+
+3. **装配者**
+   - `abstract-machine/Makefile`
+   - 它负责把：
+     - 测试程序源码
+     - `am` 运行时
+     - `klib`
+     一起编译链接成可执行目标
+
+4. **执行者**
+   - `ARCH=native` 时：宿主机环境直接执行
+   - `ARCH=riscv32-nemu` 时：NEMU 逐条执行生成的客户程序指令
+
+因此，`klib-tests` 的准确定位是：
+
+> **写一个 AM 客户程序去测试 `klib`；`native` 用来隔离验证测试逻辑与基础语义，`riscv32-nemu` 用来验证 `klib + AM + NEMU` 这一整条链。**
+
+---
+
+<a id="sec-klibtest-03"></a>
+### 3. 测试分类为什么最终定成 `write/read/format/stdlib`？
+
+最初容易想到的分法是按头文件来分，例如：
+
+- `string`
+- `stdio`
+- `stdlib`
+
+但从测试设计角度看，更合理的主结构其实是按**测试方法**和**oracle 构造方式**来分。
+
+最终形成的四类是：
+
+1. **`write`**
+   - 代表函数：
+     - `memset`
+     - `strcpy`
+     - `strncpy`
+     - `strcat`
+     - `memmove`
+   - 关注点：
+     - 返回值是否为原始目标指针
+     - 目标缓冲区最终布局是否正确
+     - 未覆盖区域是否保持原值
+     - 是否正确处理边界与重叠
+
+2. **`read`**
+   - 代表函数：
+     - `strlen`
+     - `strcmp`
+     - `strncmp`
+     - `memcmp`
+   - 关注点：
+     - 返回值是否正确
+     - 比较关系是否正确（`<0` / `==0` / `>0`）
+     - `n=0`、中间 `'\0'`、前缀相同但后续不同等边界语义
+
+3. **`format`**
+   - 代表函数：
+     - `sprintf`
+     - `snprintf`
+   - 关注点：
+     - 输出字符串内容
+     - 返回值
+     - 截断行为
+     - `'\0'` 终止
+
+4. **`stdlib`**
+   - 代表函数：
+     - `abs`
+     - `atoi`
+     - `srand`
+     - `rand`
+   - 关注点：
+     - 数学语义
+     - 字符串解析规则
+     - 随机序列的确定性
+
+这种划分的优点是：
+
+- 每类函数的测试方法更统一；
+- 每个 `.c` 文件职责更单纯；
+- 失败时更容易从“类别 -> 函数 -> case”逐级定位。
+
+---
+
+<a id="sec-klibtest-04"></a>
+### 4. 项目结构的演化：为什么最后采用 `cpu-tests` 风格？
+
+`klib-tests` 的设计经历了一个关键演化过程。
+
+#### 4.1 初始思路：一个总入口 + 多个分类模块
+
+最开始容易想到的结构是：
+
+- 一个总 `main()`
+- `write/read/format/stdlib` 各自提供一个入口函数
+- 运行时通过参数选择执行哪个分类
+
+这种方案的优点是直观，但有两个明显问题：
+
+1. **与 `cpu-tests` 的组织方式不一致**
+2. **所有分类 `.c` 会一起编进同一个程序**
+   - 公共头文件里的普通函数定义更容易引发 `multiple definition`
+   - Makefile 上的“单测/全测”选择不够干净
+
+#### 4.2 最终思路：每个分类 `.c` 都是一个独立测试程序
+
+最终结构改成：
+
+- `src/write.c`
+- `src/read.c`
+- `src/format.c`
+- `src/stdlib.c`
+
+每个文件都：
+
+- 自己包含测试函数
+- 自己有 `main()`
+- 成功时 `return 0`
+- 失败时由 `check()` -> `assert_fail()` -> `halt(1)` 终止
+
+这样做的好处是：
+
+1. 和 `cpu-tests` 的“每个测试项对应一个独立程序”完全同构
+2. Makefile 只需要在外层决定“这次编哪一个 `.c`”
+3. 不再需要中央分发 `mainargs`
+4. 每个测试项天然可以单独执行：
+   - `make ARCH=native ALL=write run`
+   - `make ARCH=riscv32-nemu ALL=format run`
+
+---
+
+<a id="sec-klibtest-05"></a>
+### 5. `Makefile` 的核心逻辑：谁负责筛选测试，谁负责真正编译？
+
+`klib-tests` 最终采用的是和 `cpu-tests/Makefile` 同源的设计思想：
+
+> **测试筛选发生在外层 `klib-tests/Makefile`，真正的编译链接执行仍然交给 `abstract-machine/Makefile`。**
+
+#### 5.1 `abstract-machine/Makefile` 不负责筛选测试项
+
+这是整个理解里最容易混淆的一点。
+
+`abstract-machine/Makefile` 的职责是：
+
+- 编译 `SRCS`
+- 链接 `am` 与 `klib`
+- 生成镜像
+- 执行 `run/gdb/clean`
+
+它不会理解：
+
+- `ALL=write`
+- `ALL=format`
+- 默认跑全部还是单个测试
+
+它只会“老老实实编译传给它的 `SRCS`”。
+
+#### 5.2 真正的测试筛选发生在外层 `Makefile`
+
+`klib-tests/Makefile` 的关键思路是：
+
+```make
+ALL = $(basename $(notdir $(shell find src/. -name "*.c")))
+all: $(addprefix Makefile., $(ALL))
+
+Makefile.%: src/%.c latest
+	@/bin/echo -e "NAME = $*\nSRCS = $<\nINC_PATH += .../include\ninclude $${AM_HOME}/Makefile" > $@
+	@if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then ...; fi
+```
+
+它做了三件核心事情：
+
+1. **收集测试项名**
+   - 从 `src/*.c` 推导出：
+     - `write`
+     - `read`
+     - `format`
+     - `stdlib`
+
+2. **为每个测试项生成一个临时 wrapper Makefile**
+   - 例如 `Makefile.write`
+   - 内容类似：
+     ```make
+     NAME = write
+     SRCS = src/write.c
+     INC_PATH += /.../include
+     include ${AM_HOME}/Makefile
+     ```
+
+3. **递归调用 wrapper**
+   - 由 wrapper 再去调用 `abstract-machine/Makefile`
+   - 这时 `SRCS` 已经被缩小成单个测试源文件
+
+因此，“筛选测试项”的本质不是 AM 在做，而是：
+
+> **外层 Makefile 先把 `SRCS` 收缩成单个 `.c`，再把这个单文件程序交给 AM 去真正构建。**
+
+#### 5.3 为什么 `cpu-tests` 里要写 `$${AM_HOME}`？
+
+在生成 wrapper 时，必须区分当前层与下一层 Makefile。
+
+- 当前层 Makefile 里如果写 `$${AM_HOME}`
+- 第一层 `make` 会把 `$$` 变成字面量 `$`
+- 最终写进临时文件的是：
+  ```make
+  include ${AM_HOME}/Makefile
+  ```
+- 这才会在下一层 wrapper 里被正确展开
+
+因此：
+
+- `$(AM_HOME)`：是“当前层 make 立即展开”
+- `$${AM_HOME}`：是“保留给下一层 Makefile 再展开”
+- `$$(AM_HOME)`：则是错误写法，因为 shell 会把 `$(...)` 当成命令替换
+
+#### 5.4 PASS/FAIL 是怎么打印出来的？
+
+Makefile 里引入了：
+
+- `RESULT = .result`
+- 颜色变量
+- `if make ...; then printf PASS; else printf FAIL; fi`
+
+也就是说：
+
+- 每个单项测试先由 wrapper 执行
+- wrapper 根据退出码把结果追加到 `.result`
+- 最后 `run: all` 统一 `cat $(RESULT)` 打印汇总
+
+这也是为什么最终输出会像：
+
+```text
+test list [1 item(s)]: format
+[        format] PASS
+```
+
+---
+
+<a id="sec-klibtest-06"></a>
+### 6. 测试执行闭环：从 `make ... run` 到 `PASS/FAIL` 的完整路径
+
+这一条闭环是整个 `klib-tests` 设计中最关键的主线。
+
+以：
+
+```bash
+make ARCH=riscv32-nemu ALL=write run
+```
+
+为例，完整链路是：
+
+1. **外层 `klib-tests/Makefile`**
+   - 解析 `ALL=write`
+   - 生成 `Makefile.write`
+
+2. **临时 wrapper**
+   - 指定：
+     - `NAME = write`
+     - `SRCS = src/write.c`
+     - `INC_PATH += include`
+   - 再 `include ${AM_HOME}/Makefile`
+
+3. **`abstract-machine/Makefile`**
+   - 编译 `src/write.c`
+   - 编译 `am`
+   - 编译 `klib`
+   - 链接成目标程序
+
+4. **运行时**
+   - `write.c` 的 `main()` 顺序调用各个测试函数
+   - 测试函数内部调用对应库函数
+   - 再用 `check(...)` 验证返回值或内存布局
+
+5. **断言通过/失败**
+   - 若全部 `check()` 通过：`main()` 返回 `0`
+   - 若任一 `check()` 失败：`assert_fail()` 打印定位信息并 `halt(1)`
+
+6. **wrapper 回收退出码**
+   - 退出码为 `0`：追加 `PASS`
+   - 非 `0`：追加 `***FAIL***`
+
+7. **最终 `run` 目标输出汇总结果**
+
+因此，`klib-tests` 的成功标准并不是“程序看起来跑了”，而是：
+
+> **每一个测试 case 的断言都成立，程序最终以 0 正常退出，由 Makefile 汇总打印为 PASS。**
+
+---
+
+<a id="sec-klibtest-07"></a>
+### 7. `ARCH=native` 与 `ARCH=riscv32-nemu` 的本质区别
+
+这是整个 `klib-tests` 分析里最关键的认知点之一。
+
+#### 7.1 `ARCH=native` 默认不等于“正在测试自己的 klib”
+
+虽然 `abstract-machine/Makefile` 总会链接 `klib`，但 `klib/src/string.c`、`stdio.c`、`stdlib.c` 里都带有：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+而 `ARCH=native` 时：
+
+- `__ISA_NATIVE__` 会被定义
+- `__NATIVE_USE_KLIB__` 默认没有开启
+
+所以默认 native 下：
+
+- 这些 `klib` 实现并不会真正作为当前生效实现参与
+- 字符串/stdio/stdlib 行为更偏向宿主机 `libc/glibc`
+
+因此：
+
+> **`ARCH=native` 默认主要用于验证测试代码本身和通用语义，不等于已经验证了你自己的 `klib` 实现。**
+
+#### 7.2 `ARCH=riscv32-nemu` 才真正落到你自己的 `klib`
+
+当 `ARCH=riscv32-nemu` 时：
+
+- `__ISA_NATIVE__` 不成立
+- `klib/src/string.c`、`stdio.c`、`stdlib.c` 会真正参与
+- 客户程序中的 `strlen/strcpy/snprintf/atoi/...` 会落到你自己的 `klib` 实现
+- 最后再由 NEMU 逐条解释执行
+
+所以可以把两者压缩成一句：
+
+- `ARCH=native`：默认更像宿主 glibc 路径
+- `ARCH=riscv32-nemu`：真正测试 `klib + AM + NEMU`
+
+<a id="sec-klibtest-07-3"></a>
+**7.3 ISA_NATIVE 和 NATIVE_USE_KLIB 的来源与选择逻辑**
+
+这一点是理解整条 native/klib 选择链的关键。
+
+在 `klib/src/string.c`、`stdio.c`、`stdlib.c` 里，经常能看到：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+这两个宏的来源并不相同。
+
+<a id="sec-klibtest-07-3-1"></a>
+**7.3.1 __ISA_NATIVE__ 的来源：由构建系统通过 -D 自动注入**
+
+它不是在源码里手写 `#define` 的，而是由 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L34) 到 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L36) 先解析 `ARCH`：
+
+```make
+ARCH_SPLIT = $(subst -, ,$(ARCH))
+ISA        = $(word 1,$(ARCH_SPLIT))
+PLATFORM   = $(word 2,$(ARCH_SPLIT))
+```
+
+然后在 [abstract-machine/Makefile](/home/luo/ysyx/ysyx-workbench/abstract-machine/Makefile#L83) 里注入编译宏：
+
+```make
+-D__ISA__=\"$(ISA)\" -D__ISA_$(shell echo $(ISA) | tr a-z A-Z)__
+```
+
+因此：
+
+- 当 `ARCH=native`
+  - `ISA = native`
+  - 编译器会收到：
+    ```c
+    -D__ISA_NATIVE__
+    ```
+
+- 当 `ARCH=riscv32-nemu`
+  - `ISA = riscv32`
+  - 编译器会收到：
+    ```c
+    -D__ISA_RISCV32__
+    ```
+
+也就是说：
+
+> **`__ISA_NATIVE__` 不是源码里固定写死的宏，而是构建系统根据 `ARCH=native` 自动注入的编译期开关。**
+
+<a id="sec-klibtest-07-3-2"></a>
+**7.3.2 __NATIVE_USE_KLIB__ 的来源：klib 自己预留的显式开关**
+
+这个宏可以直接在 [klib.h](/home/luo/ysyx/ysyx-workbench/abstract-machine/klib/include/klib.h#L12) 看到：
+
+```c
+//#define __NATIVE_USE_KLIB__
+```
+
+它当前默认是注释掉的，因此默认情况下没有定义。
+
+它的设计意图是：
+
+- native 默认优先使用宿主 libc/glibc；
+- 如果用户想在 native 下也强制走自己实现的 `klib`，就显式打开这个宏。
+
+因此：
+
+> **`__NATIVE_USE_KLIB__` 是 `klib` 侧手动预留的开关，默认关闭，只有显式启用时 native 才会改走 `klib`。**
+
+<a id="sec-klibtest-07-3-3"></a>
+**7.3.3 这条 #if 的选择逻辑到底是什么？**
+
+把条件拆开看：
+
+```c
+#if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
+```
+
+它的含义是：
+
+1. **如果当前不是 native**
+   - 即 `!defined(__ISA_NATIVE__)` 为真
+   - 那就直接启用这份 `klib` 实现
+
+2. **如果当前是 native**
+   - 那么第一项为假
+   - 这时只有在 `defined(__NATIVE_USE_KLIB__)` 为真时，才启用 `klib`
+
+于是四种典型情况可以整理成下面这张表：
+
+| 当前构建场景 | `__ISA_NATIVE__` | `__NATIVE_USE_KLIB__` | 条件结果 | 最终行为 |
+| :--- | :--- | :--- | :--- | :--- |
+| `ARCH=native`，默认状态 | 已定义 | 未定义 | `false || false` | 不启用 `klib`，更偏宿主 libc/glibc |
+| `ARCH=native`，显式开启 `__NATIVE_USE_KLIB__` | 已定义 | 已定义 | `false || true` | native 下也启用 `klib` |
+| `ARCH=riscv32-nemu` | 未定义 | 无论是否开启都不重要 | `true || ...` | 启用 `klib` |
+| 其他非 native 架构 | 未定义 | 无论是否开启都不重要 | `true || ...` | 启用 `klib` |
+
+所以这条 `#if` 的本质可以压缩成一句话：
+
+> **非 native 默认启用 `klib`；native 默认关闭 `klib`，除非显式打开 `__NATIVE_USE_KLIB__`。**
+
+<a id="sec-klibtest-07-3-4"></a>
+**7.3.4 为什么要这样设计？**
+
+这是一个很典型的“按平台区分默认行为”的设计：
+
+- **native 默认路径**
+  - 尽量复用宿主机成熟的 libc/glibc
+  - 更适合先验证测试代码本身是否合理
+
+- **非 native 默认路径**
+  - 没有宿主 libc 可以依赖
+  - 必须走自己实现的 `klib`
+
+- **保留额外开关**
+  - 允许开发者在 native 下也强制测试自实现 `klib`
+
+因此，`ARCH=native` 与 `ARCH=riscv32-nemu` 的行为差异，并不是“运行时动态切换”，而是：
+
+> **在编译期通过 `__ISA_NATIVE__` 与 `__NATIVE_USE_KLIB__` 共同决定，某份 `klib` 源文件里的实现到底会不会被编进最终程序。**
+
+<a id="sec-klibtest-07-4"></a>
+**7.4 这对 Debug 的意义**
+
+它直接决定了排障优先级：
+
+1. **如果 `ARCH=native` 都失败**
+   - 优先怀疑：
+     - 测试代码写错
+     - 断言对象写错
+     - case 设计不独立
+
+2. **如果 `ARCH=native` 过、`ARCH=riscv32-nemu` 失败**
+   - 优先怀疑：
+     - `klib` 实现不完整
+     - NEMU 执行链问题
+     - 串口/设备/外层构建环境问题
+
+---
+
+<a id="sec-klibtest-08"></a>
+### 8. 断言系统的设计：从普通 `check()` 到可定位报错
+
+#### 8.1 最初需求
+
+最开始的 `check()` 只有：
+
+- 条件成立：继续执行
+- 条件失败：`halt(1)`
+
+这样虽然能让测试程序返回非零，但问题是：
+
+- 只能看到 `Exit code = 01h`
+- 不知道哪一条断言失败
+- 不知道是哪个测试函数挂了
+
+因此必须把它升级成：
+
+> **既能终止，也能输出精确定位信息的断言系统。**
+
+#### 8.2 为什么不能只用普通函数？
+
+因为要打印完整定位信息，需要这四样东西：
+
+- `__FILE__`：文件名
+- `__LINE__`：行号
+- `__func__`：函数名
+- `#cond`：断言表达式原文
+
+其中：
+
+- `__FILE__`、`__LINE__`、`__func__` 来自编译器/预处理器上下文
+- `#cond` 来自宏参数字符串化
+
+普通函数只能拿到 `cond` 的真假，拿不到表达式原文，因此：
+
+> **`check` 的最外层必须写成宏。**
+
+#### 8.3 最终断言分层
+
+最终结构分成两层：
+
+1. **宏层**
+   - `check(cond)`
+   - 负责：
+     - 判断条件
+     - 自动抓取调用点上下文
+
+2. **底层失败处理函数**
+   - `assert_fail(file, line, func, expr)`
+   - 负责：
+     - 打印：
+       ```text
+       check failed at write.c:145 in test_xxx: buf[3] == '\0'
+       ```
+     - `halt(1)`
+
+#### 8.4 为什么要写成 `do { ... } while (0)`？
+
+多语句宏如果直接裸展开，会在 `if/else` 场景下出现语法绑定问题。
+
+把宏写成：
+
+```c
+do {
+  if (!(cond)) {
+    assert_fail(...);
+  }
+} while (0)
+```
+
+可以让 `check(...)` 在语法上始终表现得像“一条普通语句”，这是标准安全写法。
+
+#### 8.5 颜色输出的补充
+
+后续又给 `assert_fail()` 的 `printf` 增加了 ANSI 颜色码，使断言失败时能以红色输出，更利于快速观察。
+
+---
+
+<a id="sec-klibtest-09"></a>
+### 9. 设计与 Debug 过程中踩到的关键问题、根因与解决
+
+这一部分按“问题 -> 根因 -> 解决”统一梳理。
+
+#### 9.1 头文件里普通函数定义导致 `multiple definition of check`
+
+**现象：**
+
+链接时报：
+
+```text
+multiple definition of `check'
+```
+
+**根因：**
+
+- 当时还是“多源文件编进同一个程序”的结构
+- `klib-test.h` 里直接放了普通全局 `check()` 定义
+- 每个 `.c` 都包含一次头文件，就各自产生一个外部符号
+
+**解决：**
+
+- 要么把定义移到单独 `.c`
+- 要么在头文件里改成 `static inline`
+
+最终在断言系统升级后，采用了：
+
+- `static inline assert_fail(...)`
+- `#define check(cond) ...`
+
+#### 9.2 `cpu-tests` 风格 Makefile 迁移时，外层 wrapper 生成失败
+
+**典型问题：**
+
+- `ALL` 推导和文件名模式不匹配
+- `src/%-test.c` 与重命名后的 `src/%.c` 不一致
+- `INC_PATH += ...` 被 shell 当成命令执行，而不是写入临时 wrapper
+- 错把 `$$(AM_HOME)` 当成了正确写法，导致 shell 试图执行 `AM_HOME`
+
+**根因：**
+
+- 没把“当前层 Makefile”和“下一层 wrapper Makefile”分开理解
+- 没意识到 `abstract-machine/Makefile` 不负责筛选测试项
+
+**解决：**
+
+- 统一文件名为：
+  - `write.c`
+  - `read.c`
+  - `format.c`
+  - `stdlib.c`
+- 让 `ALL` 与 `Makefile.%: src/%.c` 保持一致
+- 把 `INC_PATH` 一并写进临时 wrapper
+- 用 `$${AM_HOME}` 正确保留下一层再展开
+
+#### 9.3 `native` 过、`riscv32-nemu` 下断言输出却没有出现
+
+**现象：**
+
+- 故意制造 `check()` 失败后，在 `riscv32-nemu` 下没有看到自定义报错信息
+- 反而先触发了：
+  - `address = 0xa00003f8 is out of bound of pmem`
+
+**根因：**
+
+- `assert_fail()` 里调用了 `printf`
+- 在 `riscv32-nemu` 下，`printf -> klib stdio -> putch -> serial MMIO`
+- 如果当前实际运行的 NEMU 没有正确带上设备配置，串口 MMIO 访问会先炸掉
+
+**解决：**
+
+- 开启：
+  - `CONFIG_DEVICE=y`
+  - `CONFIG_HAS_SERIAL=y`
+  - `CONFIG_SERIAL_MMIO=0xa00003f8`
+- 并确保当前运行的 NEMU 二进制确实已经按这份配置重新构建
+
+这说明：
+
+> **断言输出本身也依赖底层设备链路是否正常。**
+
+#### 9.4 `format` 在 native 下通过，在 `riscv32-nemu` 下失败
+
+**现象：**
+
+`format.c` 中关于：
+
+- `%x`
+- `%c`
+- `%%`
+
+的 `sprintf` 测试在 `native` 下通过，但在 `riscv32-nemu` 下失败。
+
+**根因：**
+
+- `native` 默认走宿主 glibc 的 `sprintf`
+- `riscv32-nemu` 走的是自己的 `klib sprintf`
+- 进一步排查发现：
+  - `sprintf()` 调的是 `vsprintf()`
+  - 当前 `vsprintf()` 只真正实现了 `%s` 和 `%d`
+  - 但 `vsnprintf()` 已经支持 `%s/%d/%x/%p/%c/%%`
+
+也就是说：
+
+> **不是测试错了，而是 `klib/src/stdio.c` 的实现覆盖面本身不一致。**
+
+**解决：**
+
+把 `vsprintf()` 直接收敛到 `vsnprintf()` 的逻辑上，使：
+
+- `sprintf/vsprintf`
+- `snprintf/vsnprintf`
+
+支持同一套格式语义。
+
+**结果：**
+
+- `make ARCH=native ALL=format run` 通过
+- `make ARCH=riscv32-nemu ALL=format run` 通过
+
+#### 9.5 测试用例本身的典型错误模式
+
+在设计测试过程中，还多次暴露出“不是库错，而是测试写错”的问题，典型包括：
+
+1. **检查了错误的缓冲区**
+   - 例如 `strncpy(buf_1, ...)` 之后却去检查 `buf[...]`
+
+2. **把 `NULL` 当成空字符串**
+   - 例如 `strcat(dst, NULL)` 不是“空串测试”，而是未定义行为
+   - 正确空串应写成 `""`
+
+3. **把字符串字面量当作可写目标缓冲区**
+   - 例如把 `"lzqzmm"` 当成 `dst`
+   - 这会落入只读存储区，属于未定义行为
+
+4. **测试 case 之间共用状态导致耦合**
+   - 一个 case 的结果被下一个 case 直接当输入
+   - 这样会降低独立性，失败时不易定位
+
+5. **`memcmp` 长度超过数组容量**
+   - 这是读类测试里必须避免的 UB
+
+这些问题的共同教训是：
+
+> **先保证测试代码自身语义正确，再谈用它去验证 `klib`。**
+
+---
+
+<a id="sec-klibtest-10"></a>
+### 10. 最终结果、验证结论与方法论总结
+
+#### 10.1 最终达成的结构
+
+`klib-tests` 最终形成了如下稳定结构：
+
+- `src/write.c`
+- `src/read.c`
+- `src/format.c`
+- `src/stdlib.c`
+- `include/klib-test.h`
+- 外层 `Makefile` 采用 `cpu-tests` 风格的 wrapper + `.result` 汇总机制
+
+#### 10.2 当前已经打通的闭环
+
+1. **测试结构闭环**
+   - 每个分类测试都有独立 `main()`
+   - 每个 `.c` 可单独编译成测试程序
+
+2. **Makefile 选择闭环**
+   - 默认可全量跑
+   - `ALL=<name>` 可单独跑某一类
+
+3. **断言定位闭环**
+   - 失败时可输出：
+     - 文件
+     - 行号
+     - 函数名
+     - 断言表达式
+
+4. **运行环境认知闭环**
+   - 已明确：
+     - `native` 默认偏宿主 glibc
+     - `riscv32-nemu` 才真正测试 `klib + NEMU`
+
+5. **`stdio` 实现差异闭环**
+   - 已定位并修复 `vsprintf`/`vsnprintf` 能力不一致问题
+   - `format` 测试在 NEMU 下也已通过
+
+#### 10.3 这次 `klib-tests` 设计中最重要的方法论
+
+可以压缩成五句话：
+
+1. **先分层**：测试程序、被测对象、构建系统、执行平台必须分开理解。
+2. **先分阶段**：先用 `native` 验证测试本身，再用 `riscv32-nemu` 验证 `klib + NEMU`。
+3. **先分类型**：按 `write/read/format/stdlib` 分类，比按头文件表面分更适合测试设计。
+4. **先分职责**：外层 Makefile 负责“选谁测”，AM Makefile 负责“怎么编怎么跑”。
+5. **先让报错会说话**：没有精确断言定位，后续一切 Debug 成本都会急剧上升。
+
+#### 10.4 一句话总收束
+
+> `klib-tests` 的真正价值，不只是“给 klib 补了一组 case”，而是建立了一整套从测试分类、Makefile 选择、构建装配、运行平台区分，到断言定位与差异 Debug 的完整方法论闭环。
+
+---
+
+<a id="sec-pa2-supplement"></a>
+# PA2 专题补充
+
+<a id="sec-native-build-mismatch"></a>
+## cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记
+
+[返回目录](#sec-pa2-toc)
+
+### 1. 问题来源
+在执行 `make ALL=string ARCH=native run` 时，链接阶段报错：
+
+```text
+/usr/bin/ld: ...platform.o: undefined reference to `__isoc23_strtol'
+```
+
+表面上看，错误发生在 `abstract-machine/am/src/native/platform.c` 中两处 `atoi()` 相关逻辑；但深入排查后确认，问题本质并不是源码逻辑错误，而是 native 构建产物与当前宿主机工具链、运行库不匹配。
+
+### 2. 现象与关键线索
+排查时得到两组关键信息：
+
+1. 当前宿主机环境为：
+   - `gcc 11.4.0`
+   - `glibc 2.35`
+2. 参与链接的归档文件 `abstract-machine/am/build/am-native.a` 内部记录的编译器却是：
+   - `GCC 13.3.0 (Ubuntu 24.04)`
+
+这说明当前构建过程中复用了另一台机器生成的旧 archive，而不是由当前机器重新编译得到。
+
+### 3. 处理逻辑梳理
+整个分析过程遵循了“先分离源码问题，再定位环境问题”的思路：
+
+1. 先看报错位置，确认 `platform.c` 里的代码只是正常的 `atoi()` 调用，本身没有明显业务错误。
+2. 再检查 `am-native.a` 的符号，确认 archive 中确实残留了对 `__isoc23_strtol` 的依赖。
+3. 然后对比当前机器的 `gcc/glibc` 版本，发现当前 libc 中并没有这个符号。
+4. 最后查看 archive 的编译器标记，确认它来自另一台 Ubuntu 24.04 / GCC 13.3.0 环境。
+
+由此可以推出完整逻辑链：
+
+- `ARCH=native` 的构建依赖宿主机本地 libc。
+- `make` 会按时间戳复用已有 `build/` 产物。
+- 从另一台机器 `scp` 过来的工作区把旧的 `build/` 目录也带过来了。
+- 于是出现“旧机器编出来的 archive + 当前机器的 libc”混合链接。
+- 最终触发 `__isoc23_strtol` 符号不兼容。
+
+### 4. 根因本质
+这次问题的根因不是 NEMU 配置改错，也不是 `string` 测试写错，而是 native 目标对宿主环境强依赖，但构建缓存没有和宿主 ABI 绑定。
+
+换句话说，构建系统默认假设：
+
+> 只要 `build/` 目录里的文件时间戳没问题，这些 archive/object 就可以继续复用。
+
+这个假设在同一台机器上通常成立，但在“跨机器拷贝工作区”场景下就会失效，因为：
+
+- 编译器版本可能不同。
+- glibc 版本可能不同。
+- 头文件与运行库导出的符号集合可能不同。
+
+### 5. 解决方案
+解决思路不是修改源码，而是清理旧机器遗留的 native 构建缓存，并在当前机器上完整重编。
+
+实际处理步骤：
+
+```bash
+make -C "$AM_HOME/am" ARCH=native clean
+make -C "$AM_HOME/klib" ARCH=native clean
+make clean
+make ALL=string ARCH=native run
+```
+
+清理后，`abstract-machine/am/build/am-native.a` 会由当前机器重新生成，不再继续复用旧环境产物。
+
+### 6. 处理结果
+重建之后：
+
+- `string` 测试结果变为 `PASS`
+- 新生成的 `am-native.a` 显示的编译器版本已经变成：
+  - `GCC 11.4.0 (Ubuntu 22.04)`
+
+这说明参与链接的 archive 已经和当前宿主环境一致，`__isoc23_strtol` 的符号错配问题被彻底消除。
+
+### 7. 一句话总结
+> 这次 `__isoc23_strtol` 链接错误的本质，是从另一台机器拷贝过来的 native 构建缓存污染了当前环境；清理旧 `build/` 产物并在本机重新编译后，问题即可恢复正常。
+
+### 8. 链接期与装载期典型报错、常见原因与 Debug 逻辑对照表
+
+这一节的目标不是记住所有命令，而是先建立一个判断框架：
+
+- 如果错误发生在 `make` 过程中，通常优先归入链接期问题。
+- 如果程序已经生成成功，但运行时启动失败，通常优先归入装载期问题。
+- 真正的根因不一定在链接器或装载器本身，而往往在它们的输入出了问题。
+
+#### 8.1 链接期问题：典型报错、常见原因、Debug 逻辑
+
+| 典型报错 | 常见原因 | 推荐 Debug 逻辑 |
+| :--- | :--- | :--- |
+| `undefined reference to xxx` | 只有声明没有定义；实现文件未参与链接；缺少静态库/动态库；库版本或 ABI 不匹配；旧产物污染 | 先看完整链接命令；再用 `nm -A` 查谁在引用 `xxx`、谁真正定义了 `xxx`；最后确认定义来源是否真的参与了本次链接 |
+| `multiple definition of xxx` | 同一个全局符号被多个 `.o` 或 `.a` 重复定义；头文件里直接写了非 `static` / 非 `inline` 的定义 | 用 `nm -A` 或报错中的对象名定位重复定义来自哪些文件，再回查是否把变量/函数定义写进了头文件或重复编进多个目标 |
+| `cannot find -lxxx` | 链接器搜索路径里没有对应库；库名写错；库未安装 | 先检查链接命令里是否有 `-L`；再确认磁盘上是否存在 `libxxx.so`/`libxxx.a`；最后确认库名和平台是否匹配 |
+| `skipping incompatible xxx` | 架构不匹配，例如 32 位/64 位混用，或主机架构与目标架构混用 | 用 `file`、`readelf -h` 检查参与链接的目标文件和库，确认架构、位数、ABI 是否一致 |
+| `file format not recognized` | 输入文件损坏；把源码、文本文件或错误架构文件当作目标文件/库传给了链接器 | 先用 `file` 看该文件到底是不是 ELF/归档；再检查构建脚本是否把错误输入喂给了链接器 |
+| `DSO missing from command line` | 需要的共享库没有显式出现在链接命令里，或者库顺序不正确 | 检查最终链接命令，补齐缺失库，并把依赖者放前面、被依赖库放后面 |
+| `relocation ... can not be used` / `recompile with -fPIC` | 位置无关代码、PIE、静态/动态链接方式不匹配 | 检查目标文件是否带 `-fPIC`/`-fpie`，以及最终链接目标是否要求 PIE/PIC |
+
+#### 8.2 装载期问题：典型报错、常见原因、Debug 逻辑
+
+| 典型报错 | 常见原因 | 推荐 Debug 逻辑 |
+| :--- | :--- | :--- |
+| `error while loading shared libraries: libxxx.so: cannot open shared object file` | 运行时找不到共享库；`LD_LIBRARY_PATH`、`RPATH`、`RUNPATH` 不正确 | 用 `ldd` 看程序依赖的共享库；再用 `readelf -d` 看 `NEEDED/RPATH/RUNPATH`；最后检查环境变量和库实际路径 |
+| `symbol lookup error: undefined symbol: xxx` | 程序运行时加载到的共享库里没有该符号；加载到了错误版本的库 | 先用 `ldd` 看实际加载了哪份库；再用 `nm -D` 或 `readelf -Ws` 看该库是否导出 `xxx` |
+| `version 'GLIBC_x.y' not found` | 程序或库依赖了更高版本的 glibc / libstdc++，当前机器版本过低 | 对比程序和共享库所需的版本信息，确认是不是跨系统复制产物导致的版本错配 |
+| `wrong ELF class: ELFCLASS32/ELFCLASS64` | 程序与共享库位数不一致 | 用 `file` 检查程序和 `.so` 的架构与位数是否一致 |
+| 程序文件存在，但启动时仍报 `No such file or directory` | 解释器路径不存在，例如 ELF 头里记录的动态装载器路径无效 | 用 `readelf -l` 查看 `interpreter` 字段，确认动态装载器是否在当前系统存在 |
+
+#### 8.3 统一 Debug 顺序：先判断阶段，再判断符号归属
+
+以后遇到类似问题，建议固定按下面顺序排：
+
+1. 先判断错误发生在链接期还是装载期。
+2. 如果是链接期，先看最终链接命令，再看符号由谁引用、由谁定义。
+3. 如果是装载期，先看程序实际加载了哪些共享库，再确认符号是否存在于那份实际被加载的库里。
+4. 再回到源码与构建系统，确认是不是声明/定义缺失、条件编译、库顺序、架构不匹配、ABI 不兼容或旧产物污染。
+
+#### 8.4 这次 `__isoc23_strtol` 案例在这张表里属于哪一类
+
+本次错误属于：
+
+- 阶段：链接期
+- 表现：`undefined reference to __isoc23_strtol`
+- 表面现象：`platform.o` 引用了一个当前系统 libc 中不存在的符号
+- 根因：旧机器生成的 `am-native.a` 与当前机器 `glibc 2.35` 不兼容
+
+所以它符合上表中的这一类：
+
+> `undefined reference to xxx` 不一定意味着“源码没写实现”，也可能是“对象文件来自另一套工具链/运行库环境，导致链接时找不到兼容符号定义”。
+
+#### 8.5 一句话方法论
+
+> 看到“未定义符号”时，不要立刻认定源码写错；先判断它本该来自哪里，再判断它为什么没有在当前这次链接或装载过程中被正确解析出来。
+
+<a id="sec-pa2-io-trace"></a>
+## PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）
+
+本专题详细梳理在执行 `make ARCH=riscv32-nemu run mainargs=ysyx` 时，系统是如何将参数注入到客户程序（Guest），并通过客户程序的 `outb` 指令，经过 NEMU 模拟器的层层路由，最终触发宿主机（Host）终端的字符打印。同时涵盖了开发过程中遇到的 Kconfig 与 VSCode 配置问题。
+
+---
+
+<a id="sec-io-01"></a>
+### 1. 开发环境追踪记录（插曲问题）
+
+#### 1.1 为什么 menuconfig 中 `Enable watchpoint check` 会出错出现在 `Devices` 菜单下？
+* **是什么**：在配置 `make menuconfig` 时，外设 Device 选项中多出了本不该属于外设的 watchpoint 配置。
+* **为什么**：通过搜索排查发现，Kconfig 文件中存在重复定义的 `config WATCHPOINT`。一处位于 `nemu/Kconfig`（Testing and Debugging），另一处被错误复制或写入了 `nemu/src/device/Kconfig`（Devices 菜单内）。Kconfig 解析器把第二个定义并入了当前的 `menu "Devices"` 命名空间下。
+* **怎么解决**：删除了 `nemu/src/device/Kconfig` 中重复和越界的 `config WATCHPOINT` 块，确保 Kconfig 结构与目录逻辑统一。
+* **结果是**：`menuconfig` 恢复正常，调试功能回到对应的测试调试目录。
+
+#### 1.2 为什么 VSCode 无法跳转或识别 `init_monitor` 等函数定义？
+* **是什么**：LSP 服务器（C/C++ Intellisense 或 clangd）由于找不到正确的头文件或没解析到条件编译宏，将正确存在的函数（位于 `nemu/src/monitor/monitor.c`）标红或无法跳转。
+* **为什么**：这类框架使用了严重依赖 C 语言预处理器的条件编译（`#ifdef CONFIG_xxx`）。VSCode 默认没加载 `nemu/include/generated/autoconf.h`，导致所有 `IFDEF` 相关宏统统失效，被预处理器切断了代码解析。
+* **怎么解决**：修改了 `.vscode/c_cpp_properties.json` 中的 `forcedInclude`，强制全局引入 `autoconf.h`；更标准的解法是生成 `compile_commands.json` 提供给 LSP 引擎。
+* **结果是**：VSCode 恢复了对条件编译包围的函数的语义高定和跳转。
+
+---
+
+<a id="sec-io-02"></a>
+### 2. 参数注入机制：`mainargs` 怎么传给客户程序？
+
+执行命令：`make ARCH=riscv32-nemu run mainargs=ysyx`。
+
+#### 2.1 为什么不能直接像执行普通 C 语言那样用 `argv` 传给 `main()`?
+* **是什么**：普通的宿主机 C 程序由操作系统（OS）加载器并把命令行参数放入栈首；但我们跑在 NEMU 上的是个“裸机（Bare-metal）”程序（经 Abstract Machine 打包的 `.bin`），里面没有 OS 帮你传参数。
+* **为什么/怎么解决（机制）**：AM 框架采用了一套**编译期占位 + 链接后二进制替换 (Binary Patching)** 的精妙机制来解决传参。
+  1. **Make 提取与宏注入**：我们在终端传入了 `mainargs=ysyx`，Makefile (`abstract-machine/scripts/platform/nemu.mk`) 将其捕获。如果没有传，默认通过 `MAINARGS_PLACEHOLDER` 生成一组用来占位的字符。
+  2. **C 代码中的占位符**：`trm.c` 中定义了静态字符数组 `static const char mainargs[MAINARGS_MAX_LEN] = TOSTRING(MAINARGS_PLACEHOLDER);`。编译时，这块内存被嵌入到了生成的 ELF 和 `.bin` 二进制中。
+  3. **Python 脚本暴力替换**：Makefile 的 build 链里调用了 `insert-arg.py` 脚本。脚本的本质是：打开编译好的 `.bin` 文件，在二进制流中搜索占位符字节序列，然后用我们传入的 `"ysyx"` 字符串暴力覆盖这部分文件流，最后不足长度用 `\0` 填充。
+
+* **结果是**：NEMU 加载这块 `.bin` 到物理内存起跑时，`mainargs` 数组里的内容已经被替换成了 `ysyx`。`_trm_init()` 启动时直接执行 `main(mainargs)`，程序就像获得普通环境 `argv` 一样获得了字符串。
+
+---
+
+<a id="sec-io-03"></a>
+### 3. 外设 MMIO 的建立与页对齐机制
+
+外设怎么在 NEMU 里安家落户的？我们围绕 `IOMap` 结构体进行剖析。
+
+#### 3.1 `IOMap` 结构体是什么？
+```c
+typedef struct {
+  const char *name;    // 外设名称
+  paddr_t low;         // 物理起始地址
+  paddr_t high;        // 物理结束地址
+  void *space;         // 主机上为这个外设分配的"模拟寄存器/状态"内存区
+  io_callback_t callback; // 函数指针：发生读写时触发的副作用回调
+} IOMap;
+```
+* **为什么这样设计**：实现内存状态存储（`space`）和副作用行为（`callback`）的解耦。写入时只管写 `space`，然后无脑调 `callback` 执行实际功能。这是一种高度面向对象的 C 语言实现多态的机制。
+
+#### 3.2 为什么 `new_space` 要进行页面对齐？它怎么实现的？
+```c
+size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;
+```
+* **是什么**：不管设备只需要多小的内存（如串口只需要 8 字节），这段分配代码总是按 `4096`（一页）的整数倍划拨内存给自己。
+* **为什么**：
+  1. **权限隔离**：硬件体系结构管理内存权限（读/写/不可缓存等）最小粒度就是 4KB 一页。不同的外设绝对不能揉进同一个页，否则对其设置页表权限会相互踩踏波及。
+  2. **寻址防溢出与简单性**：页面对齐后低 12 位总是零，基址干净利落。线性分配只需要推动全局指针（Bump Allocator）。
+* **怎么做算的**：`(size + 4095)` 将大小强行推入下一个页面的范围，然后通过对掩码取反做按位与（`& ~0xFFF`）暴力抹除了低 12 位的“零头”。其本质并不是在找当前页，而是在“加了零头的情况下寻找下一页的基地址”。这也解释了为什么申请大于 4096 字节的设备，能完美连跨两页获得 8192 字节。
+* **结果是**：每个传入的外设，通过 `new_space` 都拿到了一块纯净的、整以页对齐的宿主机大块堆内存指针，这个指针就存入了 `map->space`。
+
+---
+
+<a id="sec-io-04"></a>
+### 4. 路由分发链与 I/O 截获：从 `outb` 到终端打印
+
+这是重中之重：客户程序怎么能仅仅操作一个内存地址，就让宿主机打出一个字符的？
+
+#### 4.1. 客户程序发起 I/O（`outb`）
+* **发生什么**：在 AM 库的实现中，向串口输出是执行 `outb(SERIAL_PORT, ch)`。这在底层实际上会被翻译成往串口物理地址（通常是宏定义的一个定值）抛入一个写操作。
+* **本质**：CPU 执行了 `store` 指令（对应 RISC-V 里的 `sb` / `sw` 等）。
+
+#### 4.2. 指令级拦截：`vaddr` -> `paddr`
+* **虚拟到物理**：NEMU 的指令执行流进入到 `vaddr_write`，接着直接透传到物理内存访问 `paddr_write(addr, len, data)`。
+* **分流点（为什么能被 NEMU 抓住）**：`paddr_write` 中具有关键判断逻辑：
+  ```c
+  if (in_pmem(addr)) { ...pmen_write... }
+  else { mmio_write(addr, len, data); return; }
+  ```
+  因为串口的地址宏设置的数值**远超出了正常的客户物理内存（pmem）范围**，所以被精准分流到了 `mmio_write`。
+
+#### 4.3. MMIO 映射表查询与写入 (`mmio_write` -> `map_write`)
+* **怎么解决寻址**：`mmio_write(addr, len, data)` 调用了 `fetch_mmio_map(addr)`。它遍历全局的 `maps[NR_MAP]` 数组，通过 `low <= addr <= high` 的匹配，找到了事先注册好的 `serial` 的 `IOMap`。
+* **状态模拟**：接着调用 `map_write(addr, len, pos, map)`，通过 `offset = addr - map->low` 算出相对偏移。
+* **写入 backing buffer**：调用 `host_write(map->space + offset, len, data)`，先把数据写进事先分好的 `space` 状态区。这就相当于在物理电路上完成了电平寄存器的翻转。
+
+#### 4.3.1 核心揭秘：这句 `offset = addr - map->low` 到底有多重要？
+* **是什么**：这是整个外设模拟中**“地址转换”**的最核心公式。它把 CPU 视角下的“全局绝对物理地址”转换成了纯净的、设备自身视角下的“局部相对偏移地址”。
+* **为什么需要它（跨越鸿沟）**：
+  1. **Guest（客户 CPU）的世界**：它是在用指令访存一整片巨大的全局物理地址空间。比如它要写串口第 0 个寄存器，它发出的 `addr` 就是 `0xa00003f8`。
+  2. **Host（宿主机 NEMU）的世界**：NEMU 的外设缓冲区只是宿主机操作系统分配的一小块堆内存指针（比如 `0x7fff...`）。如果 NEMU 的 `host_write` 胆敢直接向 `0xa00003f8` 写入，你的 Linux 宿主机操作系统会立刻抛出 `Segfault`（段错误），由于它是非法内存！
+* **怎么转换与使用（极度贴合真实硬件的解耦机制）**：
+  计算出的 `offset = addr - map->low;` 完美映射了真实物理主板上的寻址逻辑。这可以总结为：
+  - **`map->low` 匹配**：相当于主板上的**“片选信号（Chip Select）”**。译码器发现全局物理地址落在串口范围，就下发片选电平唤醒串口芯片（对应 `fetch_mmio_map` 找到设备）。
+  - **`offset` 的得出**：相当于由于片选完成，串口芯片已经被唤醒，接下来它只看地址总线的低几位**“寄存器选择引脚”**。也就是说，**`offset` 完全等价于外设内部的各个设备寄存器的偏移地址**。比如它此刻算出 `offset = 0`，代表的就是当前访问的地址其实是设备的“读写缓冲寄存器”。
+
+* **结果是（两层精妙的运用）**：
+  1. **给数据安全安家**：计算出 `offset` 后，用纯净合法的宿主机指针加上局部偏移（`map->space + offset`），将 CPU 写入的虚假数据精准、安全地存进了宿主机的实际内存空间里。这才真正写入了外设分配的内存中。
+  2. **极简的外设驱动开发（最重要的一层）**：当框架调用 `invoke_callback(..., offset, ...)` 把这个简单干净的 `offset`（而不是巨大的 `addr`）丢给开发串口外设的程序员时，写 `serial_io_handler` 的程序员**完全不需要去死记硬背恶心的系统全局基址了**！它直接通过一个极其简单干脆的 `switch (offset)` 寄存器偏移判断就行了：`case 0` 就意味着操作缓冲寄存器发送字符；`case 4` 意味着操作线路控制寄存器调波特率。这使得**特定体系结构相关的物理地址空间**与**特定外设模块内部的行为逻辑**实现了最完美的彻底切割与解耦！
+
+#### 4.4. 回调触发与终端打印 (`invoke_callback`)
+* **为什么能打字**：`map_write` 写完之后立刻进行 `invoke_callback(map->callback, offset, len, true)`。
+* **函数指针显威**：由于 `init_serial()` 时，`map->callback` 被绑定成了 `serial_io_handler`。此时其实执行的就是：
+  ```c
+  serial_io_handler(offset, len, is_write=true)
+  ```
+* **设备副作用真正产生**：串口回调函数发现 `is_write` 是真，且偏移量（`offset`）是收发寄存器偏移（`CH_OFFSET`，0），于是代码跑向了 `serial_putc(serial_base[0])`。由于 `space`（即 `serial_base`）在上一秒刚被 `host_write` 塞进了我们要打印的字符 `y`，它把它拿出来丢给了宿主机的库函数 `putc(ch, stderr)`。
+
+#### 4.5. 总结：全通了
+* **结果是**：客户机里面虚假的写内存操作（`outb`），成功“欺骗”了 NEMU。NEMU 判断这不是真正的内存，从而走设备总线；查到设备是串口后，把该字符暂存到虚拟的串口寄存器（`space`），并通过多态绑定的函数指针引发了真实操作系统的 `putc`，最终字符 `y` 从你的电脑终端黑框里冒了出来。
 

@@ -2,9 +2,10 @@
 #include <klib.h>
 #include <klib-macros.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
-
+// native 未被定义,显示要求native使用当前klib 
 int printf(const char *fmt, ...) {
   char buf[1024];
   va_list ap;
@@ -23,68 +24,9 @@ int printf(const char *fmt, ...) {
 }
 
 int vsprintf(char *out, const char *fmt, va_list ap) {
-  char *str = out;
-  /*
-  1、循环检查结束符
-  2、循环检查不等于字符串格式符%，str++
-  3、遇见%：跳过检查后接的符号进行分类
-  */
-  while (*fmt != '\0') {
-    if (*fmt != '%') {
-      *str++ = *fmt++;
-      continue;
-    }
-    fmt++; // skip '%'
-    if (*fmt == '\0') {
-      break;
-    }
-    switch (*fmt) {
-      case 's': {
-  // va_arg(va_list ap, type)：字符串格式决定type类型，进而决定va_arg()的返回类型，ap列表内存地址自动滑动相应数据类型内存宽度
-        const char *s = va_arg(ap, const char *);
-        if (!s) s = "(null)";
-        while (*s != '\0') {
-          *str++ = *s++;
-        }
-        break;
-      }
-      case 'd': {
-        int d = va_arg(ap, int);
-        if (d == 0) {
-          *str++ = '0';
-        } else {
-          unsigned int ud;  // 接受转化后的无符号正整数
-          if (d < 0) {
-            *str++ = '-';   // 负数在无符号整数前添加 -
-            ud = -d;
-          } else {
-            ud = d;
-          }
-// 把内存里的二进制正整数 ud，剥离出每一位的十进制位，转换为对应的 ASCII 字符，最后拼接到刚才的输出缓冲区里。
-          char buf[32];
-          int i = 0;
-          while (ud > 0) {
-            buf[i++] = (ud % 10) + '0'; // ASCII 字符'0' = 48；普通纯数字i(0-9)+字符'0' 刚好在ASCII码中表示对应的输出数字(0-9)
-            ud /= 10;
-          }
-          while (i > 0) {
-            *str++ = buf[--i];     // 将缓冲区的进制数调换成正确的位置()
-          }
-        }
-        break;
-      }
-      default: {
-        *str++ = '%';
-        *str++ = *fmt;
-        break;
-      }
-    }
-    fmt++;
-  }
-  *str = '\0';
-// printf、sprintf 等格式化输出家族函数的标准设定（也是 POSIX 标准规定）必须：
-// 返回成功写入缓冲区的字符总数（不包括结尾的 \0 结束符）。
-  return str - out;
+  // Reuse the fully featured formatter so sprintf/vsprintf and
+  // snprintf/vsnprintf stay behaviorally aligned.
+  return vsnprintf(out, (size_t)-1, fmt, ap);
 }
 
 int sprintf(char *out, const char *fmt, ...) {
@@ -123,13 +65,32 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
     fmt++;
     if (*fmt == '\0') break;
 
+    char pad_char = ' ';
+    if (*fmt == '0') {
+      pad_char = '0';
+      fmt++;
+    }
+
+    int width = 0;
+    while (*fmt >= '0' && *fmt <= '9') {
+      width = width * 10 + (*fmt - '0');
+      fmt++;
+    }
+
     if (*fmt == 's') {
       const char *s = va_arg(ap, const char *);
       if (s == NULL) s = "(null)";
+      int s_len = 0;
+      while (s[s_len] != '\0') s_len++;
+      int pad_len = width - s_len;
+      if (pad_len < 0) pad_len = 0;
+      
+      while (pad_len-- > 0) {
+        if (n > 0 && written + 1 < n) *str++ = ' ';
+        written++;
+      }
       while (*s != '\0') {
-        if (n > 0 && written + 1 < n) {
-          *str++ = *s;
-        }
+        if (n > 0 && written + 1 < n) *str++ = *s;
         written++;
         s++;
       }
@@ -139,14 +100,12 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
       int base = 10;
       char buf[32];
       int i = 0;
+      bool is_neg = false;
 
       if (*fmt == 'd') {
         int num = va_arg(ap, int);
         if (num < 0) {
-          if (n > 0 && written + 1 < n) {
-            *str++ = '-';
-          }
-          written++;
+          is_neg = true;
           value = 0u - (unsigned int)num;
         } else {
           value = (unsigned int)num;
@@ -155,53 +114,76 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
         value = va_arg(ap, unsigned int);
         base = 16;
       } else {
-        if (n > 0 && written + 1 < n) {
-          *str++ = '0';
-        }
-        written++;
-        if (n > 0 && written + 1 < n) {
-          *str++ = 'x';
-        }
-        written++;
         value = (uintptr_t)va_arg(ap, void *);
         base = 16;
       }
 
       if (value == 0) {
-        if (n > 0 && written + 1 < n) {
-          *str++ = '0';
-        }
-        written++;
+        buf[i++] = '0';
       } else {
         while (value > 0) {
           int digit = value % base;
           buf[i++] = (digit < 10 ? '0' + digit : 'a' + digit - 10);
           value /= base;
         }
-        while (i > 0) {
-          char ch = buf[--i];
-          if (n > 0 && written + 1 < n) {
-            *str++ = ch;
-          }
+      }
+
+      int prefix_len = is_neg ? 1 : (*fmt == 'p' ? 2 : 0);
+      int num_len = i;
+      int pad_len = width - num_len - prefix_len;
+      if (pad_len < 0) pad_len = 0;
+
+      // Handle space padding (goes before prefix)
+      if (pad_char == ' ') {
+        while (pad_len-- > 0) {
+          if (n > 0 && written + 1 < n) *str++ = ' ';
           written++;
         }
+      }
+
+      // Output prefix
+      if (is_neg) {
+        if (n > 0 && written + 1 < n) *str++ = '-';
+        written++;
+      } else if (*fmt == 'p') {
+        if (n > 0 && written + 1 < n) *str++ = '0';
+        written++;
+        if (n > 0 && written + 1 < n) *str++ = 'x';
+        written++;
+      }
+
+      // Handle zero padding (goes after prefix)
+      if (pad_char == '0') {
+        while (pad_len-- > 0) {
+          if (n > 0 && written + 1 < n) *str++ = '0';
+          written++;
+        }
+      }
+
+      // Output digits reversed
+      while (i > 0) {
+        char ch = buf[--i];
+        if (n > 0 && written + 1 < n) *str++ = ch;
+        written++;
       }
     }
     else if (*fmt == 'c' || *fmt == '%') {
       char ch = (*fmt == '%') ? '%' : (char)va_arg(ap, int);
-      if (n > 0 && written + 1 < n) {
-        *str++ = ch;
-      }
+      if (n > 0 && written + 1 < n) *str++ = ch;
       written++;
     }
     else {
-      if (n > 0 && written + 1 < n) {
-        *str++ = '%';
-      }
+      // Revert unrecognized formatter handling cleanly
+      if (n > 0 && written + 1 < n) *str++ = '%';
       written++;
-      if (n > 0 && written + 1 < n) {
-        *str++ = *fmt;
+      if (pad_char == '0') {
+        if (n > 0 && written + 1 < n) *str++ = '0';
+        written++;
       }
+      if (width > 0) { // Just a tiny hack to approximate original fallback loop
+         // In reality, this is fine to just drop width digits for unrecognized specifiers 
+      }
+      if (n > 0 && written + 1 < n) *str++ = *fmt;
       written++;
     }
 

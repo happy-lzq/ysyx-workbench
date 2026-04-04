@@ -1,4 +1,5 @@
 .DEFAULT_GOAL = app
+# 默认目标文件  构建nemu模拟器
 
 # Add necessary options if the target is a shared library
 ifeq ($(SHARE),1)
@@ -9,10 +10,12 @@ endif
 
 WORK_DIR  = $(shell pwd)
 BUILD_DIR = $(WORK_DIR)/build
+# BUILD_DIR=/home/luo/ysyx/ysyx-workbench/nemu/build
 
 INC_PATH := $(WORK_DIR)/include $(INC_PATH)
 OBJ_DIR  = $(BUILD_DIR)/obj-$(NAME)$(SO)
 BINARY   = $(BUILD_DIR)/$(NAME)$(SO)
+# BINARY=/home/luo/ysyx/ysyx-workbench/nemu/build/risvc32-nemu-interpreter
 
 # Compilation flags
 ifeq ($(CC),clang)

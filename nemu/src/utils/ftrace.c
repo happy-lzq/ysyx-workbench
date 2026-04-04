@@ -15,7 +15,7 @@ typedef struct {
 // 调用帧结构体 
 typedef struct {
     vaddr_t ret_addr;       // 函数执行完后的返回地址
-    const FuncSymbol *func; // 指向被调用的那个函数信息的指针
+    const FuncSymbol *func; // 指向被调用的那个函数的fucn结构体信息的指针
 } CallFrame;
 
 #define MAX_FUNC_SYMBOLS 1024
@@ -28,7 +28,8 @@ static CallFrame call_stack[MAX_CALL_DEPTH];   // 调用栈
 static int call_depth = 0;                     // 调用深度
 static FILE *ftrace_fp = NULL;                 // ftrace-log.txt 文件写入指针
 
-static const FuncSymbol *find_func_by_addr(vaddr_t addr) {
+// elf文件中选择出来的symtab目标条目的结构体数组中基于目标地址寻找对应的条目——目标地址映射成函数名
+static const FuncSymbol *find_func_by_tar_addr(vaddr_t addr) {
     for (int i = 0; i < func_symbol_count; i++) {
         if (addr >= func_symbols[i].start && addr < func_symbols[i].end) {
             return &func_symbols[i];
@@ -148,7 +149,7 @@ ELF header 数据结构体
 4、Elf32_Sym 数据结构如下：设计目的就是为了存放符号表(.symtab)中的符号条目信息，符号表中的每个符号都对应一个 Elf32_Sym 结构体实例。
     typedef struct {
         uint32_t st_name;       // 符号名字在.strtab中的索引 实际上只是在字符串表里的索引偏移
-        uint32_t st_value;      // 符号的值（地址）
+        uint32_t st_value;      // 符号的值（地址）  
         uint32_t st_size;       // 符号的大小（字节）
         unsigned char st_info;  // 符号类型和绑定属性   
             STT_NOTYPE      (0)：未知类型
@@ -247,7 +248,7 @@ Symbol table '.symtab' contains 48 entries:     下面的每一条数据大小�
         const char *name = strtab_buf + sym.st_name;
         FuncSymbol *sel_enrty = &func_symbols[func_symbol_count++];  // 相同结构体指针指向该有效symtab条目
         sel_enrty->start = (vaddr_t)sym.st_value;                    // 有效起始地址
-        sel_enrty->end = (vaddr_t)(sym.st_value + sym.st_size);      // 有效结束地址
+        sel_enrty->end = (vaddr_t)(sym.st_value + sym.st_size);      // 有效起始地址+有效大小
         snprintf(sel_enrty->name,sizeof(sel_enrty->name),"%s",name);
     }
 
@@ -263,23 +264,20 @@ Symbol table '.symtab' contains 48 entries:     下面的每一条数据大小�
 
 // ==================================== ftrace cell/ret log ====================================
 void ftrace_call(vaddr_t pc, vaddr_t tar_addr, vaddr_t ret_addr) {
-    if (ftrace_fp == NULL) {
+    if (ftrace_fp == NULL || !FTRACE_COND) {
         return;
     }
-    if (!FTRACE_COND) {
-        return;
-    }
-    const FuncSymbol *callee = find_func_by_addr(tar_addr);
-
-    fprintf(ftrace_fp, FMT_WORD " : ", pc);
+    const FuncSymbol *callee = find_func_by_tar_addr(tar_addr);   // 通过目标地址
+    fprintf(ftrace_fp, FMT_WORD " : ", pc);          // 将当前pc 与 ' : ' 拼接写入ftrace_fp目标文件地址行
     print_indent(ftrace_fp, call_depth);
     if (callee != NULL) {
         fprintf(ftrace_fp, "call [%s@" FMT_WORD "]\n", callee->name, tar_addr);
     } else {
         fprintf(ftrace_fp, "call [unknown@" FMT_WORD "]\n", tar_addr);
     }
-    fflush(ftrace_fp);
+    fflush(ftrace_fp);  // 刷新存入文件的数据缓冲区  保证下次写入的数据是最新的
 
+// 函数深度入栈处理  ：先进后出（LIFO）。
     if (call_depth < MAX_CALL_DEPTH) {
         call_stack[call_depth].ret_addr = ret_addr;
         call_stack[call_depth].func = callee;
@@ -288,10 +286,7 @@ void ftrace_call(vaddr_t pc, vaddr_t tar_addr, vaddr_t ret_addr) {
 }
 
 void ftrace_ret(vaddr_t pc, vaddr_t tar_addr) {
-    if (ftrace_fp == NULL) {
-        return;
-    }
-    if (!FTRACE_COND) {
+    if (ftrace_fp == NULL || !FTRACE_COND) {
         return;
     }
     if (call_depth > 0) {
