@@ -21,10 +21,10 @@ static uint32_t *rtc_port_base = NULL;
 
 static void rtc_io_handler(uint32_t offset, int len, bool is_write) {
   assert(offset == 0 || offset == 4);
-  if (!is_write && offset == 4) {
-    uint64_t us = get_time();
-    rtc_port_base[0] = (uint32_t)us;
-    rtc_port_base[1] = us >> 32;
+  if (!is_write && offset == 4) {         // 触发nemu硬件获取时间条件
+    uint64_t us = get_time();             // 1. 获取宿主机(真实世界)当前绝对时间
+    rtc_port_base[0] = (uint32_t)us;      // 2. 把低32位塞进 offset 0
+    rtc_port_base[1] = us >> 32;          // 3. 把高32位塞进 offset 4
   }
 }
 

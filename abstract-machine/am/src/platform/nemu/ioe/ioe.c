@@ -45,11 +45,12 @@ static void *lut[128] = {
 };
 
 static void fail(void *buf) { panic("access nonexist register"); }
-
+// ioe_init() 首先遍历 lut 数组，把未定义的设备接口填上 fail，
+// 把定义了的（比如 AM_TIMER_UPTIME）绑定到 __am_timer_uptime 函数
 bool ioe_init() {
   for (int i = 0; i < LENGTH(lut); i++)
     if (!lut[i]) lut[i] = fail;
-  __am_gpu_init();
+  __am_gpu_init();            
   __am_timer_init();
   __am_audio_init();
   return true;

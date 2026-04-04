@@ -31,6 +31,7 @@ void __am_disk_blkio(AM_DISK_BLKIO_T *io);
 static void __am_net_config (AM_NET_CONFIG_T *cfg)    { cfg->present = false; }
 
 typedef void (*handler_t)(void *buf);
+// lut数组成为都为结构体，其结构体数据由上述定义的函数来进行初始化
 static void *lut[128] = {
   [AM_TIMER_CONFIG] = __am_timer_config,
   [AM_TIMER_RTC   ] = __am_timer_rtc,
