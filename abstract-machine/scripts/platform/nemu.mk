@@ -34,7 +34,7 @@ insert-arg: image
 # 本系统仅有 python3 并无python 而是使用软链接至python3   
 # -O $(IMAGE).elf &(IMGAE).bin   构建.bin文件
 image: image-dep
-	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
+	@$(OBJDUMP) -d -S $(IMAGE).elf > $(IMAGE).txt
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
