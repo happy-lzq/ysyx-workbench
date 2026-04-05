@@ -7,7 +7,7 @@ AM_SRCS := platform/nemu/trm.c \
            platform/nemu/ioe/disk.c \
            platform/nemu/mpe.c
 
-CFLAGS    += -fdata-sections -ffunction-sections
+CFLAGS    += -fdata-sections -ffunction-sections -g
 CFLAGS    += -I$(AM_HOME)/am/src/platform/nemu/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 
