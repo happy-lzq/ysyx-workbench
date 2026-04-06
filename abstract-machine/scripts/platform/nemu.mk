@@ -21,7 +21,7 @@ NEMUFLAGS += -b
  # 增加 -b 选择nemu平台的批处理模式
 
 # python脚本处理insert-arg 
-MAINARGS_MAX_LEN = 64
+MAINARGS_MAX_LEN = 128
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN)
 CFLAGS += -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
