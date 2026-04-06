@@ -39,19 +39,19 @@ void init_dtrace_log(const char *path){
   }
   
 }
-static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
-    if (dtrace_fp != NULL){
-    fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
-    fflush(dtrace_fp);
-  }
-}
+// static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
+//     if (dtrace_fp != NULL){
+//     fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+//     fflush(dtrace_fp);
+//   }
+// }
 
-static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
-    if (dtrace_fp != NULL){
-    fprintf(dtrace_fp,"dtrace: write to device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
-    fflush(dtrace_fp);
-  }
-}
+// static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
+//     if (dtrace_fp != NULL){
+//     fprintf(dtrace_fp,"dtrace: write to device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+//     fflush(dtrace_fp);
+//   }
+// }
 
 uint8_t* new_space(int size) {
   uint8_t *p = p_space;
@@ -90,7 +90,7 @@ word_t map_read(paddr_t addr, int len, IOMap *map) {
   word_t ret = host_read(map->space + offset, len);
   #ifdef CONFIG_DTRACE 
     if (DTRACE_COND){
-      dtrace_read(map,addr,len,ret);
+      // dtrace_read(map,addr,len,ret);
     }
   #endif
 
@@ -112,7 +112,7 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   invoke_callback(map->callback, offset, len, true);
   #ifdef CONFIG_DTRACE 
   if (DTRACE_COND){
-    dtrace_write(map,addr,len,data);
+    // dtrace_write(map,addr,len,data);
   }
   #endif  
 }

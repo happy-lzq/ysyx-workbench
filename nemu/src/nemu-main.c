@@ -30,11 +30,6 @@ int is_exit_status_bad();
 int main(int argc, char *argv[]) {
   /* Initialize the monitor. */
 #ifdef CONFIG_TARGET_AM
-  Log("ysyx牛逼\n");
-    Log("ysyx牛逼\n");
-      Log("ysyx牛逼\n");
-        Log("ysyx牛逼\n");
-          Log("ysyx牛逼\n");
   am_init_monitor();
 #else
   init_monitor(argc, argv);
