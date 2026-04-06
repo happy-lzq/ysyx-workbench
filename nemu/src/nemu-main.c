@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   printf("shabi luozhiqiang\n");
   am_init_monitor();
 #else
-printf("shabi luozhiqiang no amnemu\n");
+printf("\nshabi luozhiqiang no amnemu\n");
   init_monitor(argc, argv);
 #endif
 
