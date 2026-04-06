@@ -19,7 +19,7 @@
 #include <device/map.h>
 
 #define IO_SPACE_MAX (32 * 1024 * 1024)
-
+static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_write);
 static uint8_t *io_space = NULL;
 static uint8_t *p_space = NULL;
 
