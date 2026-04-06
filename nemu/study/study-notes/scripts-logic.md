@@ -260,7 +260,7 @@
 
 #### 14）`if`
 - **函数名**：`if`
-- **函数原型**：`$(if condition,then-part[,else-part])`
+- **函数原型**：`$(if condition,then-part,else-part)`
 - **参数意义**：`condition` 是条件，`then-part` / `else-part` 是真/假时展开内容
 - **函数功能**：在变量展开阶段执行条件分支
 
