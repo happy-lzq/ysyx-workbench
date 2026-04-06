@@ -22,7 +22,7 @@
 static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_write);
 static uint8_t *io_space = NULL;
 static uint8_t *p_space = NULL;
-
+static FILE *dtrace_fp = NULL;
 //预分配的 IO 区域 io_space 中返回一段连续内存作为设备的 backing buffer（设备寄存器/状态存储）。大小 high - low +1
 /*
 1、页对齐知识点
@@ -30,8 +30,29 @@ static uint8_t *p_space = NULL;
   ②(size + (PAGE_SIZE - 1)) & ~PAGE_MASK ：（）任何地址+4095）& ~page_mask  下一页的起始地址
 2、根据传参size按字节大小向nemu申请设备寄存器/状态内存空间，按页申请
 3、返回指针p 即是开辟的设备寄存器/状态内存空间
-
 */
+void init_dtrace_log(const char *path){
+  if (path !=NULL)
+  {
+    dtrace_fp = fopen(path,"w");
+    Assert(dtrace_fp,"can't open the dtrace log file '%s'",path);
+  }
+  
+}
+static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
+    if (dtrace_fp != NULL){
+    fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+    fflush(dtrace_fp);
+  }
+}
+
+static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
+    if (dtrace_fp != NULL){
+    fprintf(dtrace_fp,"dtrace: write to device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+    fflush(dtrace_fp);
+  }
+}
+
 uint8_t* new_space(int size) {
   uint8_t *p = p_space;
   // page aligned;
@@ -67,6 +88,12 @@ word_t map_read(paddr_t addr, int len, IOMap *map) {
   paddr_t offset = addr - map->low;
   invoke_callback(map->callback, offset, len, false); // prepare data to read
   word_t ret = host_read(map->space + offset, len);
+  #ifdef CONFIG_DTRACE 
+    if (DTRACE_COND){
+      dtrace_read(map,addr,len,ret);
+    }
+  #endif
+
   return ret;
 }
 /*
@@ -84,4 +111,9 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   host_write(map->space + offset, len, data);    
   //  基于设备自身视角下的局部相对偏移地址，通过这个偏移+设备内存储存区域进行写。这才真正写入外设的内存里
   invoke_callback(map->callback, offset, len, true);
+  #ifdef CONFIG_DTRACE 
+  if (DTRACE_COND){
+    dtrace_write(map,addr,len,data);
+  }
+  #endif  
 }

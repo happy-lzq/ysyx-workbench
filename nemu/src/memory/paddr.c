@@ -67,7 +67,7 @@ word_t paddr_read(paddr_t addr, int len) {
     #ifdef CONFIG_MTRACE
       if (MTRACE_COND)
       {
-        mtrace_write('R',addr,len,pr_data);
+        mtrace_write('R',addr,len,pr_data);   // mtrace
       }
     #endif
     return pr_data;    // nmeu addr 属于物理内存内正常调用并反馈
