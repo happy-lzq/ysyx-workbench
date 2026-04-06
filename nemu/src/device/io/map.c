@@ -41,8 +41,8 @@ void init_dtrace_log(const char *path){
 }
 static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
     if (dtrace_fp != NULL){
-    fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
-    fflush(dtrace_fp);
+    // fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+    // fflush(dtrace_fp);
   }
 }
 
