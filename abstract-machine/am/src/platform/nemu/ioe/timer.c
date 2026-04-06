@@ -1,7 +1,7 @@
 #include <am.h>
 #include <nemu.h>
 
-static uint64_t bool_time = 0;   // 记住系统刚启动时的初始时间
+static uint64_t init_time = 0;   // 记住系统刚启动时的初始时间
 
 /*系统启动时间记录初始化设置
 1、使用 inl(RTC_ADDR + 4)（高 32 位）和 inl(RTC_ADDR + 0)（低 32 位）读取 NEMU 底层当前的时间。
@@ -33,11 +33,11 @@ static uint64_t read_rtc(){
 }
 
 void __am_timer_init() {
-  bool_time = read_rtc();
+  init_time = read_rtc();
 }
 
 void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
-  uptime->us = read_rtc() - bool_time;
+  uptime->us = read_rtc() - init_time;
 
 }
 
