@@ -20,7 +20,6 @@
 
 #ifndef CONFIG_TARGET_AM
 #include <SDL2/SDL.h>
-
 // Note that this is not the standard
 #define NEMU_KEYS(f) \
   f(ESCAPE) f(F1) f(F2) f(F3) f(F4) f(F5) f(F6) f(F7) f(F8) f(F9) f(F10) f(F11) f(F12) \
@@ -70,11 +69,15 @@ void send_key(uint8_t scancode, bool is_keydown) {
     key_enqueue(am_scancode);
   }
 }
+
 #else // !CONFIG_TARGET_AM
 #define NEMU_KEY_NONE 0
 
 static uint32_t key_dequeue() {
   AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
+  // i8042键盘控制器寄存器32位   掩码作为高位来代表状态行为与键码一起按位与构成通用32位的广义扫码码
+  // 当 ev.keydown == true（按下）→ 设置掩码位 → 数值高位为 1
+  // 当 ev.keydown == false（释放）→ 不设置掩码位 → 数值高位为 0
   uint32_t am_scancode = ev.keycode | (ev.keydown ? KEYDOWN_MASK : 0);
   return am_scancode;
 }

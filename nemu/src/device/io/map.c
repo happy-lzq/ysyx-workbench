@@ -22,7 +22,7 @@
 static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_write);
 static uint8_t *io_space = NULL;
 static uint8_t *p_space = NULL;
-static FILE *dtrace_fp = NULL;
+
 //预分配的 IO 区域 io_space 中返回一段连续内存作为设备的 backing buffer（设备寄存器/状态存储）。大小 high - low +1
 /*
 1、页对齐知识点
@@ -31,6 +31,8 @@ static FILE *dtrace_fp = NULL;
 2、根据传参size按字节大小向nemu申请设备寄存器/状态内存空间，按页申请
 3、返回指针p 即是开辟的设备寄存器/状态内存空间
 */
+#ifdef CONFIG_DTRACE 
+static FILE *dtrace_fp = NULL;
 void init_dtrace_log(const char *path){
   if (path !=NULL)
   {
@@ -39,19 +41,20 @@ void init_dtrace_log(const char *path){
   }
   
 }
-// static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
-//     if (dtrace_fp != NULL){
-//     fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
-//     fflush(dtrace_fp);
-//   }
-// }
+static void dtrace_read(IOMap *map, paddr_t addr,int len,word_t ret){
+    if (dtrace_fp != NULL){
+    fprintf(dtrace_fp,"dtrace: read from device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+    fflush(dtrace_fp);
+  }
+}
 
-// static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
-//     if (dtrace_fp != NULL){
-//     fprintf(dtrace_fp,"dtrace: write to device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
-//     fflush(dtrace_fp);
-//   }
-// }
+static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
+    if (dtrace_fp != NULL){
+    fprintf(dtrace_fp,"dtrace: write to device [%-10s] at index " FMT_PADDR "(len = %d) ->> ret = " FMT_WORD "\n",map->name,addr,len,ret);
+    fflush(dtrace_fp);
+  }
+}
+#endif
 
 uint8_t* new_space(int size) {
   uint8_t *p = p_space;
@@ -90,7 +93,7 @@ word_t map_read(paddr_t addr, int len, IOMap *map) {
   word_t ret = host_read(map->space + offset, len);
   #ifdef CONFIG_DTRACE 
     if (DTRACE_COND){
-      // dtrace_read(map,addr,len,ret);
+      dtrace_read(map,addr,len,ret);
     }
   #endif
 
@@ -112,7 +115,7 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   invoke_callback(map->callback, offset, len, true);
   #ifdef CONFIG_DTRACE 
   if (DTRACE_COND){
-    // dtrace_write(map,addr,len,data);
+    dtrace_write(map,addr,len,data);
   }
   #endif  
 }

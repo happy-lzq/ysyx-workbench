@@ -3984,3 +3984,45 @@ size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;
 *   **原理解析**：在目前的软件框架实现中，AM 的 `putch` 本质是向特定内存地址的写入（如 `outb()` 操作）。NEMU 截获写存后，并没有经过真实的物理串行线，而是直接转到原生操作系统的标准输出打印了。这是一种纯软件环境下的**捷径旁路**。如果不单独在 RTL 仿真中针对特定的串口引脚搭建接收和转换监控并输出的机制，底层 RTL 是不知道所谓“控制台输出”的，它仅仅把这一切视为普通的信号翻转。虚拟环境下的串口输出是因为存在 `serial_io_handler` 这样的转发代理。
 
 [回到顶部目录](#sec-pa2-toc)
+
+## PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结
+
+将 NEMU 作为一个普通程序，运行在另一个 NEMU 之上（即客体 NEMU 运行在宿主机 NEMU 上），在这个过程中会遇到很多特殊的底层机制与配置问题。
+
+### 1. `CONFIG_TARGET_AM` 的核心作用与解析
+- **原生模式 vs AM 模式**：
+  普通的 NEMU 编译为 Linux 原生程序（执行 `init_monitor(argc, argv)`），直接利用宿主机 Linux 的系统库，生成 `riscv32-nemu-interpreter` ELF 可执行文件。
+  但在 NEMU 上跑 NEMU 时，目标“客户机 NEMU”被打包成了 AbstractMachine (AM) 的裸机应用（会被编译为后缀是 `.bin` 的内存镜像），此时为了剔除原生 OS 的依赖，编译器会开启 `CONFIG_TARGET_AM` 宏。
+- **入口分化机制**：
+  在 `nemu-main.c` 的宏控路由处：
+  ```c
+  #ifdef CONFIG_TARGET_AM
+    am_init_monitor();  // 裸机环境：没有 OS 提供 argc/argv，直接读取内存中存入的主参数解析
+  #else
+    init_monitor(argc, argv); // 原生环境
+  #endif
+  ```
+- **警惕本地 `.config` 污染**：
+  在 `am-kernels/kernels/nemu` 内 `make` 时，会自动为你挂载 `riscv32-am_defconfig`。**千万注意：宿主机本地真实的 `nemu/menuconfig` 里绝对不要误勾选 `TARGET_AM=y`**。如果宿主机环境被污染为 AM 模式，会导致外层 Makefile 在 `ifeq ($(CONFIG_TARGET_AM), y)` 时错误地抛弃了 `native.mk` 而去 `include am.mk`，从而陷入无限构建循环或导致最外层失去原本的 `make run` 模拟能力。
+
+### 2. 标准输出（`printf`）去哪儿了？为什么卡住没有反应？
+- **通过外部串口重定向输出**：
+  带有 `CONFIG_TARGET_AM` 的客户机 NEMU 并没有 Linux 环境，它发出的 `printf` 调用的不是原生 glibc，而是 `klib` 中的简易库实现。底层是通过 AM 层的 `putch()` 函数将字符写入特殊物理内存地址：**串口 MMIO (Serial Port MMIO)**。
+  - 启动外部环境后，终端通常会停留在宿主机的 `(nemu)` 提示符处。**此时客户机并没有开始执行！**
+  - **切记**：只有在宿主机的 `(nemu)` 中键入 `c` 回车，宿主机开始执行模拟指令，并监听截获到“客户机往该地址写入串口内容”后，才会在你的 Linux 终端上代为输出对应的字符。
+
+### 3. 灵活修改参数解析 (`parse_args`) 带来的 `-i` 镜像空跑陷阱
+- **问题机制**：原版 NEMU 往往默认直接把没选项的最后一个参数当作 `.bin` 镜像提取。而我们在 `monitor.c` 中把 `parse_args` 规范成了必须用 `-i xxx.bin` 来接收。然而在 NEMU on NEMU 场景中，`am-kernels/kernels/nemu/Makefile` 最后的一句 `make run IMG=xxx.bin` 并不知道这个改变，仍然只传了 `xxx.bin` 字面量。
+- **后果**：导致外层宿主 NEMU 检测不到 `-i` 标识，以为自己什么镜像都没挂载，直接加载自带的一串微小空闲指令迅速停机。
+- **修复**：修改项目对应的触发级 Makefile (`am-kernels/kernels/nemu/Makefile`) 引号包裹强制挂上 `-i`：
+  ```makefile
+  $(MAKE) -C $(NEMU_HOME) run IMG="-i $(NEMU_HOME)/build/$(ISA)-nemu-interpreter-$(ARCH).bin"
+  ```
+  注意：一定要带上引号包裹 `"-i xxx.bin"`，保证 Make 不会被内部的空格割裂成分散的选项。
+
+### 4. klib 中缺失 `malloc` 导致的启动崩溃 (Not implemented)
+- **问题现象**：执行成功后会报 `AM Panic: Not implemented @ stdlib.c` 并在 `__am_panic` 宕机。这是因为 Nemu (作为纯 C 程序工程) 在初始化自身数据结构（例如为访存模型分配 `pmem`）时极其依赖动态分配申请堆内存，而它跑在 AM 上所连入的 `klib` 出厂默认并未实现 `malloc()`。
+- **解决方案**：手写一个最简单的线性内存分配器（Bump Pointer allocator）。
+  - 利用 AM 已经完成的全局堆区边界（`heap.start` ~ `heap.end`）。
+  - 定用静态指针 `static char *addr`，每次将起始地址加上需要的 `size` 后向后移。
+  - 需要做 4/8 字节强制对齐避免访问指令的严格对齐陷入，并时刻 `assert(addr <= heap.end)` 查验溢出。
