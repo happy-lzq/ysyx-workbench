@@ -41,7 +41,6 @@ void init_mtrace_log(const char *mtrace_log_file) {
   Log("Mtrace log is written to %s", mtrace_log_file);
 }
 
-
 void mtrace_write(char type, paddr_t addr, int len, word_t data){
   if (mtrace_fp != NULL)
   {

@@ -37,22 +37,17 @@ static void report_mmio_overlap(const char *name1, paddr_t l1, paddr_t r1,
 void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_callback_t callback) {
   assert(nr_map < NR_MAP);
   paddr_t left = addr, right = addr + len - 1;
-  // 检查外设地址是否与物理内存是否重叠
   if (in_pmem(left) || in_pmem(right)) {
     report_mmio_overlap(name, left, right, "pmem", PMEM_LEFT, PMEM_RIGHT);
   }
-  // 检查当前外设地址是否与已存的外设地址不重叠冲突的唯一两个情况条件：
-  // 新外设区间最大值 right > 已存外设区间最小值 map[i].low
-  // 新外设区间最小值 low   < 已存外设区间最大值 map[i].hight
   for (int i = 0; i < nr_map; i++) {
     if (left <= maps[i].high && right >= maps[i].low) {
       report_mmio_overlap(name, left, right, maps[i].name, maps[i].low, maps[i].high);
     }
   }
-  // MMIO maps[i]空结构体数组绑定为当前外设类型，以及传入的回调函数
+
   maps[nr_map] = (IOMap){ .name = name, .low = addr, .high = addr + len - 1,
     .space = space, .callback = callback };
-  // 当前结构体成员回调函数.callback成员与当前传入的 io_callback_t callback进行绑定
   Log("Add mmio map '%s' at [" FMT_PADDR ", " FMT_PADDR "]",
       maps[nr_map].name, maps[nr_map].low, maps[nr_map].high);
 

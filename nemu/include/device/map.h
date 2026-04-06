@@ -27,8 +27,9 @@ typedef void(*io_callback_t)(uint32_t, int, bool);
   bool            读写标志位    ture代表cpu写设备  false代表cpu读设备 
 2、串口设备回调函数定义：
   void serial_io_handler(uint32_t offset, int len, bool is_write)
-  1、在结构体内将某一成员定义为该函数类型
 */
+
+
 
 // 内存映射MMIO设备地图：描述和管理所有通过内存映射I/O（MMIO）方式访问的外部设备。 
 typedef struct {
@@ -36,8 +37,8 @@ typedef struct {
   // we treat ioaddr_t as paddr_t here
   paddr_t low;
   paddr_t high;
-  void *space;                // nemu模拟设备内部状态的内存区域   它将写入的数据复制到设备内部状态区的对应偏移处
-  io_callback_t callback;     // 回调函数类型申请
+  void *space;    //nemu模拟设备内部状态的内存区域   它将写入的数据复制到设备内部状态区的对应偏移处
+  io_callback_t callback;
 } IOMap;
 
 static inline bool map_inside(IOMap *map, paddr_t addr) {

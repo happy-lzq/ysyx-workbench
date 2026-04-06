@@ -29,7 +29,7 @@ override ARGS += $(ARGS_DIFF)
 
 # Command to execute NEMU
 # IMG ?=    可以省略当前行
-NEMU_EXEC := $(BINARY) $(ARGS) -i $(IMG) # parsr_arg()中使用-i 匹配镜像文件image
+NEMU_EXEC := $(BINARY) $(ARGS) # $(IMG) parsr_arg()中使用-i 匹配镜像文件image 
 # 确保二进制.bin存在，如果若启用 difftest，再确保参考 so 已经准备好。
 run-env: $(BINARY) $(DIFF_REF_SO)
 

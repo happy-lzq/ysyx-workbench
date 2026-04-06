@@ -38,11 +38,11 @@ static void timer_intr() {
 #endif
 
 void init_timer() {
-  rtc_port_base = (uint32_t *)new_space(8);                                    // 向nemu申请时钟计时器外设寄存器/内存状态存储器
+  rtc_port_base = (uint32_t *)new_space(8);
 #ifdef CONFIG_HAS_PORT_IO
-  add_pio_map ("rtc", CONFIG_RTC_PORT, rtc_port_base, 8, rtc_io_handler);      // 初始化绑定mmio-map 传递回调函数并绑定
+  add_pio_map ("rtc", CONFIG_RTC_PORT, rtc_port_base, 8, rtc_io_handler);
 #else
-  add_mmio_map("rtc", CONFIG_RTC_MMIO, rtc_port_base, 8, rtc_io_handler);      // 初始化绑定mmio-map 传递回调函数并绑定
+  add_mmio_map("rtc", CONFIG_RTC_MMIO, rtc_port_base, 8, rtc_io_handler);
 #endif
   IFNDEF(CONFIG_TARGET_AM, add_alarm_handle(timer_intr));
 }

@@ -52,7 +52,7 @@ static int difftest_port = 1234;      // 差分测试端口，对应（-p）
 /* build_named_log_file is only needed when mtrace or ftrace support is
    enabled; guard its definition to avoid -Wunused-function when those
    features are disabled. */
-#if defined(CONFIG_MTRACE) || defined(CONFIG_FTRACE) ||defined(CONFIG_DTRACE)
+#if defined(CONFIG_MTRACE) || defined(CONFIG_FTRACE)
 static const char *build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
                                         const char *default_path,
@@ -101,21 +101,7 @@ static const char *ftace_log_file() {
 }
 #endif
 
-// ================================== Dtrace_log 路径处理 ========================================
-#ifdef CONFIG_DTRACE
-static char dtrace_log_file[260] = {};
-static const char *get_dtrace_log_file(){
-  const char *path = img_file !=NULL ? img_file : log_file;
-  return build_named_log_file(dtrace_log_file, sizeof(dtrace_log_file),
-                              path, "build/dtrace-log.txt", "dtrace-log.txt");
-} 
-
-#endif
-
-
 // ================================== 加载客户程序镜像函数 ==========================================
-void init_dtrace_log(const char *path);
-
 static long load_img() {
   // 区别于内部的 img[]指令数组，检查外部镜像文件是否存在，存在则执行镜像文件往物理内存起始地址加载覆盖内置指令数据内容
   if (img_file == NULL) {
@@ -195,8 +181,6 @@ void init_monitor(int argc, char *argv[]) {
   init_log(log_file);
   
   IFDEF(CONFIG_MTRACE, init_mtrace_log(get_mtrace_log_file()));
-
-  IFDEF(CONFIG_DTRACE, init_dtrace_log(get_dtrace_log_file()));
 
   // 条件避开最小内置镜像 无elf文件的处理方式。
     #ifdef CONFIG_FTRACE
