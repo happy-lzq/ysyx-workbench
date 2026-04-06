@@ -102,7 +102,6 @@ word_t map_read(paddr_t addr, int len, IOMap *map) {
 3、分离了“状态存储”和“行为触发”，使得设备模拟更清晰：回调函数可以依赖 space 中的最新数据来执行正确的操作
 */
 
-
 void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   assert(len >= 1 && len <= 8);                   // 限制 MMIO 写操作的数据长度为 1 到 8 字节
   check_bound(map, addr);
