@@ -28,11 +28,16 @@ void engine_start();
 int is_exit_status_bad();
 
 int main(int argc, char *argv[]) {
-  /* Initialize the monitor. */
+
+  /*
+  CONFIG_TARGET_AM
+  1、undef 
+  */
 #ifdef CONFIG_TARGET_AM
   printf("\nysyx-cs\n");
   am_init_monitor();
 #else
+  printf("\nysyx-ywjcs\n");
   init_monitor(argc, argv);
 #endif
 
