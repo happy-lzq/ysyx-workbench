@@ -48,25 +48,8 @@ static void init_keymap() {
 static int key_queue[KEY_QUEUE_LEN] = {};
 static int key_f = 0, key_r = 0;  // key_f (读取位置） key_r (写入位置)
 
-#ifdef CONFIG_DTRACE
-static void kbd_trace_enqueue(uint32_t am_scancode) {
-  if (DTRACE_COND) {
-    Log("[kbd] enqueue scancode=0x%08x qf=%d qr=%d", am_scancode, key_f, key_r);
-  }
-}
-
-static void kbd_trace_dequeue(uint32_t am_scancode) {
-  if (DTRACE_COND) {
-    Log("[kbd] dequeue scancode=0x%08x qf=%d qr=%d", am_scancode, key_f, key_r);
-  }
-}
-#endif
-
 // 写入环形缓冲区
 static void key_enqueue(uint32_t am_scancode) {
-#ifdef CONFIG_DTRACE
-  kbd_trace_enqueue(am_scancode);
-#endif
   key_queue[key_r] = am_scancode;
   key_r = (key_r + 1) % KEY_QUEUE_LEN;
   Assert(key_r != key_f, "key queue overflow!");
@@ -78,9 +61,6 @@ static uint32_t key_dequeue() {
     key = key_queue[key_f];
     key_f = (key_f + 1) % KEY_QUEUE_LEN;
   }
-#ifdef CONFIG_DTRACE
-  kbd_trace_dequeue(key);
-#endif
   return key;
 }
 // SDL获取的原始按键扫描码转化为nemu可识别的键码
@@ -88,11 +68,6 @@ static uint32_t key_dequeue() {
 void send_key(uint8_t scancode, bool is_keydown) {
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
-#ifdef CONFIG_DTRACE
-    if (DTRACE_COND) {
-      Log("[kbd] sdl scancode=%u down=%d -> am_scancode=0x%08x", scancode, is_keydown, am_scancode);
-    }
-#endif
     key_enqueue(am_scancode);
   }
 }
@@ -116,11 +91,6 @@ static void i8042_data_io_handler(uint32_t offset, int len, bool is_write) {
   assert(!is_write);
   assert(offset == 0);
   i8042_data_port_base[0] = key_dequeue();
-#ifdef CONFIG_DTRACE
-  if (DTRACE_COND) {
-    Log("[kbd] mmio read offset=%u len=%d data=0x%08x", offset, len, i8042_data_port_base[0]);
-  }
-#endif
 }
 
 void init_i8042() {
