@@ -62,7 +62,7 @@ void init_mem() {
 // 正式的物理内存读写功能的API函数
 
 word_t paddr_read(paddr_t addr, int len) {
-  if (likely(in_pmem(addr))) {                // 检验addr属于位于指令数据物理内存地址内
+  if (likely(in_pmem(addr))) {                // 检验addr属于位于指令数据物理内存地址内0x80000000~0x8fffffff
     word_t pr_data = pmem_read(addr,len);     // 读取地址并返回对应数据
     #ifdef CONFIG_MTRACE
       if (MTRACE_COND)
