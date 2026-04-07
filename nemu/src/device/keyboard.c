@@ -46,14 +46,15 @@ static void init_keymap() {
 
 #define KEY_QUEUE_LEN 1024
 static int key_queue[KEY_QUEUE_LEN] = {};
-static int key_f = 0, key_r = 0;
+static int key_f = 0, key_r = 0;  // key_f (队首——读取位置） key_r (队尾——写入位置)
 
+// 写入环形缓冲区
 static void key_enqueue(uint32_t am_scancode) {
   key_queue[key_r] = am_scancode;
   key_r = (key_r + 1) % KEY_QUEUE_LEN;
   Assert(key_r != key_f, "key queue overflow!");
 }
-
+// 环形缓冲区读取
 static uint32_t key_dequeue() {
   uint32_t key = NEMU_KEY_NONE;
   if (key_f != key_r) {
@@ -62,7 +63,8 @@ static uint32_t key_dequeue() {
   }
   return key;
 }
-
+// SDL获取的原始按键扫描码转化为nemu可识别的键码
+// 按下： 原始码按位与掩码   释放： 原始码按位与0(保持不变)
 void send_key(uint8_t scancode, bool is_keydown) {
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
