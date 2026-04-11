@@ -125,10 +125,11 @@ static long load_img() {
   FILE *fp = fopen(img_file, "rb");
   Assert(fp, "Can not open '%s'", img_file);
   fseek(fp, 0, SEEK_END);          
-  long size = ftell(fp); 
+  long size = ftell(fp);   //镜像文件大小
   Log("The image is %s, size = %ld", img_file, size);
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
+  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);   
+  // 将.bin镜像文件读入nemu开辟的物理地址：pmem[CONFIG_MSIZE]
   assert(ret == 1);
   fclose(fp);
   return size;

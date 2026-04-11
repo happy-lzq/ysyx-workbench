@@ -59,7 +59,7 @@ static void dtrace_write(IOMap *map, paddr_t addr,int len,word_t ret){
 uint8_t* new_space(int size) {
   uint8_t *p = p_space;
   // page aligned;
-  size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;     
+  size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;      // 暴力抹除了低 12 位的“零头
   p_space += size;
   assert(p_space - io_space < IO_SPACE_MAX);
   return p;

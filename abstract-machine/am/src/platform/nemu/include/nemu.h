@@ -29,10 +29,10 @@
 #define SERIAL_PORT     (DEVICE_BASE + 0x00003f8)     // 串口数据端口内存映射
 #define KBD_ADDR        (DEVICE_BASE + 0x0000060)     //
 #define RTC_ADDR        (DEVICE_BASE + 0x0000048)     // 时钟计时器
-#define VGACTL_ADDR     (DEVICE_BASE + 0x0000100)     // VGA
+#define VGACTL_ADDR     (DEVICE_BASE + 0x0000100)     // VGA屏幕宽高配置
 #define AUDIO_ADDR      (DEVICE_BASE + 0x0000200)
 #define DISK_ADDR       (DEVICE_BASE + 0x0000300)
-#define FB_ADDR         (MMIO_BASE   + 0x1000000)
+#define FB_ADDR         (MMIO_BASE   + 0x1000000)     // VGA帧同步缓冲区
 #define AUDIO_SBUF_ADDR (MMIO_BASE   + 0x1200000)
 
 extern char _pmem_start;  //指示宿主进程中物理内存（pmem）起始地址对应的符号地址
