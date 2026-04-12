@@ -50,6 +50,10 @@ void *malloc(size_t size) {
 }
 
 void free(void *ptr) {
+  // This klib allocator is a simple bump-pointer allocator.
+  // It does not track allocation metadata, so arbitrary free is unsupported.
+  // Keep free() as a no-op to match the current allocation model.
+  (void)ptr;
 }
 
 #endif
