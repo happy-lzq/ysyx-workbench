@@ -37,9 +37,11 @@ void *malloc(size_t size) {
     addr = (char*) heap.start;
   }
   size = (size + 7) & ~7;     // 按8字节对齐
+  if (addr + size > (char *)heap.end) {
+    return NULL;
+  }
   void *ret = addr;
   addr += size;
-  assert(addr <= (char*)heap.end );
   return ret;
 #endif
   return NULL;
