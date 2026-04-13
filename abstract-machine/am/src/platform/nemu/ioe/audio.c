@@ -28,6 +28,7 @@ static size_t write_pos = 0;  //AM 在 sbuf 中的写偏移
 
 
 void __am_audio_init() {
+  
 }
 
 // 读取设备存在性和缓冲区大小
