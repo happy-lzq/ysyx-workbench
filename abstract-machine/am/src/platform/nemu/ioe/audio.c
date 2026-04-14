@@ -28,7 +28,9 @@ static size_t write_pos = 0;  //AM 在 sbuf 中的写偏移
 
 
 void __am_audio_init() {
-  
+  outl(AUDIO_COUNT_ADDR, 0); // 告诉硬件，把当前未播放的声音数据清零（防止开机爆音）
+  outl(AUDIO_INIT_ADDR, 0);  // 初始化声卡状态机的状态
+  write_pos = 0;
 }
 
 // 读取设备存在性和缓冲区大小
