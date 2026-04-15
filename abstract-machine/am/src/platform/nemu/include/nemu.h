@@ -25,7 +25,7 @@
 #endif
 
 #define MMIO_BASE 0xa0000000    // 明确表明模拟器中设备空间映射到这个物理地址作为偏移起始地址
-// 内存映射I/O     外部设备软件协议构建的抽象寄存器起始地址
+// 内存映射I/O     外设真实必须存在外设寄存器/内存动态空间   与外设控制寄存器定义不同
 #define SERIAL_PORT     (DEVICE_BASE + 0x00003f8)     // 串口数据端口内存映射
 #define KBD_ADDR        (DEVICE_BASE + 0x0000060)     // 键盘
 #define RTC_ADDR        (DEVICE_BASE + 0x0000048)     // 时钟计时器
