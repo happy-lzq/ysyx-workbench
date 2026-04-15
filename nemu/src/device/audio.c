@@ -109,6 +109,7 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
     case reg_init:
       if (audio_base[reg_init] != 0){
         audio_open_device();
+    // 重置逻辑的本质是“丢弃旧格式脏数据，为新格式建立干净起点”
         audio_base[reg_init] = 0;
         read_pos = 0;
         pending_count = 0;
@@ -122,7 +123,7 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
         delta = audio_base[reg_sbuf_size] - pending_count;      // 防止溢出
       }
       pending_count += delta; 
-      audio_base[reg_count] = pending_count;
+      // audio_base[reg_count] = pending_count;                    
       break;
     default:
       break;
