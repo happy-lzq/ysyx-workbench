@@ -24,10 +24,10 @@ AM_DEVREG(10, GPU_STATUS,   RD, bool ready);
 AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync);         // 帧缓冲区
 AM_DEVREG(12, GPU_MEMCPY,   WR, uint32_t dest; void *src; int size);
 AM_DEVREG(13, GPU_RENDER,   WR, uint32_t root);
-AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);    // 声卡外设是否存在，以及音频硬件缓冲区大小
-AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples);  // 软件采样频率、音频通道数(1单2立体)、采样样本数
-AM_DEVREG(16, AUDIO_STATUS, RD, int count);                    // 音频硬件缓冲区当前空闲容量
-AM_DEVREG(17, AUDIO_PLAY,   WR, Area buf);                     // 音频数据块喂给硬件
+AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);    // 声卡是否存在，硬盘硬件缓冲区大小
+AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples);  // 
+AM_DEVREG(16, AUDIO_STATUS, RD, int count);                    // 
+AM_DEVREG(17, AUDIO_PLAY,   WR, Area buf);                     // 
 AM_DEVREG(18, DISK_CONFIG,  RD, bool present; int blksz, blkcnt);
 AM_DEVREG(19, DISK_STATUS,  RD, bool ready);
 AM_DEVREG(20, DISK_BLKIO,   WR, bool write; void *buf; int blkno, blkcnt);

@@ -10,11 +10,25 @@
 #define AUDIO_COUNT_ADDR     (AUDIO_ADDR + 0x14)  // reg_count,   
 
 /*
-抽象寄存器             上层软件操作                     AM职责                          NEMU硬件指针
-AM_AUDIO_CONFIG     读present,busize            返回true以及真实硬件缓冲区大小      初始化提供设备是否存在以及缓冲区大小
-AM_AUDIO_CRTL       写freq,channels,samples     三个软件层参数写入外设音频控制寄存器  重新配置SDL音频规格 
-AM_AUDIO_STATUS     读count                     已缓冲待播放字节数                 流控处理
-AM_AUDIO_PLAY       写Aera buf                  将buf数据拷贝外设音频流缓冲区       维护计数器
+抽象寄存器	            上层软件操作	             AM 驱动层职责	      NEMU 硬件层职责
+AM_AUDIO_CONFIG	
+  1、读 present, bufsize	
+  2、返回 true 和通过读 reg_sbuf_size 获取的真实硬件缓冲区字节数	
+  3、初始化时设定 reg_sbuf_size 为 CONFIG_SB_SIZE，暴露给 AM
+AM_AUDIO_CTRL	
+  1、写 freq, channels, samples	
+  2、将三个参数依次写入硬件寄存器 reg_freq, reg_channels, reg_samples 最后写 reg_init=1 触发设备初始化	
+  3、收到 reg_init 写操作后，调用 SDL_OpenAudioDevice  配置并启动音频设备；重置 read_pos 和 pending_count
+AM_AUDIO_STATUS	
+  1、读 count	
+  2、读取硬件寄存器 reg_count 的值并返回，用于上层或自身的流控决策	
+  3、在读 reg_count 时返回当前内部维护的 pending_count（已缓冲未播放字节数）
+AM_AUDIO_PLAY	
+  1、写 Area buf（数据指针和长度）	
+  2、数据通路：将 buf 描述的音频数据分段拷贝到 sbuf 中，处理环形写入；
+    控制通路：每段拷贝后写 reg_count 增量通知硬件。
+    流控：拷贝前检查 free_space = sbuf_size - pending_count，确保不覆盖未播放数据	
+  3、数据消费：SDL 音频回调独立运行，从 sbuf 中取数据填充宿主声卡，并实时更新 pending_count 和 read_pos；状态暴露：通过读 reg_count 提供 pending_count 值
 
 抽象寄存器 AM_AUDIO_CTRL	
 一次配置完成：io_write(AM_AUDIO_CTRL, freq, channels, samples)	上层认为这是原子的单次操作
