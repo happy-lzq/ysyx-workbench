@@ -4,7 +4,7 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 static unsigned long int next = 1;
-
+static char *addr = NULL;
 int rand(void) {
   // RAND_MAX assumed to be 32767
   next = next * 1103515245 + 12345;
@@ -29,17 +29,26 @@ int atoi(const char* nptr) {
   return x;
 }
 
-void *malloc(size_t size) {
-  // On native, malloc() will be called during initializaion of C runtime.
-  // Therefore do not call panic() here, else it will yield a dead recursion:
-  //   panic() -> putchar() -> (glibc) -> malloc() -> panic()
+void *malloc(size_t size) {  
 #if !(defined(__ISA_NATIVE__) && defined(__NATIVE_USE_KLIB__))
-  panic("Not implemented");
+  // panic("Not implemented");
+  if (addr == NULL)
+  {
+    addr = (char*) heap.start;
+  }
+  size = (size + 7) & ~7;     // 按8字节对齐
+  if (addr + size > (char *)heap.end) {
+    return NULL;
+  }
+  void *ret = addr;
+  addr += size;
+  return ret;
 #endif
   return NULL;
 }
 
 void free(void *ptr) {
+  (void)ptr;
 }
 
 #endif

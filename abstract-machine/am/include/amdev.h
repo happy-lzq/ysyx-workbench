@@ -1,29 +1,33 @@
 #ifndef __AMDEV_H__
 #define __AMDEV_H__
 
-// **MAY SUBJECT TO CHANGE IN THE FUTURE**
+/* 抽象寄存器核心：软硬件交互的桥梁————外设硬件寄存器的软件协议。
+1、AM_DEVIREG 根据宏定义展开为：结构体 
+2、名称与数字构成一一对应的枚举变量
+3、参数类型即是结构体成员
+*/
 
 #define AM_DEVREG(id, reg, perm, ...) \
   enum { AM_##reg = (id) }; \
   typedef struct { __VA_ARGS__; } AM_##reg##_T;
 
-AM_DEVREG( 1, UART_CONFIG,  RD, bool present);
-AM_DEVREG( 2, UART_TX,      WR, char data);
-AM_DEVREG( 3, UART_RX,      RD, char data);
-AM_DEVREG( 4, TIMER_CONFIG, RD, bool present, has_rtc);
+AM_DEVREG( 1, UART_CONFIG,  RD, bool present);                                // 指示串口是否存在（便于程序自适应）
+AM_DEVREG( 2, UART_TX,      WR, char data);                                   // 串口发送一个字节
+AM_DEVREG( 3, UART_RX,      RD, char data);                                   // 串口读取一个字节
+AM_DEVREG( 4, TIMER_CONFIG, RD, bool present, has_rtc);                       // 是否有实时时钟（RTC）
 AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);  // 可读出当前的年月日时分秒. 
 AM_DEVREG( 6, TIMER_UPTIME, RD, uint64_t us);                                 // 系统启动后的微秒数
-AM_DEVREG( 7, INPUT_CONFIG, RD, bool present);
-AM_DEVREG( 8, INPUT_KEYBRD, RD, bool keydown; int keycode);                   // 键盘控制器-读出按键信息
-AM_DEVREG( 9, GPU_CONFIG,   RD, bool present, has_accel; int width, height, vmemsz);
+AM_DEVREG( 7, INPUT_CONFIG, RD, bool present);                                // 否有键盘/按键设备
+AM_DEVREG( 8, INPUT_KEYBRD, RD, bool keydown; int keycode);                   // keydown=true: 按下，反之释放
+AM_DEVREG( 9, GPU_CONFIG,   RD, bool present, has_accel; int width, height, vmemsz);  
 AM_DEVREG(10, GPU_STATUS,   RD, bool ready);
-AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync);
+AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync);        
 AM_DEVREG(12, GPU_MEMCPY,   WR, uint32_t dest; void *src; int size);
 AM_DEVREG(13, GPU_RENDER,   WR, uint32_t root);
-AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);
-AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples);
-AM_DEVREG(16, AUDIO_STATUS, RD, int count);
-AM_DEVREG(17, AUDIO_PLAY,   WR, Area buf);
+AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);   
+AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples); 
+AM_DEVREG(16, AUDIO_STATUS, RD, int count);                   
+AM_DEVREG(17, AUDIO_PLAY,   WR, Area buf);                    
 AM_DEVREG(18, DISK_CONFIG,  RD, bool present; int blksz, blkcnt);
 AM_DEVREG(19, DISK_STATUS,  RD, bool ready);
 AM_DEVREG(20, DISK_BLKIO,   WR, bool write; void *buf; int blkno, blkcnt);

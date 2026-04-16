@@ -20,7 +20,6 @@
 
 #ifndef CONFIG_TARGET_AM
 #include <SDL2/SDL.h>
-
 // Note that this is not the standard
 #define NEMU_KEYS(f) \
   f(ESCAPE) f(F1) f(F2) f(F3) f(F4) f(F5) f(F6) f(F7) f(F8) f(F9) f(F10) f(F11) f(F12) \
@@ -36,6 +35,7 @@ f(UP) f(DOWN) f(LEFT) f(RIGHT) f(INSERT) f(DELETE) f(HOME) f(END) f(PAGEUP) f(PA
 enum {
   NEMU_KEY_NONE = 0,
   MAP(NEMU_KEYS, NEMU_KEY_NAME)
+  // 将宏函数作为变量：NEMU_KEY_NAME 传入宏函数：NEMU_KEYS
 };
 
 #define SDL_KEYMAP(k) keymap[SDL_SCANCODE_ ## k] = NEMU_KEY_ ## k;
@@ -47,14 +47,15 @@ static void init_keymap() {
 
 #define KEY_QUEUE_LEN 1024
 static int key_queue[KEY_QUEUE_LEN] = {};
-static int key_f = 0, key_r = 0;
+static int key_f = 0, key_r = 0;  // key_f (读取位置） key_r (写入位置)
 
+// 写入环形缓冲区
 static void key_enqueue(uint32_t am_scancode) {
   key_queue[key_r] = am_scancode;
   key_r = (key_r + 1) % KEY_QUEUE_LEN;
   Assert(key_r != key_f, "key queue overflow!");
 }
-
+// 环形缓冲区读取
 static uint32_t key_dequeue() {
   uint32_t key = NEMU_KEY_NONE;
   if (key_f != key_r) {
@@ -63,18 +64,23 @@ static uint32_t key_dequeue() {
   }
   return key;
 }
-
+// SDL获取的原始按键扫描码转化为nemu可识别的键码
+// 按下： 原始码按位与掩码   释放： 原始码按位与0(保持不变)
 void send_key(uint8_t scancode, bool is_keydown) {
   if (nemu_state.state == NEMU_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
     key_enqueue(am_scancode);
   }
 }
+
 #else // !CONFIG_TARGET_AM
 #define NEMU_KEY_NONE 0
 
 static uint32_t key_dequeue() {
   AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
+  // i8042键盘控制器寄存器32位   掩码作为高位来代表状态行为与键码一起按位与构成通用32位的广义扫码码
+  // 当 ev.keydown == true（按下）→ 设置掩码位 → 数值高位为 1
+  // 当 ev.keydown == false（释放）→ 不设置掩码位 → 数值高位为 0
   uint32_t am_scancode = ev.keycode | (ev.keydown ? KEYDOWN_MASK : 0);
   return am_scancode;
 }

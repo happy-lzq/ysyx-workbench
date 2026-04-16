@@ -28,12 +28,17 @@ void engine_start();
 int is_exit_status_bad();
 
 int main(int argc, char *argv[]) {
-  /* Initialize the monitor. */
+
+  /*
+  CONFIG_TARGET_AM
+  1、defined  独立的后端硬件平台   
+  2、undfined NEMU 是一个完整的模拟器   拥有自己的主循环、命令行调试器（sdb）和设备模拟
+  */
 #ifdef CONFIG_TARGET_AM
-  printf("\nshabi luozhiqiang\n");
+  printf("\nysyx-cs\n");
   am_init_monitor();
 #else
-  printf("\nshabi luozhiqiang no amnemu\n");
+  printf("\nysyx-ywjcs\n");
   init_monitor(argc, argv);
 #endif
 

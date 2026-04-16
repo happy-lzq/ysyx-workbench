@@ -23,6 +23,11 @@ static void __am_input_config(AM_INPUT_CONFIG_T *cfg) { cfg->present = true;  }
 static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = false; }
 static void __am_net_config (AM_NET_CONFIG_T *cfg)    { cfg->present = false; }
 
+
+/*
+1、AM核心，运行时环境，用于驱动设备寄存器读写硬件寄存器数据
+2、同时返回数据给到软件层调用函数赋值到抽象寄存器作为软硬数据缓冲层
+*/
 typedef void (*handler_t)(void *buf);
 static void *lut[128] = {
   [AM_TIMER_CONFIG] = __am_timer_config,
@@ -53,6 +58,7 @@ bool ioe_init() {
   __am_gpu_init();            
   __am_timer_init();
   __am_audio_init();
+  // __am_keyboard_init()   键盘通常不需要特殊的初始化操作    
   return true;
 }
 
