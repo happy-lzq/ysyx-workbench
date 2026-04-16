@@ -117,7 +117,15 @@
   - [4. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
   - [5. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
   - [6. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
-  - [7. 设计全景总结回顾](#sec-audio-layer6)\n
+  - [7. 设计全景总结回顾](#sec-audio-layer6)
+- [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
+  - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
+  - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
+  - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
+  - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
+  - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
+  - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
+  - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
@@ -174,7 +182,7 @@ int *shortcut_compiler = &real_compiler;
 
 // 3. 通过指针操作数据 (通过软链接执行程序)
 // 相当于执行: ./shortcut_compiler
-printf("%d\n", *shortcut_compiler); // 输出 100
+printf("%d", *shortcut_compiler); // 输出 100
 ```
 
 <a id="sec-softlink-04"></a>
@@ -1920,7 +1928,7 @@ make ARCH=riscv32-nemu ALL=string run
 
 ```makefile
 Makefile.%: tests/%.c latest
-@/bin/echo -e "NAME = $*\nSRCS = $<\ninclude $${AM_HOME}/Makefile" > $@
+@/bin/echo -e "NAME = $*SRCS = $<include $${AM_HOME}/Makefile" > $@
 @if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then \
 ```
 
@@ -3009,7 +3017,7 @@ ALL = $(basename $(notdir $(shell find src/. -name "*.c")))
 all: $(addprefix Makefile., $(ALL))
 
 Makefile.%: src/%.c latest
-	@/bin/echo -e "NAME = $*\nSRCS = $<\nINC_PATH += .../include\ninclude $${AM_HOME}/Makefile" > $@
+	@/bin/echo -e "NAME = $*SRCS = $<INC_PATH += .../includeinclude $${AM_HOME}/Makefile" > $@
 	@if make -s -f $@ ARCH=$(ARCH) $(MAKECMDGOALS); then ...; fi
 ```
 
