@@ -57,8 +57,7 @@ bool ioe_init() {
     if (!lut[i]) lut[i] = fail;
   __am_gpu_init();            
   __am_timer_init();
-  __am_audio_init();
-  // __am_keyboard_init()   键盘通常不需要特殊的初始化操作    
+  __am_audio_init();  
   return true;
 }
 
