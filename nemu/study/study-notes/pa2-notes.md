@@ -13,9 +13,12 @@
   - [一、基础设施与环境配置问题](#sec-debug-01)
   - [二、指令实现 Bug 与修复记录](#sec-debug-02)
   - [三、核心 Debug 思路与方法论总结](#sec-debug-03)
+- [PA2 专题：指令修复、UB行为与运行时生命周期全景梳理](#sec-pa2-fix-lifecycle)
   - [1. 核心架构解析：NEMU 的双重视角内存映射模型](#sec-fixlife-01)
   - [2. AM (Abstract Machine) 解析：TRM 与堆栈初始化](#sec-fixlife-02)
   - [3. 深度总结：从 C 源码到模拟器执行的完整生命周期](#sec-fixlife-03)
+- [PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转](#sec-pa2-makefile)
+- [PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结](#sec-pa2-vscode)
   - [1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？](#sec-vscode-01)
   - [2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？](#sec-vscode-02)
   - [3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？](#sec-vscode-03)
@@ -24,6 +27,7 @@
   - [6. 这次配置总结背后的方法论](#sec-vscode-06)
   - [7. 本次最终结论（一句话压缩）](#sec-vscode-07)
   - [8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法](#sec-vscode-08)
+- [PA2 专题：NEMU 执行客户程序的完整生命周期总总结](#sec-pa2-program-lifecycle)
   - [一、总目标：NEMU 到底在完成什么任务？](#sec-proglife-01)
   - [二、第一层：客户程序从何而来？——源码到镜像的构建链](#sec-proglife-02)
   - [三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`](#sec-proglife-03)
@@ -38,6 +42,7 @@
   - [十二、全流程中的关键函数关系图](#sec-proglife-12)
   - [十三、这两天分析中最关键的“为什么”与“如何解决”](#sec-proglife-13)
   - [十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本](#sec-proglife-14)
+- [PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）](#sec-pa2-mtrace)
   - [1. 问题是怎么被提出的？](#sec-mtrace-01)
   - [2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？](#sec-mtrace-02)
   - [3. 设计目标是什么？](#sec-mtrace-03)
@@ -54,6 +59,7 @@
   - [14. 这次 `mtrace` 设计里最核心的“为什么”总结](#sec-mtrace-14)
   - [15. 最终方案一句话收束](#sec-mtrace-15)
   - [16. `mtrace` 路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链](#sec-mtrace-16)
+- [PA2 专题：Ftrace 从 0 到 1 全链路设计笔记](#sec-pa2-ftrace-fullchain)
   - [1. 全局目标与最小闭环](#sec-ftrace-01)
   - [2. 构建与启动参数链路](#sec-ftrace-02)
   - [3. monitor 初始化阶段的 ftrace 生命周期](#sec-ftrace-03)
@@ -67,6 +73,7 @@
   - [11. 常见坑与工程性检查点](#sec-ftrace-11)
   - [12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结](#sec-ftrace-stack)
   - [13. 目标函数匹配问题的引出与逻辑总结](#sec-ftrace-symbol-match)
+- [PA2 专题：klib 测试全链路设计、Debug 与闭环验证](#sec-pa2-klib-tests)
   - [1. 为什么需要单独设计 `klib-tests`？](#sec-klibtest-01)
   - [2. 直接测试对象、间接运行平台与最终验证目标](#sec-klibtest-02)
   - [3. 测试分类为什么最终定成 `write/read/format/stdlib`？](#sec-klibtest-03)
@@ -77,55 +84,61 @@
   - [8. 断言系统的设计：从普通 `check()` 到可定位报错](#sec-klibtest-08)
   - [9. 设计与 Debug 过程中踩到的关键问题、根因与解决](#sec-klibtest-09)
   - [10. 最终结果、验证结论与方法论总结](#sec-klibtest-10)
+- [PA2 专题补充](#sec-pa2-supplement)
   - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
-  - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
-  - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
-  - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
-  - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
-  - [1、全局视角：时钟测试在验证什么？](#sec-rtc-01)
-  - [2、第一阶段：NEMU（硬件）的启动与外设准备](#sec-rtc-02)
-  - [3、第二阶段：AM-tests（软件）的编译、加载与启动](#sec-rtc-03)
-  - [4、第三阶段：软硬协同的巅峰——一次读取时间的完整物理全貌](#sec-rtc-04)
-  - [5、第四阶段：成果的展示——第二次协同 (串口输出)](#sec-rtc-05)
-  - [6、代码层面关键解耦机制总结 (LUT与IOE)](#sec-rtc-06)
-  - [7、方法论与全局总结](#sec-rtc-07)
-
-
-  - [1. `dtrace` 设备记录追踪也可以像 `mtrace` 这样设计吗？](#sec-dtrace-01)
-  - [2. 为什么 `mtrace`, `itrace`, `ftrace` 都添加了 `depends on TRACE && ...` 是必要条件吗？](#sec-dtrace-02)
-  - [3. 为什么一开始给出的 `dtrace` 设计里没有加上这些依赖？](#sec-dtrace-03)
-  - [4. `dtrace` 的路径生成逻辑与 `sizeof(ftrace_log_file)` 的踩坑修复](#sec-dtrace-04)
-  - [5. 为什么不直接在 `map_read` / `map_write` 里做 `fopen/fclose`，还要搞个全局指针 `dtrace_fp` 与 `init_monitor`？](#sec-dtrace-05)
-  - [6. 为什么编译器会报错 `DTRACE_COND` 未定义？("ture" 拼写错误踩坑)](#sec-dtrace-06)
-  - [7. 为什么 `dtrace_fp` 一直开着不用 `fclose()` 关闭？](#sec-dtrace-07)
-  - [8. Serial 通信里的一个疑问：RTC 测试输出了串口，但在 RTL 里没有？](#sec-dtrace-08)
-  - [1. 先纠正一个最容易误解的点：AM 不是“再造一套硬件寄存器”](#sec-kbd-01)
-  - [2. 所谓“抽象寄存器”的意义，到底该怎么准确理解？](#sec-kbd-02)
-  - [3. `io_read()` / `io_write()` 到底是什么？](#sec-kbd-03)
-  - [4. 键盘专题的三层模型：软件层、AM 层、硬件层](#sec-kbd-04)
-  - [5. 键盘外设启动阶段：设备是怎样被挂到总线上的？](#sec-kbd-05)
-  - [6. 宿主机真实按键发生后，事件是如何进入 NEMU 的？](#sec-kbd-06)
-  - [7. NEMU 内部：SDL 扫描码怎样变成客户机可理解的键值？](#sec-kbd-07)
-  - [8. 应用发起读取：`io_read(AM_INPUT_KEYBRD)` 这一句背后到底发生了什么？](#sec-kbd-08)
-  - [9. 真正的硬件交互核心：读 `KBD_ADDR` 时，NEMU 底层发生了什么？](#sec-kbd-09)
-  - [10. 最终返回应用：为什么应用看到的是 `keydown/keycode`，而不是一个整数？](#sec-kbd-10)
-  - [11. 用一张分层时序图，把键盘这条链路整体串起来](#sec-kbd-11)
-  - [12. 最终总结：键盘案例里，软硬件协同到底是什么？](#sec-kbd-12)
-  - [1. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
-  - [2. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
-  - [3. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
-  - [4. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
-  - [5. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
-  - [6. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
-  - [7. 设计全景总结回顾](#sec-audio-layer6)
-- [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
-  - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
-  - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
-  - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
-  - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
-  - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
-  - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
-  - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
+  - [PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
+    - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
+    - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
+    - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
+    - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
+  - [PA2 专题：时钟计时器与软硬协同全栈生命周期梳理](#sec-pa2-rtc-timer)
+    - [1、全局视角：时钟测试在验证什么？](#sec-rtc-01)
+    - [2、第一阶段：NEMU（硬件）的启动与外设准备](#sec-rtc-02)
+    - [3、第二阶段：AM-tests（软件）的编译、加载与启动](#sec-rtc-03)
+    - [4、第三阶段：软硬协同的巅峰——一次读取时间的完整物理全貌](#sec-rtc-04)
+    - [5、第四阶段：成果的展示——第二次协同 (串口输出)](#sec-rtc-05)
+    - [6、代码层面关键解耦机制总结 (LUT与IOE)](#sec-rtc-06)
+    - [7、方法论与全局总结](#sec-rtc-07)
+  - [PA2 专题：`dtrace` 的完整设计过程总结与踩坑记录](#sec-pa2-dtrace)
+    - [1. `dtrace` 设备记录追踪也可以像 `mtrace` 这样设计吗？](#sec-dtrace-01)
+    - [2. 为什么 `mtrace`, `itrace`, `ftrace` 都添加了 `depends on TRACE && ...` 是必要条件吗？](#sec-dtrace-02)
+    - [3. 为什么一开始给出的 `dtrace` 设计里没有加上这些依赖？](#sec-dtrace-03)
+    - [4. `dtrace` 的路径生成逻辑与 `sizeof(ftrace_log_file)` 的踩坑修复](#sec-dtrace-04)
+    - [5. 为什么不直接在 `map_read` / `map_write` 里做 `fopen/fclose`，还要搞个全局指针 `dtrace_fp` 与 `init_monitor`？](#sec-dtrace-05)
+    - [6. 为什么编译器会报错 `DTRACE_COND` 未定义？("ture" 拼写错误踩坑)](#sec-dtrace-06)
+    - [7. 为什么 `dtrace_fp` 一直开着不用 `fclose()` 关闭？](#sec-dtrace-07)
+    - [8. Serial 通信里的一个疑问：RTC 测试输出了串口，但在 RTL 里没有？](#sec-dtrace-08)
+  - [PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结](#sec-pa2-nemu-on-nemu)
+  - [PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理](#sec-pa2-keyboard)
+    - [1. 先纠正一个最容易误解的点：AM 不是“再造一套硬件寄存器”](#sec-kbd-01)
+    - [2. 所谓“抽象寄存器”的意义，到底该怎么准确理解？](#sec-kbd-02)
+    - [3. `io_read()` / `io_write()` 到底是什么？](#sec-kbd-03)
+    - [4. 键盘专题的三层模型：软件层、AM 层、硬件层](#sec-kbd-04)
+    - [5. 键盘外设启动阶段：设备是怎样被挂到总线上的？](#sec-kbd-05)
+    - [6. 宿主机真实按键发生后，事件是如何进入 NEMU 的？](#sec-kbd-06)
+    - [7. NEMU 内部：SDL 扫描码怎样变成客户机可理解的键值？](#sec-kbd-07)
+    - [8. 应用发起读取：`io_read(AM_INPUT_KEYBRD)` 这一句背后到底发生了什么？](#sec-kbd-08)
+    - [9. 真正的硬件交互核心：读 `KBD_ADDR` 时，NEMU 底层发生了什么？](#sec-kbd-09)
+    - [10. 最终返回应用：为什么应用看到的是 `keydown/keycode`，而不是一个整数？](#sec-kbd-10)
+    - [11. 用一张分层时序图，把键盘这条链路整体串起来](#sec-kbd-11)
+    - [12. 最终总结：键盘案例里，软硬件协同到底是什么？](#sec-kbd-12)
+  - [PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结](#sec-pa2-audio)
+    - [1. SDL 声卡接口速记（结构、回调、打开设备、格式）](#sec-audio-quickref)
+    - [2. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
+    - [3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
+    - [4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
+    - [5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
+    - [6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
+    - [7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
+    - [8. 设计全景总结回顾](#sec-audio-layer6)
+  - [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
+    - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
+    - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
+    - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
+    - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
+    - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
+    - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
+    - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
@@ -2438,7 +2451,7 @@ fopen("build/mtrace-log.txt", "w");
 ---
 
 <a id="sec-ftrace-01"></a>
-## 1. 全局目标与最小闭环
+### 1. 全局目标与最小闭环
 
 ftrace 的最小闭环是：
 
@@ -2455,16 +2468,16 @@ ftrace 的最小闭环是：
 ---
 
 <a id="sec-ftrace-02"></a>
-## 2. 构建与启动参数链路
+### 2. 构建与启动参数链路
 
-### 2.1 构建侧注入 ELF 参数
+#### 2.1 构建侧注入 ELF 参数
 
 在平台脚本 run 规则里，通过 ARGS 注入：
 - --elf=$(IMAGE).elf
 
 作用：把客户程序 ELF 的绝对路径传递给 NEMU 主程序，而不仅仅传 bin 镜像。
 
-### 2.2 monitor 参数解析
+#### 2.2 monitor 参数解析
 
 monitor 的 getopt_long 选项表包含：
 - 长选项 elf
@@ -2480,7 +2493,7 @@ monitor 的 getopt_long 选项表包含：
 ---
 
 <a id="sec-ftrace-03"></a>
-## 3. monitor 初始化阶段的 ftrace 生命周期
+### 3. monitor 初始化阶段的 ftrace 生命周期
 
 在 init_monitor 中，ftrace 相关生命周期是：
 
@@ -2496,11 +2509,11 @@ monitor 的 getopt_long 选项表包含：
 ---
 
 <a id="sec-ftrace-04"></a>
-## 4. ELF 静态解析主流程
+### 4. ELF 静态解析主流程
 
 核心目标：把 ELF 中的符号信息，转成运行期可快速查询的函数数组。
 
-### 4.1 读取并校验 Elf32_Ehdr
+#### 4.1 读取并校验 Elf32_Ehdr
 
 校验点：
 - 魔数 EI_MAG0..3
@@ -2509,7 +2522,7 @@ monitor 的 getopt_long 选项表包含：
 
 作用：确认当前解析器处理的是目标格式，避免后续偏移解释错误。
 
-### 4.2 读取 Section Header Table 到 shdrs 数组
+#### 4.2 读取 Section Header Table 到 shdrs 数组
 
 依据：
 - e_shoff: 节头表偏移
@@ -2519,7 +2532,7 @@ monitor 的 getopt_long 选项表包含：
 读取结果：
 - shdrs 是软件内存中的节描述数组，每个元素对应 ELF 的一个节。
 
-### 4.3 用 e_shstrndx 定位 .shstrtab
+#### 4.3 用 e_shstrndx 定位 .shstrtab
 
 说明：
 - e_shstrndx 只告诉“节名字符串表”的索引。
@@ -2530,13 +2543,13 @@ monitor 的 getopt_long 选项表包含：
 2. 再遍历 shdrs，通过 sh_name 索引解析出每个节名。
 3. 在遍历中定位 .symtab 与 .strtab。
 
-### 4.4 读取 .strtab 内容
+#### 4.4 读取 .strtab 内容
 
 - .strtab 存储符号名字符串池。
 - sym.st_name 是该池中的字节偏移。
 - 真实名字 = strtab_buf + sym.st_name。
 
-### 4.5 遍历 .symtab 构建 func_symbols
+#### 4.5 遍历 .symtab 构建 func_symbols
 
 计算条目数：
 - sym_count = symtab.sh_size / symtab.sh_entsize
@@ -2559,21 +2572,21 @@ monitor 的 getopt_long 选项表包含：
 ---
 
 <a id="sec-ftrace-05"></a>
-## 5. 关键结构体关系图
+### 5. 关键结构体关系图
 
-### 5.1 文件级结构体
+#### 5.1 文件级结构体
 
 - Elf32_Ehdr：总索引入口，给出节头表位置与规模。
 - Elf32_Shdr：描述每个节的元信息（偏移、大小、名字索引等）。
 - Elf32_Sym：.symtab 的单个条目（符号值、大小、类型、名字偏移）。
 
-### 5.2 软件内存结构体
+#### 5.2 软件内存结构体
 
 - FuncSymbol：ftrace 自定义函数条目，服务运行时快速匹配。
 - CallFrame：ftrace 自定义调用栈帧，维护 ret 对应关系。
 
 
-### 5.3 结构体映射关系
+#### 5.3 结构体映射关系
 
 1. Elf32_Ehdr -> 告诉如何读 Elf32_Shdr[]。
 2. Elf32_Shdr[] + .shstrtab -> 找到 .symtab/.strtab。
@@ -2584,18 +2597,18 @@ monitor 的 getopt_long 选项表包含：
 ---
 
 <a id="sec-ftrace-06"></a>
-## 6. 运行期 Hook：为什么是 jal/jalr
+### 6. 运行期 Hook：为什么是 jal/jalr
 
 RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 的组合语义上。
 
-### 6.1 call 判定
+#### 6.1 call 判定
 
 当 rd == 1（x1/ra）时，表示指令把返回地址写入 ra，这是函数调用约定的关键特征。
 
 因此在 jal/jalr 的执行体中：
 - if rd == 1 -> 触发 ftrace_call。
 
-### 6.2 ret 判定
+#### 6.2 ret 判定
 
 标准 ret 伪指令展开为：
 - jalr x0, 0(x1)
@@ -2613,9 +2626,9 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-07"></a>
-## 7. ftrace_call 与 ftrace_ret 的协作机制
+### 7. ftrace_call 与 ftrace_ret 的协作机制
 
-### 7.1 ftrace_call
+#### 7.1 ftrace_call
 
 步骤：
 1. 前置保护：日志文件存在且条件宏允许。
@@ -2624,7 +2637,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 4. 把 ret_addr 与 func 指针压入 call_stack。
 5. call_depth++。
 
-### 7.2 ftrace_ret
+#### 7.2 ftrace_ret
 
 步骤：
 1. 前置保护同上。
@@ -2632,7 +2645,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 3. 读取对应栈帧函数名。
 4. 打印 ret 行与返回目标地址。
 
-### 7.3 为什么要软件调用栈
+#### 7.3 为什么要软件调用栈
 
 仅靠当前 PC 无法稳定恢复“从哪个函数返回”。
 必须在 call 时保存上下文，在 ret 时回放上下文，才能得到正确层级与函数名。
@@ -2640,26 +2653,26 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-08"></a>
-## 8. 静态 ELF 与软件内存的关系
+### 8. 静态 ELF 与软件内存的关系
 
 这个问题可以分三层理解：
 
-### 8.1 ELF 文件是只读数据源
+#### 8.1 ELF 文件是只读数据源
 
 - 在 init_ftrace 阶段，fopen/fread/fseek 从磁盘读取 ELF 字节。
 - 这些字节被解释为 Ehdr、Shdr、Sym 等标准结构。
 
-### 8.2 NEMU 进程内临时解析内存
+#### 8.2 NEMU 进程内临时解析内存
 
 - shdrs、shstrtab、strtab_buf 都是解析时动态申请的临时缓冲。
 - 这些缓冲在函数结束前被 free。
 
-### 8.3 NEMU 进程内持久运行数据
+#### 8.3 NEMU 进程内持久运行数据
 
 - func_symbols 与 call_stack 是 ftrace 的持久状态。
 - 解析阶段从 ELF 抽取“最小必要信息”后，只保留这两个运行期需要的容器。
 
-### 8.4 与客户程序执行内存的关系
+#### 8.4 与客户程序执行内存的关系
 
 - 客户程序 bin 会被加载到 pmem（guest memory）执行。
 - ftrace 不修改 pmem 指令，只在译码执行路径旁路观察 PC/dnpc。
@@ -2668,25 +2681,25 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-09"></a>
-## 9. 设计分层与每层职责
+### 9. 设计分层与每层职责
 
-### 层 A：构建与参数层
+#### 层 A：构建与参数层
 
 职责：把 ELF 路径与 bin 路径正确传给 NEMU。
 
-### 层 B：启动初始化层
+#### 层 B：启动初始化层
 
 职责：解析参数，决定是否初始化 ftrace，创建日志文件。
 
-### 层 C：静态解析层
+#### 层 C：静态解析层
 
 职责：把 ELF 的符号体系转换为运行期可查询结构。
 
-### 层 D：运行期 Hook 层
+#### 层 D：运行期 Hook 层
 
 职责：在 jal/jalr 指令点识别 call/ret 事件。
 
-### 层 E：日志与可视化层
+#### 层 E：日志与可视化层
 
 职责：按调用深度输出可读日志，反映真实调用树。
 
@@ -2698,7 +2711,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-10"></a>
-## 10. 端到端时序总结
+### 10. 端到端时序总结
 
 1. Make 侧 run 注入 --elf=xxx.elf 与 IMG=xxx.bin。
 2. monitor parse_args 收到 elf_file/img_file。
@@ -2715,7 +2728,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-11"></a>
-## 11. 常见坑与工程性检查点
+### 11. 常见坑与工程性检查点
 
 1. 只传 bin 不传 elf：
    - 现象：可运行但无函数名追踪。
@@ -2737,7 +2750,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
    - 正解：MAX_CALL_DEPTH 上限保护。
 
 <a id="sec-ftrace-stack"></a>
-## 12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结
+### 12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结
 
 #### 12.1 问题来源与现象
 在实现 ftrace 过程中，最常见的疑问是：
@@ -2772,7 +2785,7 @@ RISC-V 中函数调用与返回没有独立新指令，本质都落在 jal/jalr 
 ---
 
 <a id="sec-ftrace-symbol-match"></a>
-## 13. 目标函数匹配问题的引出与逻辑总结
+### 13. 目标函数匹配问题的引出与逻辑总结
 
 #### 13.1 问题引出
 ftrace 运行时如何通过目标地址（tar_addr）找到对应的函数名？为什么只要满足 start <= addr < end 就能唯一确定？
@@ -3607,7 +3620,7 @@ multiple definition of `check'
 ---
 
 <a id="sec-pa2-supplement"></a>
-# PA2 专题补充
+## PA2 专题补充
 
 <a id="sec-native-build-mismatch"></a>
 ## cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记
@@ -4582,16 +4595,130 @@ io_read(AM_INPUT_KEYBRD)
 
 ---
 
-<br>
 <a id="sec-pa2-audio"></a>
+
 ## PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结
 
 在开发 PA2 声卡功能时，我们需要处理软硬件的相互配合、MMIO 通信协议、以及上层生产者与底层独立线程消费者之间的流控同步问题。
 
 本专题将依据“宏观水库 -> 中转调度站 -> 硬件底层水槽 -> 真实扬声器出口”的多级流控设计模型，对声卡的全技术栈进行结构化梳理。理解该流程的核心在于掌握**两级切块分发设计**、**状态机保护（pending_count 的分离）**，以及 **SDL 抽象的回调与时钟机制**。
 
+<a id="sec-audio-mini-toc"></a>
+
+### 本节小目录
+
+- [1. SDL 声卡接口速记（结构、回调、打开设备、格式）](#sec-audio-quickref)
+- [2. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
+- [3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
+- [4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
+- [5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
+- [6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
+- [7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
+- [8. 设计全景总结回顾](#sec-audio-layer6)
+
+<a id="sec-audio-quickref"></a>
+
+### 1. SDL 声卡接口速记（结构、回调、打开设备、格式）
+
+#### 1.1 `SDL_AudioSpec` 最核心结构
+
+```c
+typedef struct SDL_AudioSpec {
+  int freq;
+  SDL_AudioFormat format;
+  Uint8 channels;
+  Uint8 silence;
+  Uint16 samples;
+  Uint16 padding;
+  Uint32 size;
+  SDL_AudioCallback callback;
+  void *userdata;
+} SDL_AudioSpec;
+```
+
+字段定义（重点）：
+
+| 字段 | 作用 | 在声卡设计里怎么用 |
+| :--- | :--- | :--- |
+| `freq` | 采样率 (Hz)，每秒采样点数 | 例如 `8000/44100`，决定时间尺度 |
+| `format` | 单个采样的数据格式 | 常见 `AUDIO_S16SYS`（16位有符号，按平台字节序） |
+| `channels` | 声道数 | `1` 单声道，`2` 立体声 |
+| `samples` | 每次回调请求的采样帧数 | 决定回调粒度和延迟 |
+| `callback` | SDL 音频线程回调函数 | 消费者从环形缓冲取数据填 `stream` |
+| `userdata` | 传给回调的上下文 | 可放设备状态指针（环形队列/锁等） |
+| `silence` | 静音值字节 | 多数格式是 `0` |
+| `size` | SDL 计算出的每次缓冲字节数 | 常用于调试验证参数是否生效 |
+
+公式速记：
+
+```text
+bytes_per_frame = channels * (bits_per_sample / 8)
+callback_len_bytes ≈ samples * bytes_per_frame
+```
+
+#### 1.2 `SDL_AudioCallback`（消费者入口）
+
+```c
+void callback(void *userdata, Uint8 *stream, int len);
+```
+
+参数含义：
+
+| 参数 | 含义 | 注意点 |
+| :--- | :--- | :--- |
+| `userdata` | 设备上下文 | 常用于拿环形缓冲状态 |
+| `stream` | SDL 要你写入的目标缓冲区 | 必须写满 |
+| `len` | 本次需要的字节数 | 数据不足时用 `memset(stream + n, 0, len - n)` 补静音 |
+
+关键理解：在 PA2 声卡模型里，`callback` 本质是硬件时钟驱动的数据拉取，不是应用主动推送。
+
+#### 1.3 `SDL_OpenAudioDevice()`（打开音频设备）
+
+```c
+SDL_AudioDeviceID SDL_OpenAudioDevice(
+  const char *device,
+  int iscapture,
+  const SDL_AudioSpec *desired,
+  SDL_AudioSpec *obtained,
+  int allowed_changes
+);
+```
+
+参数含义：
+
+| 参数 | 含义 | 常见取值 |
+| :--- | :--- | :--- |
+| `device` | 设备名，`NULL` 表示默认设备 | `NULL` |
+| `iscapture` | `0` 播放，`1` 录音 | 播放时用 `0` |
+| `desired` | 你希望的参数（want） | 由 AM/MMIO 控制寄存器写入 |
+| `obtained` | 实际拿到的参数（have） | 用于检查是否被系统调整 |
+| `allowed_changes` | 允许 SDL 改哪些参数 | `0` 不允许，或按位允许 |
+
+返回值是 `SDL_AudioDeviceID`，后续 `Pause/Close` 都靠它。
+
+#### 1.4 `SDL_PauseAudioDevice()`（开始/暂停回调）
+
+```c
+SDL_PauseAudioDevice(dev, 0); // 开始播放（开始回调）
+SDL_PauseAudioDevice(dev, 1); // 暂停播放
+```
+
+常见误区：`Open` 后并不会自动播放，通常还需要 `Pause(..., 0)` 才会真正开始拉流。
+
+#### 1.5 `SDL_AudioFormat` 常见值
+
+| 格式 | 含义 |
+| :--- | :--- |
+| `AUDIO_U8` | 8 位无符号 |
+| `AUDIO_S16LSB` / `AUDIO_S16MSB` | 16 位有符号，小端/大端 |
+| `AUDIO_S16SYS` | 16 位有符号，按当前平台端序 |
+| `AUDIO_F32SYS` | 32 位浮点，按当前平台端序 |
+
+[回到本节小目录](#sec-audio-mini-toc)
+
 <a id="sec-audio-sdl"></a>
-### 1. 核心与前提：SDL 音频子系统数据结构与交互规范
+
+### 2. 核心与前提：SDL 音频子系统数据结构与交互规范
 
 在这个声卡架构的最底端出口是宿主机的真实扬声器，而控制宿主机扬声器播放的是 **SDL (Simple DirectMedia Layer)** 的媒体子模块。首先总结这里用到的 SDL 结构与函数：
 
@@ -4621,9 +4748,9 @@ void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 
 ---
 
-<br>
 <a id="sec-audio-layer1"></a>
-### 2. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”
+
+### 3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”
 
 应用层并不关心硬件声卡具体大小和配置，它负责从抽象意义上加载音乐并发起播放指令。
 
@@ -4641,9 +4768,9 @@ void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 
 ---
 
-<br>
 <a id="sec-audio-layer2"></a>
-### 3. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”
+
+### 4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”
 
 驱动层收到上层应用最高 `4096` 字节的数据后，负责流控和具体的写入搬运。AM 层负责向硬件发请求。
 
@@ -4665,9 +4792,9 @@ void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 
 ---
 
-<br>
 <a id="sec-audio-layer3"></a>
-### 4. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”
+
+### 5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”
 
 位于软件层与 Nemu 模拟器最严格的中间带就是 `amdev.h` 抽象的**六个虚拟控制寄存器和一条物理流数据专线**。
 
@@ -4676,9 +4803,9 @@ void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 
 ---
 
-<br>
 <a id="sec-audio-layer4"></a>
-### 5. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”
+
+### 6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”
 
 NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
 
@@ -4695,9 +4822,9 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
 
 ---
 
-<br>
 <a id="sec-audio-layer5"></a>
-### 6. 架构第五层：SDL 宿主消费者 —— “匀速出水口”
+
+### 7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”
 
 处在另外一条时空线的 SDL 子模块，拥有它独立的生命运转法则：
 
@@ -4711,26 +4838,30 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
 
 ---
 
-<br>
 <a id="sec-audio-layer6"></a>
-### 7. 设计全景总结回顾
+
+### 8. 设计全景总结回顾
 
 **整个声卡系统就是一个配合高度默契的多级水处理厂**：
 
 应用层向 AM 驱动进行**定量倒水决策**；AM 驱动负责看着 NEMU 的控制面板寄存器进行**流控降压与缓冲水池（sbuf）的首尾导流环形拼接**；抽象层利用 MMIO **切分了数据层与控制层（规避控制干涉效率）**；NEMU 硬件从底层维护着真实物理状态面板 **防止上层干扰物理真实水位量** 防止异常；SDL 架构利用子线程模型作为一台永不疲倦的**抽水泵（CallBack）匀速拉取向真实扬声器送水**并添加静音液防止抽头干转爆音。
 
+[回到本节小目录](#sec-audio-mini-toc)
 [回到顶部目录](#sec-pa2-toc)
 
 ---
+
 <a id="pa2-bare-metal-av"></a>
-# PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)
+
+## PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)
 
 [返回目录](#sec-pa2-toc)
 
 在 PA2 的最末段外设接入阶段，通过整合 **声卡 (Audio)**、**显卡 (VGA)** 和 **系统时钟 (Timer)**，我们从零手写了一个没有操作系统、依靠纯轮询运行的多媒体视频播放器。这不仅仅是对 C 语言底层操作极限的磨炼，更是对**软硬件协同设计 (Hardware-Software Co-design)** 思想的一次巅峰实践。
 
 <a id="pa2-av-01"></a>
-## 1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)
+
+### 1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)
 
 在这个全栈生态中，共存着“三个世界”，绝不能把概念跨界（打破次元壁）：
 
@@ -4749,11 +4880,12 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
    * **提供的职责**：系统的大脑。在没有线程调度的情况下，必须合理分配 CPU 算力，决定了“何时刷新屏幕”、“何时填音轨”。这就是应用代码层。
 
 <a id="pa2-av-02"></a>
-## 2. 数据炼金术：MP4 到物理内存的降维打击
+
+### 2. 数据炼金术：MP4 到物理内存的降维打击
 
 裸机上不仅没有硬盘，更没有 `libc` 里的 `fopen()`，没有可以处理 MP4 容器压缩的 H.264 或 AAC 解码系统。所以，一切花里胡哨，必须被“降维”到最原始的数据（二进制格式），硬编码入运行内存。
 
-### 2.1 利用 FFmpeg 获取原语数据
+#### 2.1 利用 FFmpeg 获取原语数据
 考虑到 NEMU 的物理内存（限死 128MB），我们需要精打细算切割原始数据体量。
 
 * **获取无损像素矩阵 (RGB)**：
@@ -4792,10 +4924,10 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
     -f s16le：输出裸 PCM 格式（16-bit little-endian）
   ```
 
-### 2.2 `.S` 汇编级别的神兵天降：数据注入内存
+#### 2.2 `.S` 汇编级别的神兵天降：数据注入内存
 有了纯原数据之后，怎么进入 C 语言变量呢？全靠汇编（以 `src/tests/video/resources.S` 为例）。
 ```
-# .incbin (include Binary)      五步标准法
+##### `.incbin` (include Binary) 五步标准法
 
     .section .rodata            # 只读代码段
     .global video_playload      # 声明一个全局可见的符号
@@ -4824,7 +4956,8 @@ audio_playload_end:
   ```
 
 <a id="pa2-av-03"></a>
-## 3. 软件层的外设哲学：抽象控制寄存器怎么配？
+
+### 3. 软件层的外设哲学：抽象控制寄存器怎么配？
 
 在用 C 程序往 API `io_read` 和 `io_write` 下命令的过程中，为什么有些字段配了，且有些只能查？这符合硬件的“交互协约”：
 
@@ -4836,7 +4969,8 @@ audio_playload_end:
    如 `AM_TIMER_UPTIME`。绝对时间不随软件意志快进快退。不能配置也不可更改，软件层面只是单纯的去问问“现在几点了”来制定策略。
 
 <a id="pa2-av-04"></a>
-## 4. AM层与软件层的“双轨流控”：谁控制谁？
+
+### 4. AM层与软件层的“双轨流控”：谁控制谁？
 
 在最开始的设计中，我们试图让音频和视频“平起平坐”，采用双条件循环 `while (npcm_ptr < audio_len || ...) `试图兼顾两者。但这种“端水大师”的做法导致了严重的**尾段卡顿与音画错位**。
 
@@ -4847,7 +4981,8 @@ audio_playload_end:
 这种调度策略极其巧妙：**非阻塞 I/O (Non-Blocking I/O) 的精髓**发挥得淋漓尽致。视频掌握大局进度，音频利用 CPU 空转的性能缝隙“见缝插针”，从而从根本上消除了单帧高渲染负载对音频提交造成的延误！
 
 <a id="pa2-av-05"></a>
-## 5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)
+
+### 5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)
 
 同步播放的核心精髓：**“视频与音频不必说话互通，所有模块全都只仰望上帝主时钟的脸色。”**
 
@@ -4863,7 +4998,8 @@ audio_playload_end:
   3、如果不幸因为 CPU 绘制太慢或音频塞入耗时而发生滞后（`current_frame < expected_frame`），代码将直接按时钟指示将当前数据指针 `v_ptr` 乘法跳跃到 `expected_frame` 的位置执行绘制，中途来不及画的帧直接舍弃！这就是为什么即使高负载、高分辨率下，音视频也永远对齐，不会出现“越拖越慢”的漏斗效应。
 
 <a id="pa2-av-06"></a>
-## 6. 踩坑实录：那些惨痛的 Debug 锦囊
+
+### 6. 踩坑实录：那些惨痛的 Debug 锦囊
 
 在没有完整提示工具链的裸机中进行重开发，每一处隐藏的细节漏网都是直接宕机，重点摘录：
 
@@ -4880,7 +5016,8 @@ audio_playload_end:
    独立编译 `make ARCH=riscv32-nemu run` 时，只能用 `klib.h` 和 `am.h`，别企图 `#include <debug.h>` 调用宿主机 NEMU 的 `Assert()`，得用 `panic()`！
 
 <a id="pa2-av-07"></a>
-## 7. PA2 软硬协同终极理与总结
+
+### 7. PA2 软硬协同终极理与总结
 
 回顾这一个跌宕起伏的设计全垒打里程碑，一切可以落入四个字的理解骨架中：
 

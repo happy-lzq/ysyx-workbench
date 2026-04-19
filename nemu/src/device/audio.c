@@ -19,10 +19,7 @@
 /*  SDL音频库的运行逻辑
 1、SDL_AudioSpec 结构体和回调函数Callback 为核心，一个是生产者 一个是消费者
 2、SDL音频线程独立于CPU模拟线程由回调函数触发：从音频环形缓冲区sbuf取出数据填充到SDL流宿主声卡播放
-
 */
-
-
 
 // 将声卡的三个抽象寄存器--软件协议构建对应的独立硬件寄存器   
 enum {
@@ -42,7 +39,7 @@ static uint32_t pending_count = 0;      // 真正被SDL读取给宿主声卡播�
 // 全局设备真实写入缓冲区待SDL读写字节,要与设备寄存器reg_count分离处理，保证缓冲区待读字节的正确性
 // 原因：MMIO 写操作：先 host_write(已经更改了reg_count当前值)，再 invoke_callback。
 
-// SDL 在独立的音频线程中周期调用    len 必须填满否则音爆/静音
+// SDL 在独立的音频线程中周期调用    len 必须填满否则音爆/静音  len决定SDL每次读取多少字节：len (字节) = samples × 声道数 × 2 (byte)=4096字节 = 4kb  buf_max = 64kb
 static void sdl_audio_callback(void *userdata,Uint8 *stream,int len){
 // 1、计算实际可拷贝的数据量
   size_t able_copy = pending_count < len ? pending_count : len;
