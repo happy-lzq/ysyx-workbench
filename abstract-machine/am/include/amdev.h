@@ -21,7 +21,9 @@ AM_DEVREG( 7, INPUT_CONFIG, RD, bool present);                                //
 AM_DEVREG( 8, INPUT_KEYBRD, RD, bool keydown; int keycode);                   // keydown=true: 按下，反之释放
 AM_DEVREG( 9, GPU_CONFIG,   RD, bool present, has_accel; int width, height, vmemsz);  
 AM_DEVREG(10, GPU_STATUS,   RD, bool ready);
-AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync);        
+AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync); 
+// true	CPU 提交本次绘制任务后，阻塞等待，直到 GPU 确认“本次绘制已完全写入显存”，然后才继续执行下一行代码。
+// false	CPU 提交任务后 立即返回，不等待 GPU 完成，直接继续执行下一行代码。GPU 会在后台自行处理提交的任务。
 AM_DEVREG(12, GPU_MEMCPY,   WR, uint32_t dest; void *src; int size);
 AM_DEVREG(13, GPU_RENDER,   WR, uint32_t root);
 AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);   

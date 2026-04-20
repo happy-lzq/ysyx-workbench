@@ -86,59 +86,65 @@
   - [10. 最终结果、验证结论与方法论总结](#sec-klibtest-10)
 - [PA2 专题补充](#sec-pa2-supplement)
   - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
-  - [PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
-    - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
-    - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
-    - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
-    - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
-  - [PA2 专题：时钟计时器与软硬协同全栈生命周期梳理](#sec-pa2-rtc-timer)
-    - [1、全局视角：时钟测试在验证什么？](#sec-rtc-01)
-    - [2、第一阶段：NEMU（硬件）的启动与外设准备](#sec-rtc-02)
-    - [3、第二阶段：AM-tests（软件）的编译、加载与启动](#sec-rtc-03)
-    - [4、第三阶段：软硬协同的巅峰——一次读取时间的完整物理全貌](#sec-rtc-04)
-    - [5、第四阶段：成果的展示——第二次协同 (串口输出)](#sec-rtc-05)
-    - [6、代码层面关键解耦机制总结 (LUT与IOE)](#sec-rtc-06)
-    - [7、方法论与全局总结](#sec-rtc-07)
-  - [PA2 专题：`dtrace` 的完整设计过程总结与踩坑记录](#sec-pa2-dtrace)
-    - [1. `dtrace` 设备记录追踪也可以像 `mtrace` 这样设计吗？](#sec-dtrace-01)
-    - [2. 为什么 `mtrace`, `itrace`, `ftrace` 都添加了 `depends on TRACE && ...` 是必要条件吗？](#sec-dtrace-02)
-    - [3. 为什么一开始给出的 `dtrace` 设计里没有加上这些依赖？](#sec-dtrace-03)
-    - [4. `dtrace` 的路径生成逻辑与 `sizeof(ftrace_log_file)` 的踩坑修复](#sec-dtrace-04)
-    - [5. 为什么不直接在 `map_read` / `map_write` 里做 `fopen/fclose`，还要搞个全局指针 `dtrace_fp` 与 `init_monitor`？](#sec-dtrace-05)
-    - [6. 为什么编译器会报错 `DTRACE_COND` 未定义？("ture" 拼写错误踩坑)](#sec-dtrace-06)
-    - [7. 为什么 `dtrace_fp` 一直开着不用 `fclose()` 关闭？](#sec-dtrace-07)
-    - [8. Serial 通信里的一个疑问：RTC 测试输出了串口，但在 RTL 里没有？](#sec-dtrace-08)
-  - [PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结](#sec-pa2-nemu-on-nemu)
-  - [PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理](#sec-pa2-keyboard)
-    - [1. 先纠正一个最容易误解的点：AM 不是“再造一套硬件寄存器”](#sec-kbd-01)
-    - [2. 所谓“抽象寄存器”的意义，到底该怎么准确理解？](#sec-kbd-02)
-    - [3. `io_read()` / `io_write()` 到底是什么？](#sec-kbd-03)
-    - [4. 键盘专题的三层模型：软件层、AM 层、硬件层](#sec-kbd-04)
-    - [5. 键盘外设启动阶段：设备是怎样被挂到总线上的？](#sec-kbd-05)
-    - [6. 宿主机真实按键发生后，事件是如何进入 NEMU 的？](#sec-kbd-06)
-    - [7. NEMU 内部：SDL 扫描码怎样变成客户机可理解的键值？](#sec-kbd-07)
-    - [8. 应用发起读取：`io_read(AM_INPUT_KEYBRD)` 这一句背后到底发生了什么？](#sec-kbd-08)
-    - [9. 真正的硬件交互核心：读 `KBD_ADDR` 时，NEMU 底层发生了什么？](#sec-kbd-09)
-    - [10. 最终返回应用：为什么应用看到的是 `keydown/keycode`，而不是一个整数？](#sec-kbd-10)
-    - [11. 用一张分层时序图，把键盘这条链路整体串起来](#sec-kbd-11)
-    - [12. 最终总结：键盘案例里，软硬件协同到底是什么？](#sec-kbd-12)
-  - [PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结](#sec-pa2-audio)
-    - [1. SDL 声卡接口速记（结构、回调、打开设备、格式）](#sec-audio-quickref)
-    - [2. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
-    - [3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
-    - [4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
-    - [5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
-    - [6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
-    - [7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
-    - [8. 设计全景总结回顾](#sec-audio-layer6)
-  - [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
-    - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
-    - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
-    - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
-    - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
-    - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
-    - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
-    - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
+- [PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
+  - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
+  - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
+  - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
+  - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
+- [PA2 专题：时钟计时器与软硬协同全栈生命周期梳理](#sec-pa2-rtc-timer)
+  - [1、全局视角：时钟测试在验证什么？](#sec-rtc-01)
+  - [2、第一阶段：NEMU（硬件）的启动与外设准备](#sec-rtc-02)
+  - [3、第二阶段：AM-tests（软件）的编译、加载与启动](#sec-rtc-03)
+  - [4、第三阶段：软硬协同的巅峰——一次读取时间的完整物理全貌](#sec-rtc-04)
+  - [5、第四阶段：成果的展示——第二次协同 (串口输出)](#sec-rtc-05)
+  - [6、代码层面关键解耦机制总结 (LUT与IOE)](#sec-rtc-06)
+  - [7、方法论与全局总结](#sec-rtc-07)
+- [PA2 专题：`dtrace` 的完整设计过程总结与踩坑记录](#sec-pa2-dtrace)
+  - [1. `dtrace` 设备记录追踪也可以像 `mtrace` 这样设计吗？](#sec-dtrace-01)
+  - [2. 为什么 `mtrace`, `itrace`, `ftrace` 都添加了 `depends on TRACE && ...` 是必要条件吗？](#sec-dtrace-02)
+  - [3. 为什么一开始给出的 `dtrace` 设计里没有加上这些依赖？](#sec-dtrace-03)
+  - [4. `dtrace` 的路径生成逻辑与 `sizeof(ftrace_log_file)` 的踩坑修复](#sec-dtrace-04)
+  - [5. 为什么不直接在 `map_read` / `map_write` 里做 `fopen/fclose`，还要搞个全局指针 `dtrace_fp` 与 `init_monitor`？](#sec-dtrace-05)
+  - [6. 为什么编译器会报错 `DTRACE_COND` 未定义？("ture" 拼写错误踩坑)](#sec-dtrace-06)
+  - [7. 为什么 `dtrace_fp` 一直开着不用 `fclose()` 关闭？](#sec-dtrace-07)
+  - [8. Serial 通信里的一个疑问：RTC 测试输出了串口，但在 RTL 里没有？](#sec-dtrace-08)
+- [PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结](#sec-pa2-nemu-on-nemu)
+- [PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理](#sec-pa2-keyboard)
+  - [1. 先纠正一个最容易误解的点：AM 不是“再造一套硬件寄存器”](#sec-kbd-01)
+  - [2. 所谓“抽象寄存器”的意义，到底该怎么准确理解？](#sec-kbd-02)
+  - [3. `io_read()` / `io_write()` 到底是什么？](#sec-kbd-03)
+  - [4. 键盘专题的三层模型：软件层、AM 层、硬件层](#sec-kbd-04)
+  - [5. 键盘外设启动阶段：设备是怎样被挂到总线上的？](#sec-kbd-05)
+  - [6. 宿主机真实按键发生后，事件是如何进入 NEMU 的？](#sec-kbd-06)
+  - [7. NEMU 内部：SDL 扫描码怎样变成客户机可理解的键值？](#sec-kbd-07)
+  - [8. 应用发起读取：`io_read(AM_INPUT_KEYBRD)` 这一句背后到底发生了什么？](#sec-kbd-08)
+  - [9. 真正的硬件交互核心：读 `KBD_ADDR` 时，NEMU 底层发生了什么？](#sec-kbd-09)
+  - [10. 最终返回应用：为什么应用看到的是 `keydown/keycode`，而不是一个整数？](#sec-kbd-10)
+  - [11. 用一张分层时序图，把键盘这条链路整体串起来](#sec-kbd-11)
+  - [12. 最终总结：键盘案例里，软硬件协同到底是什么？](#sec-kbd-12)
+- [PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结](#sec-pa2-audio)
+  - [1. SDL 声卡接口速记（结构、回调、打开设备、格式）](#sec-audio-quickref)
+  - [2. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
+  - [3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
+  - [4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
+  - [5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
+  - [6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
+  - [7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
+  - [8. 设计全景总结回顾](#sec-audio-layer6)
+- [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
+  - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
+  - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
+  - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
+  - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
+  - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
+  - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
+  - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
+- [PA2 专题：多维数组映射到一维地址空间的存储格式与索引方式](#sec-pa2-ndarray-layout)
+  - [1. 为什么“多维”最终一定会落到“一维地址空间”](#sec-ndarray-01)
+  - [2. 二维数组映射：平面坐标如何压平为线性索引](#sec-ndarray-02)
+  - [3. 三维数组映射：层-行-列如何压平为线性索引](#sec-ndarray-03)
+  - [4. N维通式：stride（步长）就是每一维的空间参量](#sec-ndarray-04)
+  - [5. 工程实践：边界检查、地址公式与常见坑](#sec-ndarray-05)
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
@@ -5030,5 +5036,228 @@ audio_playload_end:
 * **统一的系统维度统筹**：在无并发的低端设备底层开发里，不存在绝对线程，而只有一个极速滚动、不停判断的大循环。它全仰仗唯一的时间准绳（系统上帝钟——`Timer`），做到了不相互关联的模块却在这条共同维度的轨道上精准合拍共舞发光！
 
 这是一个由我们自己编写控制硬件驱动运行过程并交辉映射而出的完整杰作！彻底从最简单的加法计算中升华而出，掌握真正的底层把控灵魂。
+
+---
+
+<a id="sec-pa2-ndarray-layout"></a>
+## PA2 专题：多维数组映射到一维地址空间的存储格式与索引方式
+
+> 记录时间：2026年4月19日 | 核心主题：多维坐标、stride 与线性地址之间的统一映射关系
+
+这部分的核心认知可以压缩成一句话：
+
+> **多维数组是“逻辑坐标系”，内存始终是“一维线性地址空间”。**
+
+我们在代码里看到的是 `a[i][j][k]` 这种多维访问形式，但 CPU 最终只会做：
+
+1. 计算线性偏移 `offset`；
+2. 再把偏移换成地址 `addr = base + offset * elem_size`。
+
+<a id="sec-ndarray-01"></a>
+### 1. 为什么“多维”最终一定会落到“一维地址空间”
+
+内存是按字节连续编号的地址序列：
+
+```text
+... 0x1000, 0x1001, 0x1002, 0x1003, 0x1004, ...
+```
+
+数组元素必须被顺序放进这条线上，所以任何维度信息都要被压平成一个整数偏移量。
+
+对任意数组元素：
+
+```text
+address = base_address + element_offset * sizeof(element)
+```
+
+因此，所有多维索引问题最终都可以转成：
+
+```text
+如何计算 element_offset
+```
+
+<a id="sec-ndarray-02"></a>
+### 2. 二维数组映射：平面坐标如何压平为线性索引
+
+假设二维数组形状为 `R x C`，坐标是 `(i, j)`。
+
+- `i`：第几行（0 到 R-1）
+- `j`：第几列（0 到 C-1）
+
+二维平面（示例：`R=3, C=4`）：
+
+```text
+Row 0: (0,0) (0,1) (0,2) (0,3)
+Row 1: (1,0) (1,1) (1,2) (1,3)
+Row 2: (2,0) (2,1) (2,2) (2,3)
+```
+
+线性内存（行主序，先行后列）：
+
+```text
+idx:   0     1     2     3     4     5     6     7     8     9    10    11
+elem:(0,0)(0,1)(0,2)(0,3)(1,0)(1,1)(1,2)(1,3)(2,0)(2,1)(2,2)(2,3)
+```
+
+索引公式：
+
+```text
+offset = i * C + j
+```
+
+地址公式：
+
+```text
+addr = base + (i * C + j) * elem_size
+```
+
+空间参量（stride）理解：
+
+- 第 0 维（行）stride = `C`：行号 +1，偏移前进一整行
+- 第 1 维（列）stride = `1`：列号 +1，偏移前进一个元素
+
+<a id="sec-ndarray-03"></a>
+### 3. 三维数组映射：层-行-列如何压平为线性索引
+
+假设三维数组形状为 `D0 x D1 x D2`，坐标是 `(i, j, k)`。
+
+- `i`：第几层（layer）
+- `j`：该层里的第几行（row）
+- `k`：该行里的第几列（col）
+
+结构图（示意）：
+
+```text
+Layer i
+  Row j
+    Col k -> element(i,j,k)
+```
+
+线性展开顺序（行主序）是：
+
+1. 先在行内按 `k` 变化；
+2. 再按 `j` 换到下一行；
+3. 最后按 `i` 换到下一层。
+
+索引公式：
+
+```text
+offset = i * (D1 * D2) + j * D2 + k
+```
+
+等价写法：
+
+```text
+offset = ((i * D1) + j) * D2 + k
+```
+
+地址公式：
+
+```text
+addr = base + offset * elem_size
+```
+
+空间参量（stride）：
+
+- 第 0 维 stride = `D1 * D2`（跨层）
+- 第 1 维 stride = `D2`（跨行）
+- 第 2 维 stride = `1`（行内）
+
+计算示例：形状 `2 x 3 x 4`，坐标 `(1,2,3)`
+
+```text
+offset = 1*(3*4) + 2*4 + 3 = 12 + 8 + 3 = 23
+```
+
+即该元素位于线性数组的第 23 号位置（从 0 开始计数）。
+
+<a id="sec-ndarray-04"></a>
+### 4. N维通式：stride（步长）就是每一维的空间参量
+
+对于 N 维形状：
+
+```text
+[N0, N1, N2, ..., N(n-1)]
+```
+
+坐标：
+
+```text
+[x0, x1, x2, ..., x(n-1)]
+```
+
+统一索引公式：
+
+```text
+offset = x0*S0 + x1*S1 + ... + x(n-1)*S(n-1)
+```
+
+行主序下：
+
+```text
+S(t) = N(t+1) * N(t+2) * ... * N(n-1)
+```
+
+其中最后一维恒有：
+
+```text
+S(n-1) = 1
+```
+
+所以“每一维参数对应在空间中的参量”本质就是该维 stride：
+
+- 该维坐标 +1 时，线性偏移会增加多少。
+
+<a id="sec-ndarray-05"></a>
+### 5. 工程实践：边界检查、地址公式与常见坑
+
+#### 5.1 二维/三维边界检查模板
+
+二维：
+
+```c
+bool in_bounds_2d(int i, int j, int R, int C) {
+  return (0 <= i && i < R) && (0 <= j && j < C);
+}
+```
+
+三维：
+
+```c
+bool in_bounds_3d(int i, int j, int k, int D0, int D1, int D2) {
+  return (0 <= i && i < D0) && (0 <= j && j < D1) && (0 <= k && k < D2);
+}
+```
+
+#### 5.2 地址换算模板
+
+二维：
+
+```c
+size_t off2 = (size_t)i * (size_t)C + (size_t)j;
+uint8_t *addr2 = base + off2 * elem_size;
+```
+
+三维：
+
+```c
+size_t off3 = (size_t)i * (size_t)D1 * (size_t)D2
+            + (size_t)j * (size_t)D2
+            + (size_t)k;
+uint8_t *addr3 = base + off3 * elem_size;
+```
+
+#### 5.3 常见坑
+
+1. 把维度顺序写反（`x,y` 和 `row,col` 混淆）。
+2. 漏乘 `elem_size`，导致地址单位错误。
+3. 用 `int` 计算大数组偏移导致溢出，建议用 `size_t`。
+4. 把“行主序”和“列主序”概念混用（C 默认按行主序）。
+
+一句话收束：
+
+> **多维索引的本质是“坐标向量与 stride 向量做点积”，结果再映射到线性地址。**
+
+[回到顶部目录](#sec-pa2-toc)
 
 ---
