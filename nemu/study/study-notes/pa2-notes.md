@@ -5119,6 +5119,7 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
   ffmpeg -i input.mp4 -t 10 -an -f rawvideo -pix_fmt bgra -s 400x300 alone_video.rgb
   ```
   * `-i input.mp4: 指定要处理的输入文件。`
+  * `-ss x 与后面-t 配合使用截取对应 x——>t 秒段 数据 `
   * `-t 10`：截 10 秒，保障生成的体积能够塞入 128MB 物理内存。
   * `-f rawvideo: "Format"，指定输出文件的容器格式为原始视频流，确保生成的是不含任何文件头的纯RGB裸数据。`
   * `-pix_fmt bgra`：对应 C 程序中的 32 位系统常用的 `uint32_t`。
