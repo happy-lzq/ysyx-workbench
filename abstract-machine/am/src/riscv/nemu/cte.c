@@ -2,9 +2,10 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+
+// 全局静态结构体函数指针
 static Context* (*user_handler)(Event, Context*) = NULL;
-// 解读：Context* user_handler()函数返回类型必须是该结构体指针类型
-//      (*user_handler) 函数指针；(Event,Context*) 函数参数类型
+
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
