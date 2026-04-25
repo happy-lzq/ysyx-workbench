@@ -35,6 +35,7 @@ char irbuf [IRING_BUF_SIZE] [128];
 bool irbuf_full = false;
 int irbuf_pos = 0;
 
+
 void device_update();
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND

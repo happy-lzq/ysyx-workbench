@@ -14,6 +14,7 @@
 ***************************************************************************************/
 
 #include "local-include/reg.h"
+#include "local-include/csr.h"
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
@@ -37,6 +38,7 @@ enum {
 #define immI()  do { *imm = SEXT (BITS(i, 31, 20), 12); } while(0)   
 #define immU()  do { *imm = SEXT (BITS(i, 31, 12), 20) << 12; } while(0)
 #define immS()  do { *imm = SEXT(((BITS(i, 31, 25) << 5) | BITS(i, 11, 7)),12); } while(0)
+
 // R类无立即数：第0位固定为0，最高位为20位，总计立即数为21位
 #define immJ() do {                             \
   uint32_t val = ((BITS(i, 31, 31))  << 20 ) |  \
@@ -83,14 +85,8 @@ static int decode_exec(Decode *s) {
 }
 // INSTPAT条目核心：opcode functs3 functs7 ；源寄存器，目标寄存器，以及立即数利用 ? 表示 
   INSTPAT_START();
-
-  // 1. 系统指令 (系统调用、断点) 放在最前面
-  INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); 
-  // 在 NEMU 的测试框架中，ebreak 被用作程序结束的标志，并根据 a0 的值判断测试是否通过：a0 = 0 表示成功（GOOD TRAP），a0 ≠ 0 表示失败（BAD TRAP）。
-
   // 2. 根据 opcode 进行 case 分类 (顺序: R I S B U J)
   switch (BITS(s->isa.inst, 6, 0)) {
-
     // =================================== R-Type (opcode = 0x33) ==================================================
     case 0x33:
       // 算数逻辑运算按常用程度排序
@@ -152,6 +148,66 @@ static int decode_exec(Decode *s) {
       INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
       INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
       break;
+
+      // ==================================== system 指令 (opcode = 0x73) ========================================
+      // 系统权限级指令 (csrrw csrrs csrrc csrrwi csrrsi csrrci)
+    case 0x73: {
+      // 1. 系统指令 (系统调用、断点) 放在最前面
+      word_t csr_num = BITS(s->isa.inst, 31, 20);
+      word_t zimm = BITS(s->isa.inst, 19, 15); 
+      INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); 
+      INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11,s->pc)); // M——>11
+      INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N,
+    // MIE  当前 machine mode 下，中断总开关是否开启 ： 1 接受中断，0不接受中断
+    // MPIE 保存 trap 进入前的 MIE  通常会把当前接受中断关掉，避免处理中断时又被新的中断打断。
+    // MPP  保存 trap 进入前的特权级   U(0) S(1) M(3)
+          word_t mstatus_val = cpu.csr[CSR_IDX_mstatus];
+          // word_t mpp  = ((mstatus_val) >> 11 ) & 3;                 // 读出特权级用于切换
+          word_t mpie = ((mstatus_val) >> 7  ) & 1;
+          mstatus_val = (mstatus_val & ~(1 << 3)) | (mpie << 3) ;   // MIE=MPIE
+          mstatus_val = mstatus_val | (1 << 7);                     // MPIE=1
+          mstatus_val = mstatus_val & ~(3 << 11);                   // 写回 mstatus 时把 MPP 域清零
+          cpu.csr[CSR_IDX_mstatus] = mstatus_val;                   // 写回mstatus   
+          s->dnpc = cpu.csr[CSR_IDX_mepc];
+          ); 
+      INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = t & ~src1;
+          R(rd) = t;
+        ); 
+      INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = t | src1;
+          R(rd) = t;
+        ); 
+      INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = src1;
+          R(rd) = t;
+        ); 
+      INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = t & ~zimm;
+          R(rd) = t;
+        ); 
+      INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = t | zimm;
+          R(rd) = t;
+        ); 
+      INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi  , I, 
+          word_t *t_ptr  = csr_idx_addr(csr_num);
+          word_t t = *t_ptr;
+          *t_ptr = zimm;
+          R(rd) = t;
+        ); 
+      break;
+      }
 
     // =================================== S-Type (opcode = 0x23) ==================================================
     case 0x23:

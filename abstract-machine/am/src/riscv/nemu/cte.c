@@ -50,6 +50,7 @@ bool ienabled() {
 }
 
 void iset(bool enable) {
+
 }
 
 
@@ -74,5 +75,20 @@ void iset(bool enable) {
   2、把 mepc mcause mstatus 读取出来进行保存
   3、最终在栈上构造完整的 struct Context 
   4、将指向这个Context结构体的指针作为参数，准备调用C程序事件处理函数
-5、
+5、如何正确读写CSR控制寄存器  CSR指令家族
+  读：C程序需要一个对应的变量来存储寄存器的值
+    uintptr_t mepc_val;
+    asm volatile("csrr %0,mepc" : "=r"(mepc_val));
+    汇编生成：csrr rd,mepc
+  写入mtevc
+    asm volatile("csrw mtvec, %0" : : "w"(__am_asm_trap))
+  写：pc = R[mepc]
+    uintptr_t new_epc = ...;
+    asm volatile("csrw mepc, %0" : : "r"(new_epc));
+  操作需求	          内联汇编例子
+  读 CSR 到变量	      asm volatile("csrr %0, mepc" : "=r"(val));
+  写变量值到 CSR	    asm volatile("csrw mtvec, %0" : : "r"(addr));
+  设置 CSR 中某位	    asm volatile("csrs mstatus, %0" : : "r"(8));
+  清除 CSR 中某位	    asm volatile("csrc mstatus, %0" : : "r"(8));
+  同时读和写	        asm volatile("csrrw %0, mstatus, %1" : "=r"(old) : "r"(new));
 */
