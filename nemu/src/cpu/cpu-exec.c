@@ -138,10 +138,11 @@ static void execute(uint64_t n) {
     if (nemu_state.state != NEMU_RUNNING) break;
     IFDEF(CONFIG_DEVICE, device_update());
     // 外部中断检查
-    if (isa_query_intr() !=INTR_EMPTY){
-     isa_raise_intr(isa_query_intr(),s.dnpc);
-     s.dnpc = cpu.pc; 
-    };
+    word_t intr_no = isa_query_intr();
+    if (intr_no != INTR_EMPTY) {
+        isa_raise_intr(intr_no, s.dnpc);
+        s.dnpc = cpu.pc;
+    }
   }
 }
 
