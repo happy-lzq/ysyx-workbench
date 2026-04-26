@@ -9,15 +9,35 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
+    ev.cause = c->mcause;
+
     switch (c->mcause) {
-      
-      default: ev.event = EVENT_ERROR; break;
+      case 11:   // M-mode environment call
+        if (c->gpr[17] == (uintptr_t)-1) {   // a7 = -1
+          ev.event = EVENT_YIELD;
+        } else {
+          ev.event = EVENT_SYSCALL;
+          ev.ref = c->gpr[17];
+        }
+        c->mepc += 4;   // 同步异常，跳过 ecall 指令本身
+        break;
+
+      case 0x80000007:  // Machine timer interrupt
+        ev.event = EVENT_IRQ_TIMER;
+        break;
+
+      case 0x8000000b:  // Machine external interrupt
+        ev.event = EVENT_IRQ_IODEV;
+        break;
+
+      default:
+        ev.event = EVENT_ERROR;
+        break;
     }
 
     c = user_handler(ev, c);
     assert(c != NULL);
   }
-
   return c;
 }
 
