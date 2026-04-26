@@ -14,6 +14,8 @@
 ***************************************************************************************/
 
 #include <isa.h>
-
+// pengding 位 就mstatus寄存器中的MTIP mip的第7位    中断请求挂起位
 void dev_raise_intr() {
+    // 设置mip寄存器的MTIP(bit=7)
+    cpu.csr[CSR_IDX_mip] |= (1 << 7);
 }
