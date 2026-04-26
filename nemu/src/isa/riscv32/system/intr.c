@@ -35,7 +35,8 @@ word_t isa_query_intr() {
     // 2. 定时器中断：mip.MTIP 和 mie.MTIE 同时为 1
     if ((cpu.csr[CSR_IDX_mip] & (M_TIME_MASK)) &&                 // mip寄存器中 MTIE(bit=7) 中断挂起位
         (cpu.csr[CSR_IDX_mie] & (M_TIME_MASK))) {                 // mie寄存器中 MTIP(bit=7) 中断是能位
-        return 0x80000007;                                        // M-mode 时钟中断号 7  最高位 = 1 表示中断，低 30 位 = 7 表示定时器
+         cpu.csr[CSR_IDX_mip] &= ~M_TIME_MASK;
+        return 0x80000007;                                      // M-mode 时钟中断号 7  最高位 = 1 表示中断，低 30 位 = 7 表示定时器
     }
 
     // 3. 外部中断：mip.MEIP 和 mie.MEIE 同时为 1                    
