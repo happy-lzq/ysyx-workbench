@@ -46,8 +46,8 @@ extern void __am_asm_trap(void);
 // cte_init() 的核心职责就是注册事件处理函数
 bool cte_init(Context*(*handler)(Event, Context*)) {
   // 把 __am_asm_trap 的地址写入 mtvec
-  asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
-  // asm volatile("csrs mie,%0" : : "r"(1<<7));
+  asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));        // yield 自陷
+  asm volatile("csrs mie,%0" : : "r"(1<<7));                    // time 使能机器定时器中断
   user_handler = handler;
   return true;
 }
