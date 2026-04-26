@@ -12,7 +12,7 @@ Context* __am_irq_handle(Context *c) {
     ev.cause = c->mcause;
 
     switch (c->mcause) {
-      case 0x11:   // M-mode environment call
+      case 0xb:   // M-mode environment call
         if (c->gpr[17] == (uintptr_t)-1) {   // a7 = -1
           ev.event = EVENT_YIELD;
         } else {
