@@ -46,10 +46,8 @@ extern void __am_asm_trap(void);
 
 // cte_init() 的核心职责就是注册事件处理函数
 bool cte_init(Context*(*handler)(Event, Context*)) {
-  
   // 把 __am_asm_trap 的地址写入 mtvec
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
-
   user_handler = handler;
   return true;
 }
@@ -66,12 +64,21 @@ void yield() {
 #endif
 }
 
+
+// “从 CPU 当前状态里，读出 machine interrupt 总开关状态”
 bool ienabled() {
-  return false;
+  uint32_t mstatus_val;
+  asm volatile("csrr %0, mstatus" : "=r"(mstatus_val));
+  bool mie = (mstatus_val & (1<<3)) != 0; 
+  return mie;
 }
-
+// “修改 CPU 当前状态里的 machine interrupt 总开关”
 void iset(bool enable) {
-
+  if (enable){
+    asm volatile("csrs mstatus,%0" : : "r"(1 << 3));
+  }else {
+    asm volatile("csrc mstatus,%0" : : "r"(1 << 3)); 
+  }
 }
 
 
@@ -112,4 +119,9 @@ void iset(bool enable) {
   设置 CSR 中某位	    asm volatile("csrs mstatus, %0" : : "r"(8));
   清除 CSR 中某位	    asm volatile("csrc mstatus, %0" : : "r"(8));
   同时读和写	        asm volatile("csrrw %0, mstatus, %1" : "=r"(old) : "r"(new));
+6、原子级操作指令
+  csrs : set bit in csr     对csr寄存器读后执行置位操作
+  csrc : clean bit in csr   对csr寄存器读后执行清零操作
+  csrw : write in csr       对csr寄存器读后执行写寄存器操作
+  csrr : read in csr        只读操作
 */
