@@ -10,7 +10,6 @@ Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
     ev.cause = c->mcause;
-
     switch (c->mcause) {
       case 0xb:   // M-mode environment call
         if (c->gpr[17] == (uintptr_t)-1) {   // a7 = -1
@@ -48,7 +47,7 @@ extern void __am_asm_trap(void);
 bool cte_init(Context*(*handler)(Event, Context*)) {
   // 把 __am_asm_trap 的地址写入 mtvec
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
-  asm volatile("csrs mie,%0" : : "r"(1<<7));
+  // asm volatile("csrs mie,%0" : : "r"(1<<7));
   user_handler = handler;
   return true;
 }
@@ -73,6 +72,9 @@ bool ienabled() {
   bool mie = (mstatus_val & (1<<3)) != 0; 
   return mie;
 }
+
+
+
 // “修改 CPU 当前状态里的 machine interrupt 总开关”
 void iset(bool enable) {
   if (enable){
