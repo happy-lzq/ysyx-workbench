@@ -140,8 +140,7 @@ static void execute(uint64_t n) {
     // 外部中断检查
     word_t intr_no = isa_query_intr();
     if (intr_no != INTR_EMPTY) {
-        isa_raise_intr(intr_no, s.dnpc);
-        s.dnpc = cpu.pc;
+        s.dnpc =isa_raise_intr(intr_no, s.dnpc);
     }
   }
 }
