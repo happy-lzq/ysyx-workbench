@@ -48,6 +48,7 @@ extern void __am_asm_trap(void);
 bool cte_init(Context*(*handler)(Event, Context*)) {
   // 把 __am_asm_trap 的地址写入 mtvec
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
+  asm volatile("csrs mie,%0" : : "r"(1<<7));
   user_handler = handler;
   return true;
 }
