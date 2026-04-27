@@ -42,12 +42,12 @@ f(30) f(31)
 __am_asm_trap:
   addi sp, sp, -CONTEXT_SIZE
 
-  MAP(REGS, PUSH)
+  MAP(REGS, PUSH)                         #统一固定保存当前cpu通用寄存器值，防止后续C程序篡改数值
 
   csrr t0, mcause
   csrr t1, mstatus
   csrr t2, mepc
-
+                                          # trap相关的csr寄存器也统一保存
   STORE t0, OFFSET_CAUSE(sp)
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
@@ -57,15 +57,16 @@ __am_asm_trap:
   or t1, t1, a0
   csrw mstatus, t1
 
-  mv a0, sp
-  call __am_irq_handle
-
-  LOAD t1, OFFSET_STATUS(sp)
+  mv a0, sp                               # sp指向填充保存好数据的结构体Context栈空间
+  call __am_irq_handle                    # 调用_am_irq_handle 函数处理
+                                          # __am_irq_handle 函数处理之后，csr值会发生改变，比如empc += 4 等等
+  LOAD t1, OFFSET_STATUS(sp)              # 因此需要更新csr
   LOAD t2, OFFSET_EPC(sp)
   csrw mstatus, t1
   csrw mepc, t2
 
-  MAP(REGS, POP)
+  MAP(REGS, POP)                          # 恢复处理中断前的cpu状态快照
 
-  addi sp, sp, CONTEXT_SIZE
-  mret
+  addi sp, sp, CONTEXT_SIZE               # 释放栈空间
+  mret                                    # 根据 mepc/mstatus 恢复机器执行”
+ 

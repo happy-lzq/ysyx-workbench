@@ -14,9 +14,23 @@
 ***************************************************************************************/
 
 #include <isa.h>
+#define IRQ_M_TIMER  0x80000007
+#define IRQ_M_EXT    0x8000000b
 #define M_TIME_MASK (1 << 7)
 #define M_MEIP_MASK (1 << 11)
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
+
+  switch (NO) {
+    case IRQ_M_TIMER:
+      cpu.csr[CSR_IDX_mip] &= ~(1 << 7);   // clear MTIP
+      break;
+    case IRQ_M_EXT:
+      cpu.csr[CSR_IDX_mip] &= ~(1 << 11);  // clear MEIP
+      break;
+    default:
+      break;
+  }
+
   cpu.csr[CSR_IDX_mepc]   = epc;
   cpu.csr[CSR_IDX_mcause] = NO;
   word_t mstatus = cpu.csr[CSR_IDX_mstatus];
@@ -33,8 +47,8 @@ word_t isa_query_intr() {
         return INTR_EMPTY;
 
     // 2. 定时器中断：mip.MTIP 和 mie.MTIE 同时为 1
-    if ((cpu.csr[CSR_IDX_mip] & (M_TIME_MASK)) &&                 // mip寄存器中 MTIE(bit=7) 中断挂起位
-        (cpu.csr[CSR_IDX_mie] & (M_TIME_MASK))) {                 // mie寄存器中 MTIP(bit=7) 中断是能位
+    if ((cpu.csr[CSR_IDX_mip] & (M_TIME_MASK)) &&                 // mip寄存器中 MTIP(bit=7) 中断挂起位
+        (cpu.csr[CSR_IDX_mie] & (M_TIME_MASK))) {                 // mie寄存器中 MTIE(bit=7) 中断是能位
          cpu.csr[CSR_IDX_mip] &= ~M_TIME_MASK;
         return 0x80000007;                                      // M-mode 时钟中断号 7  最高位 = 1 表示中断，低 30 位 = 7 表示定时器
     }
