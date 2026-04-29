@@ -3,7 +3,7 @@
 #include <klib.h>
 
 
-// 全局静态结构体函数指针
+// 全局静态上下文结构体函数指针
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
@@ -18,14 +18,14 @@ Context* __am_irq_handle(Context *c) {
           ev.event = EVENT_SYSCALL;
           ev.ref = c->gpr[17];
         }
-        c->mepc += 4;   // 同步异常，跳过 ecall 指令本身
+        c->mepc += 4;   // mepc 里保存的是触发 trap 的那条 ecall 指令地址，返回后要跳过到下一条指令。
         break;
 
-      case 0x80000007:  // Machine timer interrupt
+      case 0x80000007:  
         ev.event = EVENT_IRQ_TIMER;
         break;
 
-      case 0x8000000b:  // Machine external interrupt
+      case 0x8000000b:  
         ev.event = EVENT_IRQ_IODEV;
         break;
 
@@ -61,6 +61,8 @@ void yield() {
   asm volatile("li a5, -1; ecall");
 #else
   asm volatile("li a7, -1; ecall");
+// addi a7, x0, -1
+// ecall
 #endif
 }
 
