@@ -1,6 +1,6 @@
 ENTRY(_start)                             #1、入口设置：_start
 PHDRS { text PT_LOAD; data PT_LOAD; }     #2、可加载段：将代码分解成代码段和数据段两个PT_LOAD
-
+                                          # . 位置计数器，代表当前位置输出地址
 SECTIONS {
   /* _pmem_start and _entry_offset are defined in LDFLAGS */
   . = _pmem_start + _entry_offset;        #3、section布局：先设定基址，也就是物理起始地址
@@ -27,6 +27,7 @@ SECTIONS {
     *(.sbss*)
     *(.scommon)
   }
+
   _stack_top = ALIGN(0x1000);             # BSS 结束后对齐页边界
   . = _stack_top + 0x8000;                # 为栈预留 32 kb空间
   _stack_pointer = .;                     # 栈指针指向栈顶
@@ -43,4 +44,11 @@ SECTIONS {
 2、堆的作用
   动态开辟物理内存，用于大型的全局结构体数据变量
   主要是以malloc开辟。
+3、. 位置计数器 表示当前输出地址
+4、输出段语法格式：
+  输出段名 [地址] [属性] : [程序头] {
+      输入段匹配规则
+      符号赋值
+      位置操作
+  }
 */
