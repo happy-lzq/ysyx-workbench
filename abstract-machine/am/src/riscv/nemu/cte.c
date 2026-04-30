@@ -2,6 +2,7 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+#define MPP_MIE 0x00001880
 
 // 全局静态上下文结构体函数指针
 static Context* (*user_handler)(Event, Context*) = NULL;
@@ -34,7 +35,7 @@ Context* __am_irq_handle(Context *c) {
         break;
     }
 
-    c = user_handler(ev, c);
+    c = user_handler(ev, c);  // 核心：返回的Context *是切换进程/当前进程！！！！！！
     assert(c != NULL);
   }
   return c;
@@ -51,9 +52,15 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
   user_handler = handler;
   return true;
 }
-
-Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  return NULL;
+// 三个参数：kstack是栈的范围，entry是内核线程的入口, arg则是内核线程的参数 构造初始化Context
+Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
+  Context* ctx = kstack.end - sizeof(Context);     
+  *ctx = (Context){0};
+  ctx->mepc = (uintptr_t)entry;
+  ctx->mstatus = MPP_MIE;
+  ctx->gpr[2]  = (uintptr_t)kstack.end;         // 每一个pcb模块的栈指针指向栈顶sp
+  ctx->gpr[10] = (uintptr_t)arg;                // 函数参数接受寄存器从a0(gpr[10])开始
+  return ctx;
 }
 
 void yield() {

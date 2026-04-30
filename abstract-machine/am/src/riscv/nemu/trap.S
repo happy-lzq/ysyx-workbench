@@ -58,9 +58,10 @@ __am_asm_trap:
   csrw mstatus, t1
 
   mv a0, sp                               # sp指向填充保存好数据的结构体Context栈空间
-  call __am_irq_handle                    # 调用_am_irq_handle 函数处理
-                                          # __am_irq_handle 函数处理之后，csr值会发生改变，比如empc += 4 等等
-  LOAD t1, OFFSET_STATUS(sp)              # 因此需要更新csr
+
+  call __am_irq_handle                    # 调用_am_irq_handle 分发，并且返回处理异常/切换上下文之后的context
+  mv sp, a0                               # sp指向切换上下文之后的context所在栈顶 (RISCV 规定 函数返回值都存于a0)
+  LOAD t1, OFFSET_STATUS(sp)              
   LOAD t2, OFFSET_EPC(sp)
   csrw mstatus, t1
   csrw mepc, t2
