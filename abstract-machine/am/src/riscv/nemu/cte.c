@@ -2,7 +2,7 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
-#define MPP_MIE 0x00001880
+#define MSTATUS 0x1888
 
 // 全局静态上下文结构体函数指针
 static Context* (*user_handler)(Event, Context*) = NULL;
@@ -57,12 +57,12 @@ Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context* ctx = kstack.end - sizeof(Context);     
   *ctx = (Context){0};
   ctx->mepc = (uintptr_t)entry;
-  ctx->mstatus = MPP_MIE;
+  ctx->mstatus = MSTATUS;                       // mstatus设置，MMP MPIE MIE 置位处理
   ctx->gpr[2]  = (uintptr_t)kstack.end;         // 每一个pcb模块的栈指针指向栈顶sp
   ctx->gpr[10] = (uintptr_t)arg;                // 函数参数接受寄存器从a0(gpr[10])开始
   return ctx;
 }
-
+// 0x110010001000
 void yield() {
 #ifdef __riscv_e
   asm volatile("li a5, -1; ecall");
