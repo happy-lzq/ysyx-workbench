@@ -20,8 +20,9 @@
 #define M_MEIP_MASK (1 << 11)
 
 // 同步异常传 s->pc，外部中断传 s.dnpc 
+// 处理csr寄存器：mepc mcause mstatus 
+// 返回对应trap.S 函数地址 ：mtvce 进入异常处理函数入口地址
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
-
   switch (NO) {
     case IRQ_M_TIMER:
       cpu.csr[CSR_IDX_mip] &= ~(1 << 7);   // clear MTIP
@@ -32,7 +33,6 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
     default:
       break;
   }
-
   cpu.csr[CSR_IDX_mepc]   = epc;
   cpu.csr[CSR_IDX_mcause] = NO;
   word_t mstatus = cpu.csr[CSR_IDX_mstatus];

@@ -52,7 +52,7 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
   user_handler = handler;
   return true;
 }
-// 三个参数：kstack是栈的范围，entry是内核线程的入口, arg则是内核线程的参数 构造初始化Context
+// 内核进程创建虚拟Context 函数
 Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context* ctx = kstack.end - sizeof(Context);     
   *ctx = (Context){0};
@@ -62,7 +62,6 @@ Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
   ctx->gpr[10] = (uintptr_t)arg;                // 函数参数接受寄存器从a0(gpr[10])开始
   return ctx;
 }
-// 0x110010001000
 void yield() {
 #ifdef __riscv_e
   asm volatile("li a5, -1; ecall");
