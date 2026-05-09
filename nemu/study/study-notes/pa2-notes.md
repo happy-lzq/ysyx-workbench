@@ -3,148 +3,30 @@
 <a id="sec-pa2-toc"></a>
 ## 目录
 
-- [Linux 软链接知识点总结](#sec-softlink)
-  - [1. 什么是软链接？](#sec-softlink-01)
-  - [2. 核心命令格式](#sec-softlink-02)
-  - [3. 与 C 语言指针的类比](#sec-softlink-03)
-  - [4. 为什么使用软链接解决编译器前缀问题？](#sec-softlink-04)
-  - [5. 软链接查看与修改实操（含 python/python3 案例）](#sec-softlink-05)
-- [2026年2月25日 - 2月26日 Debug 记录与总结](#sec-debug-log)
-  - [一、基础设施与环境配置问题](#sec-debug-01)
-  - [二、指令实现 Bug 与修复记录](#sec-debug-02)
-  - [三、核心 Debug 思路与方法论总结](#sec-debug-03)
-- [PA2 专题：指令修复、UB行为与运行时生命周期全景梳理](#sec-pa2-fix-lifecycle)
-  - [1. 核心架构解析：NEMU 的双重视角内存映射模型](#sec-fixlife-01)
-  - [2. AM (Abstract Machine) 解析：TRM 与堆栈初始化](#sec-fixlife-02)
-  - [3. 深度总结：从 C 源码到模拟器执行的完整生命周期](#sec-fixlife-03)
-- [PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转](#sec-pa2-makefile)
-- [PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结](#sec-pa2-vscode)
-  - [1. 问题背景：为什么源码能编过，但编辑器仍然满屏飘红？](#sec-vscode-01)
-  - [2. 总体逻辑：`c_cpp_properties.json` 的本质职责是什么？](#sec-vscode-02)
-  - [3. 为什么旧版配置会显得臃肿？其设定逻辑的问题在哪里？](#sec-vscode-03)
-  - [4. 精简后的新逻辑：为什么现在只剩几项也能正确工作？](#sec-vscode-04)
-  - [5. 最终抽象：以后遇到新的红线，应该怎样判断是否需要修改 `json`？](#sec-vscode-05)
-  - [6. 这次配置总结背后的方法论](#sec-vscode-06)
-  - [7. 本次最终结论（一句话压缩）](#sec-vscode-07)
-  - [8. 路径该怎么归类：`includePath`、`browse.path` 与 `forcedInclude` 的完整判断法](#sec-vscode-08)
-- [PA2 专题：NEMU 执行客户程序的完整生命周期总总结](#sec-pa2-program-lifecycle)
-  - [一、总目标：NEMU 到底在完成什么任务？](#sec-proglife-01)
-  - [二、第一层：客户程序从何而来？——源码到镜像的构建链](#sec-proglife-02)
-  - [三、第二层：NEMU 怎么拿到这个外部镜像？——命令行与 `parse_args()`](#sec-proglife-03)
-  - [四、第三层：系统初始化顺序——`init_monitor()` 为什么这么排](#sec-proglife-04)
-  - [五、第四层：`init_isa()`、`restart()`、`load_img()` 之间的关系](#sec-proglife-05)
-  - [六、第五层：`RESET_VECTOR` 的语义——为什么它是全局锚点](#sec-proglife-06)
-  - [七、第六层：客户机地址如何落到宿主机数组里——`paddr.c` 的核心桥梁作用](#sec-proglife-07)
-  - [八、第七层：`load_img()` 如何借助地址映射把镜像落地](#sec-proglife-08)
-  - [九、第八层：为什么 `.bin` 本身没有地址，但程序仍然能从 `0x80000000` 运行](#sec-proglife-09)
-  - [十、第九层：为什么 `includePath` 与 IntelliSense 配置问题值得纳入生命周期总结](#sec-proglife-10)
-  - [十一、第十层：CPU 真正开始执行时发生了什么](#sec-proglife-11)
-  - [十二、全流程中的关键函数关系图](#sec-proglife-12)
-  - [十三、这两天分析中最关键的“为什么”与“如何解决”](#sec-proglife-13)
-  - [十四、最终总收束：NEMU 执行客户程序的完整生命周期一句话版本](#sec-proglife-14)
-- [PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）](#sec-pa2-mtrace)
-  - [1. 问题是怎么被提出的？](#sec-mtrace-01)
-  - [2. 为什么需要单独设计 `mtrace`，而不是复用现有 `log`？](#sec-mtrace-02)
-  - [3. 设计目标是什么？](#sec-mtrace-03)
-  - [4. 整体思路：把 `mtrace` 拆成三条链来看](#sec-mtrace-04)
-  - [5. 第一步：先解决“要不要编译 `mtrace`”的问题](#sec-mtrace-05)
-  - [6. 第二步：为什么 `CONFIG_MTRACE_COND` 还不够，必须再有 `MTRACE_COND`？](#sec-mtrace-06)
-  - [7. 第三步：为什么插桩点必须放在 `paddr_read()` / `paddr_write()`？](#sec-mtrace-07)
-  - [8. 第四步：输出层怎么设计？](#sec-mtrace-08)
-  - [9. 第五步：路径为什么成了整个 `mtrace` 设计里最关键的部分？](#sec-mtrace-09)
-  - [10. 第六步：真正应该依赖什么来推导 `mtrace` 的路径？](#sec-mtrace-10)
-  - [11. 第七步：路径最终是怎么实现的？](#sec-mtrace-11)
-  - [12. 第八步：设计过程中踩到的几个关键坑](#sec-mtrace-12)
-  - [13. 第九步：最终验证链是怎样闭环的？](#sec-mtrace-13)
-  - [14. 这次 `mtrace` 设计里最核心的“为什么”总结](#sec-mtrace-14)
-  - [15. 最终方案一句话收束](#sec-mtrace-15)
-  - [16. `mtrace` 路径专题：从 `make ARCH=riscv32-nemu ALL=string run` 到 `mtrace-log.txt` 的完整路径形成链](#sec-mtrace-16)
-- [PA2 专题：Ftrace 从 0 到 1 全链路设计笔记](#sec-pa2-ftrace-fullchain)
-  - [1. 全局目标与最小闭环](#sec-ftrace-01)
-  - [2. 构建与启动参数链路](#sec-ftrace-02)
-  - [3. monitor 初始化阶段的 ftrace 生命周期](#sec-ftrace-03)
-  - [4. ELF 静态解析主流程](#sec-ftrace-04)
-  - [5. 关键结构体关系图](#sec-ftrace-05)
-  - [6. 运行期 Hook：为什么是 jal/jalr](#sec-ftrace-06)
-  - [7. ftrace_call 与 ftrace_ret 的协作机制](#sec-ftrace-07)
-  - [8. 静态 ELF 与软件内存的关系](#sec-ftrace-08)
-  - [9. 设计分层与每层职责](#sec-ftrace-09)
-  - [10. 端到端时序总结](#sec-ftrace-10)
-  - [11. 常见坑与工程性检查点](#sec-ftrace-11)
-  - [12. ftrace 出栈/入栈执行逻辑、问题来源与解决全总结](#sec-ftrace-stack)
-  - [13. 目标函数匹配问题的引出与逻辑总结](#sec-ftrace-symbol-match)
-- [PA2 专题：klib 测试全链路设计、Debug 与闭环验证](#sec-pa2-klib-tests)
-  - [1. 为什么需要单独设计 `klib-tests`？](#sec-klibtest-01)
-  - [2. 直接测试对象、间接运行平台与最终验证目标](#sec-klibtest-02)
-  - [3. 测试分类为什么最终定成 `write/read/format/stdlib`？](#sec-klibtest-03)
-  - [4. 项目结构的演化：为什么最后采用 `cpu-tests` 风格？](#sec-klibtest-04)
-  - [5. `Makefile` 的核心逻辑：谁负责筛选测试，谁负责真正编译？](#sec-klibtest-05)
-  - [6. 测试执行闭环：从 `make ... run` 到 `PASS/FAIL` 的完整路径](#sec-klibtest-06)
-  - [7. `ARCH=native` 与 `ARCH=riscv32-nemu` 的本质区别](#sec-klibtest-07)
-  - [8. 断言系统的设计：从普通 `check()` 到可定位报错](#sec-klibtest-08)
-  - [9. 设计与 Debug 过程中踩到的关键问题、根因与解决](#sec-klibtest-09)
-  - [10. 最终结果、验证结论与方法论总结](#sec-klibtest-10)
-- [PA2 专题补充](#sec-pa2-supplement)
-  - [cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
-- [PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
-  - [1. 开发环境追踪记录（插曲问题）](#sec-io-01)
-  - [2. 参数注入机制：`mainargs` 怎么传给客户程序？](#sec-io-02)
-  - [3. 外设 MMIO 的建立与页对齐机制](#sec-io-03)
-  - [4. 路由分发链与 I/O 截获：从 `outb` 到终端打印](#sec-io-04)
-- [PA2 专题：时钟计时器与软硬协同全栈生命周期梳理](#sec-pa2-rtc-timer)
-  - [1、全局视角：时钟测试在验证什么？](#sec-rtc-01)
-  - [2、第一阶段：NEMU（硬件）的启动与外设准备](#sec-rtc-02)
-  - [3、第二阶段：AM-tests（软件）的编译、加载与启动](#sec-rtc-03)
-  - [4、第三阶段：软硬协同的巅峰——一次读取时间的完整物理全貌](#sec-rtc-04)
-  - [5、第四阶段：成果的展示——第二次协同 (串口输出)](#sec-rtc-05)
-  - [6、代码层面关键解耦机制总结 (LUT与IOE)](#sec-rtc-06)
-  - [7、方法论与全局总结](#sec-rtc-07)
-- [PA2 专题：`dtrace` 的完整设计过程总结与踩坑记录](#sec-pa2-dtrace)
-  - [1. `dtrace` 设备记录追踪也可以像 `mtrace` 这样设计吗？](#sec-dtrace-01)
-  - [2. 为什么 `mtrace`, `itrace`, `ftrace` 都添加了 `depends on TRACE && ...` 是必要条件吗？](#sec-dtrace-02)
-  - [3. 为什么一开始给出的 `dtrace` 设计里没有加上这些依赖？](#sec-dtrace-03)
-  - [4. `dtrace` 的路径生成逻辑与 `sizeof(ftrace_log_file)` 的踩坑修复](#sec-dtrace-04)
-  - [5. 为什么不直接在 `map_read` / `map_write` 里做 `fopen/fclose`，还要搞个全局指针 `dtrace_fp` 与 `init_monitor`？](#sec-dtrace-05)
-  - [6. 为什么编译器会报错 `DTRACE_COND` 未定义？("ture" 拼写错误踩坑)](#sec-dtrace-06)
-  - [7. 为什么 `dtrace_fp` 一直开着不用 `fclose()` 关闭？](#sec-dtrace-07)
-  - [8. Serial 通信里的一个疑问：RTC 测试输出了串口，但在 RTL 里没有？](#sec-dtrace-08)
-- [PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结](#sec-pa2-nemu-on-nemu)
-- [PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理](#sec-pa2-keyboard)
-  - [1. 先纠正一个最容易误解的点：AM 不是“再造一套硬件寄存器”](#sec-kbd-01)
-  - [2. 所谓“抽象寄存器”的意义，到底该怎么准确理解？](#sec-kbd-02)
-  - [3. `io_read()` / `io_write()` 到底是什么？](#sec-kbd-03)
-  - [4. 键盘专题的三层模型：软件层、AM 层、硬件层](#sec-kbd-04)
-  - [5. 键盘外设启动阶段：设备是怎样被挂到总线上的？](#sec-kbd-05)
-  - [6. 宿主机真实按键发生后，事件是如何进入 NEMU 的？](#sec-kbd-06)
-  - [7. NEMU 内部：SDL 扫描码怎样变成客户机可理解的键值？](#sec-kbd-07)
-  - [8. 应用发起读取：`io_read(AM_INPUT_KEYBRD)` 这一句背后到底发生了什么？](#sec-kbd-08)
-  - [9. 真正的硬件交互核心：读 `KBD_ADDR` 时，NEMU 底层发生了什么？](#sec-kbd-09)
-  - [10. 最终返回应用：为什么应用看到的是 `keydown/keycode`，而不是一个整数？](#sec-kbd-10)
-  - [11. 用一张分层时序图，把键盘这条链路整体串起来](#sec-kbd-11)
-  - [12. 最终总结：键盘案例里，软硬件协同到底是什么？](#sec-kbd-12)
-- [PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结](#sec-pa2-audio)
-  - [1. SDL 声卡接口速记（结构、回调、打开设备、格式）](#sec-audio-quickref)
-  - [2. 核心与前提：SDL 音频子系统数据结构与交互规范](#sec-audio-sdl)
-  - [3. 架构第一层：应用层 (Application / `am-tests`) —— “宏观水泵”](#sec-audio-layer1)
-  - [4. 架构第二层：AM 驱动层 (`__am_audio_play`) —— “前线调度流水线与环形队列”](#sec-audio-layer2)
-  - [5. 架构第三层：抽象通信协议层 (MMIO) —— “设备仪表盘”](#sec-audio-layer3)
-  - [6. 架构第四层：NEMU 硬件模拟层 (`audio.c`) —— “保护锁与底层水槽”](#sec-audio-layer4)
-  - [7. 架构第五层：SDL 宿主消费者 —— “匀速出水口”](#sec-audio-layer5)
-  - [8. 设计全景总结回顾](#sec-audio-layer6)
-- [PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
-  - [1. 宏观架构：跨界思维与软硬分工 (Hardware-Software Co-design)](#pa2-av-01)
-  - [2. 数据炼金术：MP4 到物理内存的降维打击](#pa2-av-02)
-  - [3. 软件层的外设哲学：抽象控制寄存器怎么配？](#pa2-av-03)
-  - [4. AM层与软件层的“双轨流控”：谁控制谁？](#pa2-av-04)
-  - [5. 灵魂算法：基于时间轴的 A/V Sync (音画同步)](#pa2-av-05)
-  - [6. 踩坑实录：那些惨痛的 Debug 锦囊](#pa2-av-06)
-  - [7. PA2 软硬协同终极理与总结](#pa2-av-07)
-- [PA2 专题：多维数组映射到一维地址空间的存储格式与索引方式](#sec-pa2-ndarray-layout)
-  - [1. 为什么“多维”最终一定会落到“一维地址空间”](#sec-ndarray-01)
-  - [2. 二维数组映射：平面坐标如何压平为线性索引](#sec-ndarray-02)
-  - [3. 三维数组映射：层-行-列如何压平为线性索引](#sec-ndarray-03)
-  - [4. N维通式：stride（步长）就是每一维的空间参量](#sec-ndarray-04)
-  - [5. 工程实践：边界检查、地址公式与常见坑](#sec-ndarray-05)
+- [第 1 章 PA2 基础环境、Debug 与构建认知](#第-1-章-pa2-基础环境debug-与-构建认知)
+  - [1.1 Linux 软链接知识点总结](#sec-softlink)
+  - [1.2 2026年2月25日 - 2月26日 Debug 记录与总结](#sec-debug-log)
+  - [1.3 PA2 专题：指令修复、UB行为与运行时生命周期全景梳理](#sec-pa2-fix-lifecycle)
+  - [1.4 PA2 专题：Makefile 核心机制深度解析与终端控制流控制反转](#sec-pa2-makefile)
+  - [1.5 PA2 专题：VS Code `c_cpp_properties.json` 配置核心逻辑总结](#sec-pa2-vscode)
+  - [1.6 PA2 专题：NEMU 执行客户程序的完整生命周期总总结](#sec-pa2-program-lifecycle)
+  - [1.7 PA2 专题补充：cpu-tests native 链接报错 `__isoc23_strtol` 排查笔记](#sec-native-build-mismatch)
+- [第 2 章 PA2 Trace 系统设计与观测链路](#第-2-章-pa2-trace-系统设计与观测链路)
+  - [2.1 PA2 专题：`mtrace` 的完整设计过程总结（从提问到落地）](#sec-pa2-mtrace)
+  - [2.2 PA2 专题：Ftrace 从 0 到 1 全链路设计笔记](#sec-pa2-ftrace-fullchain)
+  - [2.3 PA2 专题：`dtrace` 的完整设计过程总结与踩坑记录](#sec-pa2-dtrace)
+- [第 3 章 PA2 测试体系与执行验证闭环](#第-3-章-pa2-测试体系与执行验证闭环)
+  - [3.1 PA2 专题：klib 测试全链路设计、Debug 与闭环验证](#sec-pa2-klib-tests)
+  - [3.2 PA2 专题：NEMU 运行 NEMU (NEMU on NEMU) 避坑与总结](#sec-pa2-nemu-on-nemu)
+- [第 4 章 PA2 I/O、外设与软硬协同链路](#第-4-章-pa2-io外设与软硬协同链路)
+  - [4.1 PA2 专题：从传参到串口输出的全链路追踪（`make run mainargs=ysyx`）](#sec-pa2-io-trace)
+  - [4.2 PA2 专题：时钟计时器与软硬协同全栈生命周期梳理](#sec-pa2-rtc-timer)
+  - [4.3 PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理](#sec-pa2-keyboard)
+  - [4.4 PA2 专题：pa2-声卡设计，音频流控与并发同步的软硬件双向全栈总结](#sec-pa2-audio)
+- [第 5 章 PA2 综合项目与应用实践](#第-5-章-pa2-综合项目与应用实践)
+  - [5.1 PA2 专题：裸机多媒体播放器从零到一 (声卡+VGA+时钟综合输出)](#pa2-bare-metal-av)
+  - [5.2 PA2 专题：多维数组映射到一维地址空间的存储格式与索引方式](#sec-pa2-ndarray-layout)
+  - [5.3 PA2 专题：小游戏（字符蛇）软硬协同实验报告](#sec-pa2-minigame)
 <a id="sec-softlink"></a>
 ## Linux 软链接 (Symbolic Link) 知识点总结
 
@@ -4067,6 +3949,220 @@ size = (size + (PAGE_SIZE - 1)) & ~PAGE_MASK;
 
 ---
 
+<a id="sec-pa2-minigame"></a>
+## PA2 专题：小游戏（字符蛇）软硬协同实验报告
+
+> 本专题记录一个基于 AM/NEMU 平台的字符蛇小游戏从需求到落地的完整设计过程，重点覆盖数据结构、执行链路、帧刷新机制，以及与底层设备（GPU/Timer/Keyboard）的协同关系。
+
+<a id="sec-minigame-01"></a>
+### 1. 实验目标与验收标准
+
+#### 1.1 目标
+
+1. 在裸机抽象环境（AM）上实现可持续运行的小游戏主循环。
+2. 通过键盘外设控制蛇移动，完成“目标字符提取 -> 蛇身形态更新 -> 结算显示”的闭环。
+3. 建立稳定的帧驱动机制，避免输入抖动、刷新撕裂和资源闪烁。
+4. 保障随机字符生成、生命周期回收、坐标冲突检测的正确性。
+
+#### 1.2 验收标准
+
+1. 程序可稳定构建与运行（`make ARCH=riscv32-nemu run`）。
+2. 蛇可响应方向键移动，边界越界可触发退出保护。
+3. 顶部目标串可被逐步消除，最终触发成功画面。
+4. 帧刷新过程无明显闪屏，随机字符生命周期与重绘一致。
+
+<a id="sec-minigame-02"></a>
+### 2. 系统架构与数据结构设计
+
+#### 2.1 分层架构
+
+系统采用“应用逻辑层 + AM 抽象接口层 + NEMU 设备模拟层”的三层结构：
+
+1. 应用逻辑层（`game.c`）：规则、状态更新、命中判定、渲染调度。
+2. AM 抽象接口层：`io_read`/`io_write` 提供统一设备访问抽象。
+3. NEMU 设备层：键盘、计时器、VGA MMIO 模拟与提交。
+
+这种结构的关键收益是：应用代码不直接依赖宿主 SDL 或真实硬件寄存器细节，具备可移植性与可验证性。
+
+#### 2.2 核心数据结构
+
+1. `Player`（蛇段）：
+  - 字段：字符 `ch`、坐标 `(x, y)`、纹理指针 `ptr`。
+  - 当前设计固定两段（蛇头 + 蛇尾），简化了结构演化复杂度。
+
+2. `RandomChar`（随机字符/目标字符统一模型）：
+  - 字段：字符 `ch`、坐标 `(x, y)`、纹理指针 `data_p`、生命周期 `live_time`。
+  - 同一结构同时服务于：
+    - 顶部目标串 `target_str[TARGET_LEN]`
+    - 场景随机池 `rand_chars[RAND_CHARS_LEN]`
+
+3. 纹理缓存 `texture[color][letter][pixel]`：
+  - 启动时把字体点阵预展开成像素块。
+  - 运行时仅做指针引用，避免每帧重复位图计算。
+
+#### 2.3 状态变量
+
+1. `clean_pos`：记录当前已清除目标进度，用于控制蛇尾形态替换。
+2. `current` / `rendered`：
+  - `current` 表示逻辑帧进度。
+  - `rendered` 表示已提交到屏幕的帧进度。
+3. `old_x/old_y/n` 与 `last_head/last_tail`：脏矩形擦除所需的上一帧坐标缓存。
+
+<a id="sec-minigame-03"></a>
+### 3. 执行逻辑与关键函数链路
+
+#### 3.1 启动链路
+
+1. `ioe_init()` 初始化 I/O 子系统。
+2. `vga_init()`：
+  - 建立背景（顶部绿条 + 主区域紫底）。
+  - 初始化目标串、蛇段、初始随机字符。
+3. 设备存在性检查：Timer/Keyboard。
+4. 进入主循环（逻辑推进 + 输入处理 + 条件渲染）。
+
+#### 3.2 命中与形态变换
+
+命中链路由 `move(dir)` 驱动：
+
+1. 根据方向计算候选坐标 `(com_x, com_y)`。
+2. 边界检查失败则立即 `halt(0)`。
+3. 调用 `check_hit(x, y)`：
+  - 若命中正确字符：
+    - 清顶部目标位（`render_target`）。
+    - 回收命中字符（`live_time = 0`）。
+    - 完成“尾变头、头位留尾”的两段交换。
+  - 若未命中：执行普通前进（尾跟头，头到新坐标）。
+
+#### 3.3 成功结算
+
+当 `clean_pos` 达到阈值后触发 `succssful()`：
+
+1. 顶部输出 `SUCCESSFUL`。
+2. 下半区绘制结算图像资源。
+3. 进入等待退出循环（Esc 退出）。
+
+<a id="sec-minigame-04"></a>
+### 4. 帧刷新系统设计（核心）
+
+帧刷新是本项目最关键的工程设计点。该实现采用“时间驱动 + 脏矩形 + 分层覆盖 + 单次提交”的组合策略。
+
+#### 4.1 时间驱动：逻辑帧与显示帧解耦
+
+通过公式计算目标帧：
+
+$$
+target\_frame = \frac{(t - t_0)}{(10^6 / FPS)}
+$$
+
+并用 `while (current < target_frame)` 追平逻辑，确保即使某次循环耗时偏大，逻辑状态也不会丢帧。
+
+优点：
+
+1. 逻辑更新速度稳定，不受输入事件频率直接影响。
+2. 生成与生命周期递减在固定时间尺度下可预测。
+
+#### 4.2 脏矩形擦除：只擦“上一帧画过的位置”
+
+随机字符部分：
+
+1. 每帧先用 `old_x/old_y` 擦除上一帧随机字符。
+2. 再扫描当前存活字符并重画，同时写入新的 `old_x/old_y`。
+
+蛇体部分：
+
+1. 用 `last_head/last_tail` 先擦除上一帧蛇位置。
+2. 再绘制当前蛇头与蛇尾。
+
+本质是用空间局部更新代替全屏重绘，降低带宽与闪烁风险。
+
+#### 4.3 分层策略：背景 -> 随机字符 -> 蛇
+
+绘制顺序严格固定：
+
+1. 背景擦除。
+2. 随机字符重画。
+3. 蛇体覆盖在最顶层。
+
+这样可以保证“命中瞬间蛇不会被底层字符覆盖”这一视觉一致性目标。
+
+#### 4.4 单次同步提交：每帧只 `sync` 一次
+
+每次渲染周期最后执行一次：
+
+```c
+io_write(AM_GPU_FBDRAW, 0, 0, NULL, 0, 0, true);
+```
+
+这个设计直接抑制了高频输入导致的多次中间态提交，是减少撕裂/闪烁的关键。
+
+#### 4.5 与“输入即绘制”方案对比
+
+输入即绘制方案的问题：
+
+1. 按键抖动时会触发多次局部刷新和多次 `sync`。
+2. 显示路径与逻辑路径强耦合，容易出现中间帧覆盖。
+
+当前方案通过渲染总线收敛（统一渲染点）解决了该类问题。
+
+<a id="sec-minigame-05"></a>
+### 5. 硬件协同、问题定位与最终结论
+
+#### 5.1 硬件协同链路
+
+1. Timer：
+  - `io_read(AM_TIMER_UPTIME)` 提供微秒级时间基准。
+  - 软件据此离散化为逻辑帧。
+
+2. Keyboard：
+  - `io_read(AM_INPUT_KEYBRD)` 拉取键盘事件。
+  - 仅处理 `keydown` 与方向键/Esc。
+
+3. VGA：
+  - `io_write(AM_GPU_FBDRAW, ...)` 提交矩形像素块。
+  - `sync=true` 作为一帧提交边界。
+
+该链路体现了 PA2 的核心价值：在统一抽象接口下完成“应用状态机 + 外设时序”协同。
+
+#### 5.2 关键问题与工程化修复思路
+
+1. 随机字符坐标重叠：
+  - 通过 `is_overlap` + 重采样避免冲突。
+
+2. 生命周期与资源池耗尽：
+  - 引入帧单位 `live_time`，按帧递减与回收。
+
+3. 形态切换瞬态错误（蛇段错位/延迟显现）：
+  - 采用“先保存旧头坐标，再交换并落位”的顺序。
+
+4. 闪屏问题：
+  - 通过“每帧一次提交 + 分层覆盖 + 脏矩形”稳定显示。
+
+5. 结算图像花屏：
+  - 本质是资源像素格式与 FBDRAW 预期不一致。
+  - 需保证资源导出格式、大小和加载路径一致。
+
+#### 5.3 实验结论
+
+1. 该小游戏已形成完整可复用模板：
+  - 时间驱动逻辑循环
+  - 输入采样与状态更新
+  - 脏区渲染与单次提交
+  - 终局资源展示
+
+2. 从 PA2 训练目标看，本项目有效锻炼了以下能力：
+  - 设备抽象接口理解（AM）
+  - 软硬件边界建模（NEMU MMIO）
+  - 实时系统中的时序一致性设计
+  - 图形刷新路径的工程稳定性优化
+
+3. 一句话总收束：
+
+> 该小游戏不是“单纯功能拼接”，而是一次完整的“状态机设计 + 帧系统设计 + 设备协同设计”的 PA2 级综合实验。
+
+[回到顶部目录](#sec-pa2-toc)
+
+---
+
 <a id="sec-pa2-keyboard"></a>
 ## PA2 专题：pa2-keyboard 键盘外设、AM 抽象接口与软硬件协同全链路梳理
 
@@ -4899,11 +4995,13 @@ NEMU 肩负着“虚构出物理元件存活以及管理状态机”的重担。
   ffmpeg -i input.mp4 -t 10 -an -f rawvideo -pix_fmt bgra -s 400x300 alone_video.rgb
   ```
   * `-i input.mp4: 指定要处理的输入文件。`
+  * `-ss x 与后面-t 配合使用截取对应 x——>t 秒段 数据 `
   * `-t 10`：截 10 秒，保障生成的体积能够塞入 128MB 物理内存。
   * `-f rawvideo: "Format"，指定输出文件的容器格式为原始视频流，确保生成的是不含任何文件头的纯RGB裸数据。`
   * `-pix_fmt bgra`：对应 C 程序中的 32 位系统常用的 `uint32_t`。
   * `-s 400x300: "Size"，将视频缩放至 400x300 的分辨率。⚠️ 非常重要：这个尺寸必须与你后续在NEMU代码中定义的 FRAM_W 和 FRAM_H 宏的值完全一致，否则显示会出错`
-
+  * `png转int32-rbga :ffmpeg -i success.png -vf scale=400:272 -pix_fmt bgra -f rawvideo success.rgb
+`
 * **获取纯净声波流 (PCM)**：
   ```bash
   ffmpeg -i input.mp4 -t 10 -vn -f s16le -acodec pcm_s16le -ac 2 -ar 44100 alone_video.pcm

@@ -34,8 +34,6 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   };
 }
 
-// 二维坐标转一维线性
-
 
 // 软件层的图像帧数据写入到抽象寄存器中vga帧缓冲区寄存器，当sync同步信号为ture 供给硬件实现帧缓冲区刷新到屏幕
 

@@ -6,7 +6,6 @@
 
 # 包含顶级目录
 !/nemu/
-!/am-kernels
 !/nexus-am/
 !/nanos-lite/
 !/navy-apps/
@@ -29,4 +28,4 @@ nvboard/RTL_prj/*/*_obj/
 !/nemu/**
 # 排除fceux-am
 /fceux-am
-
+/am-kernels

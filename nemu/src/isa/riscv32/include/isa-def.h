@@ -17,9 +17,21 @@
 #define __ISA_RISCV_H__
 
 #include <common.h>
+enum {
+  CSR_IDX_mstatus = 0,
+  CSR_IDX_mip,
+  CSR_IDX_mie,
+  CSR_IDX_mcause,
+  CSR_IDX_mtvec,
+  CSR_IDX_mtval,
+  CSR_IDX_mepc,
+  CSR_IDX_mscratch,
+  CSR_NUM_MAX   // 用于表示数组长度
+};
 
 typedef struct {
   word_t gpr[MUXDEF(CONFIG_RVE, 16, 32)];
+  word_t csr[CSR_NUM_MAX];
   vaddr_t pc;
 } MUXDEF(CONFIG_RV64, riscv64_CPU_state, riscv32_CPU_state);
 

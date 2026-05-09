@@ -35,6 +35,7 @@ char irbuf [IRING_BUF_SIZE] [128];
 bool irbuf_full = false;
 int irbuf_pos = 0;
 
+
 void device_update();
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
@@ -136,6 +137,12 @@ static void execute(uint64_t n) {
     trace_and_difftest(&s, cpu.pc);
     if (nemu_state.state != NEMU_RUNNING) break;
     IFDEF(CONFIG_DEVICE, device_update());
+    // 外部中断检查
+    word_t intr_no = isa_query_intr();
+    if (intr_no != INTR_EMPTY) {
+        cpu.pc = isa_raise_intr(intr_no, s.dnpc);
+        s.dnpc = cpu.pc;
+    }
   }
 }
 
