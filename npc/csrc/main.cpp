@@ -32,9 +32,9 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv); 
     for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],"IMG=",6)==0)
+        if (strncmp(argv[i],".bin=",5)==0)
         {
-            img_path = argv[i]+6;
+            img_path = argv[i]+5;
         }
     }
     if (img_path) {
