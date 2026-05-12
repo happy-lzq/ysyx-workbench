@@ -21,7 +21,9 @@ module if_stage (
 
     wire [31:0] pc_next;
     reg  [31:0] imem [0:IMEM_SIZE - 1];
-
+    initial begin
+        $readmemh("../am-kernels/tests/cpu-tests/build/add-riscv32I-npc.bin",imem);
+    end
     assign pc_next = (pc_sel == 2'b00 ) ? pc + 32'd4              :
                      (pc_sel == 2'b01 ) ? pc + imm_jal            :
                      (pc_sel == 2'b10 ) ? {jump_jalr[31:1],1'b0}  :

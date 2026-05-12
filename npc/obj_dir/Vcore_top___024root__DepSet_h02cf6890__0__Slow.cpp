@@ -13,10 +13,26 @@ VL_ATTR_COLD void Vcore_top___024root___eval_static(Vcore_top___024root* vlSelf)
     vlSelfRef.__Vtrigprevexpr___TOP__clk__0 = vlSelfRef.clk;
 }
 
+VL_ATTR_COLD void Vcore_top___024root___eval_initial__TOP(Vcore_top___024root* vlSelf);
+
 VL_ATTR_COLD void Vcore_top___024root___eval_initial(Vcore_top___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___eval_initial\n"); );
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    Vcore_top___024root___eval_initial__TOP(vlSelf);
+}
+
+extern const VlWide<14>/*447:0*/ Vcore_top__ConstPool__CONST_he17a0b87_0;
+
+VL_ATTR_COLD void Vcore_top___024root___eval_initial__TOP(Vcore_top___024root* vlSelf) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___eval_initial__TOP\n"); );
+    Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    VL_READMEM_N(true, 32, 65536, 0, VL_CVT_PACK_STR_NW(14, Vcore_top__ConstPool__CONST_he17a0b87_0)
+                 ,  &(vlSelfRef.core_top__DOT__u_if_stage__DOT__imem)
+                 , 0, ~0ULL);
 }
 
 VL_ATTR_COLD void Vcore_top___024root___eval_final(Vcore_top___024root* vlSelf) {
