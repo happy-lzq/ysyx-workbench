@@ -2,7 +2,7 @@
 #include "Vcore_top___024root.h" 
 #include "verilated.h"
 #include "stdio.h"
-
+  int idx =0;
 Vcore_top* top = new Vcore_top;
 const char* img_path = NULL;
 
@@ -13,7 +13,7 @@ static void load_bin(Vcore_top* top,const char*path){
         exit(1);
     }
     // .bin load in imem 
-    int idx =0;
+  
     __uint8_t buf[4];
     while (fread(buf,1,4,fp) == 4){
         __uint32_t word = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
     top->clk = 0; top->rst = 1; top->eval();
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     top->clk = 0; top->rst = 0; top->eval();
-    for (int i = 0; i < 10; i++){
+    for (int i = 0; i < idx; i++){
         single_cycle();
         printf("cycle %d  pc = 0x%08x\n",i,top->debug_pc);
     }
