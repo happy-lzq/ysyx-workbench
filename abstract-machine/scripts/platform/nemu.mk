@@ -10,11 +10,9 @@ AM_SRCS := platform/nemu/trm.c \
 CFLAGS    += -fdata-sections -ffunction-sections -g
 CFLAGS    += -I$(AM_HOME)/am/src/platform/nemu/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
-
-# 链接定义：结合linke.ld 定义_pmem_start 和entry_offset 规定程序链接地址从 0x80000000 开始
-# 链接地址 = 加载地址 = CPU 启动地址 = 0x80000000 从而确定.bin文件对应的程序指令数据内容是从0x80000000开始
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
+
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt      
 NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
 NEMUFLAGS += -b 

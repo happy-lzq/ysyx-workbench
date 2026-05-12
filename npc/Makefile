@@ -1,6 +1,12 @@
+VSRCS=$(shell find vsrc/ -name "*.v")
+CSRCS=$(shell find csrc/ -name "*.cpp")
+TOP = core_top 
 
-	
-sim:
+sim: $(VSRCS) $(CSRCS)
+	verilator --cc --exe --build \
+	--top-module $(TOP) $(VSRCS) $(CSRCS) \
+	-CFLAGS "-I$(NPC_HOME)/csrc"
+	mv obj_dir/V$(TOP) build/sim
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 include ../Makefile
