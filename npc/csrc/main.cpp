@@ -32,13 +32,15 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv); 
     for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],"--img=",6))
+        if (strncmp(argv[i],"--img=",6)==0)
         {
             img_path = argv[i]+6;
         }
     }
-    if (img_path){
-        load_bin(top,img_path);
+    if (img_path) {
+        load_bin(top, img_path);
+    } else {
+        printf("No --img= specified, imem is all zeros (NOPs)\n");
     }
     
     // 复位
