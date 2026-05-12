@@ -10,6 +10,7 @@ sim: $(VSRCS) $(CSRCS)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 run: sim
+	@echo "IMG = [$(IMG)]"           # ← 加这行看 IMG 是否有值
 	./build/sim --img=$(IMG)
 include ../Makefile
 	
