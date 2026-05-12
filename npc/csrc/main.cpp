@@ -21,7 +21,7 @@ static void load_bin(Vcore_top* top,const char*path){
         idx++;
     }
     fclose(fp);
-    printf("Loaded %d inst form %s",idx,path);
+    printf("Loaded %d pc_addr form %s",idx,path);
 }
 
 void single_cycle(){
@@ -32,7 +32,7 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv); 
     for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],"--img=",6)==0)
+        if (strncmp(argv[i],"IMG=",6)==0)
         {
             img_path = argv[i]+6;
         }

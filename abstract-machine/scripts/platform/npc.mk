@@ -26,6 +26,6 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	@$(NPC_HOME)/ build/sim --img=$(IMAGE).bin
+	$(MAKE) -C $(NPC_HOME) run IMG=$(IMAGE).bin
 
 .PHONY: insert-arg

@@ -9,5 +9,7 @@ sim: $(VSRCS) $(CSRCS)
 	mv obj_dir/V$(TOP) build/sim
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
+run: sim
+	./build/sim --img=$(IMG)
 include ../Makefile
 	
