@@ -46,5 +46,6 @@ __EXPORT void difftest_init(int port) {
   void init_mem();
   init_mem();   // 初始化分配nemu 物理内存
   init_isa();   // 初始化cpu结构体--核心GPR+PC
+  nemu_state.state = NEMU_RUNNING; 
 }
 
