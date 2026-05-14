@@ -1,11 +1,14 @@
 #include "Vcore_top.h"
 #include "Vcore_top___024root.h" 
 #include "verilated.h"
+#include "../include/difftest/difftest.h"
+
 #include "stdio.h"
-  int idx =0;
+
+int idx =0;
 Vcore_top* top = new Vcore_top;
 const char* img_path = NULL;
-
+long img_size = 0;
 static void load_bin(Vcore_top* top,const char*path){
     FILE* fp = fopen(path,"rb");
     if (!fp){
@@ -20,6 +23,7 @@ static void load_bin(Vcore_top* top,const char*path){
         top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx] = word;
         idx++;
     }
+    img_size = idx * 4;
     fclose(fp);
     printf("Loaded %d pc_addr form %s",idx,path);
 }
@@ -37,6 +41,7 @@ int main(int argc, char* argv[]){
             img_path = argv[i]+5;
         }
     }
+
     if (img_path) {
         load_bin(top, img_path);
     } else {
