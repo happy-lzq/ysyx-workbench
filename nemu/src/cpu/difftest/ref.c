@@ -35,7 +35,9 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 }
 
 __EXPORT void difftest_exec(uint64_t n) {
+  printf("[NEMU] exec %lu: pc before = 0x%08x\n", n, cpu.pc);
   cpu_exec(n);
+  printf("[NEMU] exec done: pc after = 0x%08x\n", cpu.pc);
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
