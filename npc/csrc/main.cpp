@@ -1,13 +1,9 @@
-#include "Vcore_top.h"
-#include "Vcore_top___024root.h" 
-#include "verilated.h"
-#include "../include/difftest/difftest.h"
-
-#include "stdio.h"
-
+#include <difftest.h>
+Vcore_top *top = new Vcore_top;
 int idx =0;
-Vcore_top* top = new Vcore_top;
 const char* img_path = NULL;
+const char* diff_so_path = NULL;
+
 long img_size = 0;
 static void load_bin(Vcore_top* top,const char*path){
     FILE* fp = fopen(path,"rb");
@@ -16,14 +12,15 @@ static void load_bin(Vcore_top* top,const char*path){
         exit(1);
     }
     // .bin load in imem 
-  
+
     __uint8_t buf[4];
     while (fread(buf,1,4,fp) == 4){
         __uint32_t word = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
-        top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx] = word;
+        npc_imem(top,idx,word,WRITE);
+        memcpy(&npc_pmem[idx * 4], buf, 4);
         idx++;
     }
-    img_size = idx * 4;
+    img_size = idx * 4;  // 指令总数=idx 
     fclose(fp);
     printf("Loaded %d pc_addr form %s",idx,path);
 }
@@ -36,10 +33,13 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv); 
     for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],".bin=",5)==0)
-        {
-            img_path = argv[i]+5;
+        if (strncmp(argv[i],".bin=",5)== 0 ){
+            img_path = argv[i] + 5;
         }
+        if (strncmp(argv[i],"--diff=",7)== 0){
+            diff_so_path = argv[i] + 7;
+        }
+        
     }
 
     if (img_path) {
@@ -53,8 +53,13 @@ int main(int argc, char* argv[]){
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     printf("\ncycle %d  pc = 0x%08x\n",0,top->debug_pc);
     top->clk = 0; top->rst = 0; top->eval();
+    FILE * ref_so = 
+    if () {
+        init_difftest(diff_so_path, img_size);
+    }
 
     for (int i = 1; i < idx+1; i++){
+        difftest_step(top);
         single_cycle();
         printf("cycle %d  pc = 0x%08x\n",i,top->debug_pc);
     }

@@ -20,18 +20,17 @@
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
   if (direction == DIFFTEST_TO_REF){
-    memcmp(guest_to_host(addr),buf,n);
+    memcpy(guest_to_host(addr), buf, n);
   } else{
-    memcmp(buf,guest_to_host(addr),n);
+    memcpy(buf, guest_to_host(addr), n);
   }
 }
 
 __EXPORT void difftest_regcpy(void *dut, bool direction) {
-  CPU_state *nemu_cpu = &cpu;
   if (direction == DIFFTEST_TO_REF){
-    memcpy(nemu_cpu,dut,DIFFTEST_REG_SIZE);
+    memcpy(&cpu,dut,DIFFTEST_REG_SIZE);
   } else{
-    memcpy(dut,nemu_cpu,DIFFTEST_REG_SIZE);
+    memcpy(dut,&cpu,DIFFTEST_REG_SIZE);
   }
 }
 
