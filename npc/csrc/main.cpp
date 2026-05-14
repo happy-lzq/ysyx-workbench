@@ -1,10 +1,17 @@
 #include <difftest.h>
+
+NPC_state npc_s, ref_s;
 Vcore_top *top = new Vcore_top;
 int idx =0;
 const char* img_path = NULL;
 const char* diff_so_path = NULL;
-
 long img_size = 0;
+uint8_t npc_pmem[PMEM_SIZE];
+
+uint8_t* guest_to_host(paddr_t paddr) {
+    return npc_pmem + paddr - RESET_VECTOR;
+}
+
 static void load_bin(Vcore_top* top,const char*path){
     FILE* fp = fopen(path,"rb");
     if (!fp){
@@ -33,13 +40,12 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv); 
     for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],".bin=",5)== 0 ){
-            img_path = argv[i] + 5;
+        if (strncmp(argv[i],"--bin=",6)== 0 ){
+            img_path = argv[i] + 6;
         }
         if (strncmp(argv[i],"--diff=",7)== 0){
             diff_so_path = argv[i] + 7;
         }
-        
     }
 
     if (img_path) {
@@ -53,14 +59,13 @@ int main(int argc, char* argv[]){
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     printf("\ncycle %d  pc = 0x%08x\n",0,top->debug_pc);
     top->clk = 0; top->rst = 0; top->eval();
-    FILE * ref_so = 
-    if () {
+    // difftest-exec
+    if (diff_so_path) {
         init_difftest(diff_so_path, img_size);
     }
-
     for (int i = 1; i < idx+1; i++){
-        difftest_step(top);
         single_cycle();
+        difftest_step(top);
         printf("cycle %d  pc = 0x%08x\n",i,top->debug_pc);
     }
     delete top ;

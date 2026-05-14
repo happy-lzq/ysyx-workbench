@@ -11,17 +11,15 @@
 #define RESET_VECTOR 0x80000000 
 #define PMEM_SIZE (128*1024*1024)
 
-typedef uint32_t paddr_t;  // 32位，16进制0x下，相差“1”代表
-uint8_t npc_pmem[PMEM_SIZE];
+typedef uint32_t paddr_t;  
+
 typedef struct {
     uint32_t gpr[32];
     uint32_t pc;
 } NPC_state;
-NPC_state npc_s,ref_s;
 
+extern NPC_state npc_s,ref_s; 
+extern uint8_t npc_pmem[PMEM_SIZE];
+extern uint8_t* guest_to_host(paddr_t paddr);
 
-uint8_t* guest_to_host(paddr_t paddr);
-uint8_t* guest_to_host(paddr_t paddr) {
-    return npc_pmem + paddr - RESET_VECTOR;
-}
 #endif

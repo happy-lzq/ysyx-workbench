@@ -7,6 +7,7 @@ void (*ref_difftest_raise_intr)(uint64_t) = NULL;
 void (*ref_difftest_init)(int) = NULL;
 
 
+
 void init_difftest(const char* so_path,long img_size){
 	// get nemu-functs-API
 	void *h = dlopen(so_path,RTLD_LAZY);
