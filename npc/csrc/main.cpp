@@ -62,7 +62,7 @@ int main(int argc, char* argv[]){
     if (diff_so_path) {
         init_difftest(diff_so_path, img_size);
     }
-    for (int i = 1; i < idx+1; i++){
+    for (int i = 0; i < idx; i++){
         printf("cycle %d  pc = 0x%08x\n",i,top->debug_pc);
         single_cycle();
         difftest_step(top);
