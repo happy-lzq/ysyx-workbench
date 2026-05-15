@@ -347,38 +347,6 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
     bufp->chgBit(oldp+96,(vlSelfRef.clk));
     bufp->chgBit(oldp+97,(vlSelfRef.rst));
     bufp->chgIData(oldp+98,(vlSelfRef.debug_pc),32);
-    bufp->chgIData(oldp+99,(vlSelfRef.debug_gpr[0]),32);
-    bufp->chgIData(oldp+100,(vlSelfRef.debug_gpr[1]),32);
-    bufp->chgIData(oldp+101,(vlSelfRef.debug_gpr[2]),32);
-    bufp->chgIData(oldp+102,(vlSelfRef.debug_gpr[3]),32);
-    bufp->chgIData(oldp+103,(vlSelfRef.debug_gpr[4]),32);
-    bufp->chgIData(oldp+104,(vlSelfRef.debug_gpr[5]),32);
-    bufp->chgIData(oldp+105,(vlSelfRef.debug_gpr[6]),32);
-    bufp->chgIData(oldp+106,(vlSelfRef.debug_gpr[7]),32);
-    bufp->chgIData(oldp+107,(vlSelfRef.debug_gpr[8]),32);
-    bufp->chgIData(oldp+108,(vlSelfRef.debug_gpr[9]),32);
-    bufp->chgIData(oldp+109,(vlSelfRef.debug_gpr[10]),32);
-    bufp->chgIData(oldp+110,(vlSelfRef.debug_gpr[11]),32);
-    bufp->chgIData(oldp+111,(vlSelfRef.debug_gpr[12]),32);
-    bufp->chgIData(oldp+112,(vlSelfRef.debug_gpr[13]),32);
-    bufp->chgIData(oldp+113,(vlSelfRef.debug_gpr[14]),32);
-    bufp->chgIData(oldp+114,(vlSelfRef.debug_gpr[15]),32);
-    bufp->chgIData(oldp+115,(vlSelfRef.debug_gpr[16]),32);
-    bufp->chgIData(oldp+116,(vlSelfRef.debug_gpr[17]),32);
-    bufp->chgIData(oldp+117,(vlSelfRef.debug_gpr[18]),32);
-    bufp->chgIData(oldp+118,(vlSelfRef.debug_gpr[19]),32);
-    bufp->chgIData(oldp+119,(vlSelfRef.debug_gpr[20]),32);
-    bufp->chgIData(oldp+120,(vlSelfRef.debug_gpr[21]),32);
-    bufp->chgIData(oldp+121,(vlSelfRef.debug_gpr[22]),32);
-    bufp->chgIData(oldp+122,(vlSelfRef.debug_gpr[23]),32);
-    bufp->chgIData(oldp+123,(vlSelfRef.debug_gpr[24]),32);
-    bufp->chgIData(oldp+124,(vlSelfRef.debug_gpr[25]),32);
-    bufp->chgIData(oldp+125,(vlSelfRef.debug_gpr[26]),32);
-    bufp->chgIData(oldp+126,(vlSelfRef.debug_gpr[27]),32);
-    bufp->chgIData(oldp+127,(vlSelfRef.debug_gpr[28]),32);
-    bufp->chgIData(oldp+128,(vlSelfRef.debug_gpr[29]),32);
-    bufp->chgIData(oldp+129,(vlSelfRef.debug_gpr[30]),32);
-    bufp->chgIData(oldp+130,(vlSelfRef.debug_gpr[31]),32);
 }
 
 void Vcore_top___024root__trace_cleanup(void* voidSelf, VerilatedVcd* /*unused*/) {

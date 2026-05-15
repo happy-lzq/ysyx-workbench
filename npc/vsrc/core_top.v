@@ -2,11 +2,9 @@ module core_top (
     clk
     ,rst
     ,debug_pc
-    ,debug_gpr
 );
     input  wire [0 :0]                            clk,rst;
     output wire [31:0]                           debug_pc;
-    output wire [31:0]                    debug_gpr[0:31];
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
@@ -41,8 +39,7 @@ module core_top (
     .rd_wdata     (rd_wdata),
     .reg_write    (reg_write),
     .rs1_rdata    (rs1_rdata),
-    .rs2_rdata    (rs2_rdata),
-    .debug_gpr    (debug_gpr)
+    .rs2_rdata    (rs2_rdata)
 );
     if_stage u_if_stage (
     .clk          (clk),
