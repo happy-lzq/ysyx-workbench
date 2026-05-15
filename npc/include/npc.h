@@ -6,8 +6,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stddef.h>
+#include <getopt.h>
 #include <verilated.h>
 #include <Vcore_top.h>
+#include <verilated_vcd_c.h>
 #include <Vcore_top___024root.h>
 
 // ==================== 基础常量 ====================
@@ -32,6 +34,7 @@ typedef struct {
 
 // ==================== 全局变量声明 ====================
 extern Vcore_top *top;
+extern VerilatedVcdC* tfp ;
 extern NPC_state npc_s, ref_s;
 extern DEBUG_FILE_PATH dfp;
 extern uint8_t npc_pmem[PMEM_SIZE];
@@ -39,6 +42,7 @@ extern int idx;
 extern long img_size;
 extern const char *img_file;
 extern const char *diff_so_file;
+extern const char* wave_vcd;
 extern FILE *diff_fp;
 
 // ==================== 函数声明 ====================

@@ -18,6 +18,7 @@ run: sim
 
 vcd: sim
 	-./build/sim $(ARGS)
+	gtkwave build/wave.vcd
 
 clean:
 	rm -rf build obj_dir

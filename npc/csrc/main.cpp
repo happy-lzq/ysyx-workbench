@@ -1,43 +1,48 @@
-#include <verilated_vcd_c.h>
+
 #include <difftest.h>
-#include <getopt.h>
 #include <sdb.h>
 
 
-NPC_state npc_s, ref_s;
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
+NPC_state npc_s, ref_s;
+
 uint64_t sim_time = 0;
 int idx =0;
 long img_size = 0;
 
 const char* img_file = NULL;
 const char* diff_so_file = NULL;
+const char* wave_vcd = NULL;
 uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     top->clk = 1; top->eval();
-    if (tfp) tfp->dump(sim_time++);
+    if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
-    if (tfp) tfp->dump(sim_time++);
+    if (tfp) tfp->dump(sim_time+=5);
 }
 
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv);
-    Verilated::traceEverOn(true);
     top = new Vcore_top;
     parse_agrs(argc,argv);
-
+    
+    Verilated::traceEverOn(true);
     tfp = new VerilatedVcdC;
     top->trace(tfp, 99);
     tfp->open("build/wave.vcd");
 
+    
     load_bin(top, img_file);
     // 复位
     top->clk = 0; top->rst = 1; top->eval();
+    tfp->dump(sim_time+=5);
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
+    tfp->dump(sim_time+=5);
     printf("\ncycle %d  pc = 0x%08x\n",0,top->debug_pc);
     top->clk = 0; top->rst = 0; top->eval();
+    tfp->dump(sim_time+=5);
     // difftest-exec
     if (diff_so_file) {
         init_diff_log(img_file);
