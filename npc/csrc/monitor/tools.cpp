@@ -54,7 +54,7 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
         for (int col = 0; col < 4; col++) {
             int i = row * 4 + col;
             bool ok = (npc->gpr[i] == ref->gpr[i]);
-            fprintf(diff_fp, "  %s %08x/%08x",
+            fprintf(diff_fp, "  %s %08x  %08x",
                     ok ? "[✔]" : "[✘]",
                     npc->gpr[i], ref->gpr[i]);
         }
