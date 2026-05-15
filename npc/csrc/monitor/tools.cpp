@@ -34,8 +34,8 @@ uint8_t* guest_to_host(paddr_t paddr) {
 void init_diff_log(const char *path){
   build_named_log_file(dfp.diff,sizeof(dfp.diff),path,"build/diff-log-txt","diff-log-txt");
   diff_fp = fopen(dfp.diff,"w");
-  Assert(diff_fp,"Can not open '%s'", dfp.diff);
-  Log("diff log written to %s", dfp.diff);
+  Assert(diff_fp,"Can not open '%s'\n", dfp.diff);
+  Log("diff log written to %s\n", dfp.diff);
 }
 
 void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
