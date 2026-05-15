@@ -42,21 +42,20 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
     if (!diff_fp) return;
 
     bool pc_ok = (npc->pc == ref->pc);
-    fprintf(diff_fp, "--- cycle %d ---  PC: %s0x%08x" ANSI_NONE "  %s\n",
-            cycle,
-            pc_ok ? ANSI_FG_GREEN : ANSI_FG_RED,
-            pc_ok ? npc->pc : npc->pc,
-            pc_ok ? "OK" : "MISMATCH");
-    if (!pc_ok)
-        fprintf(diff_fp, "                 REF=0x%08x\n", ref->pc);
+    const char *color = pc_ok ? ANSI_FG_GREEN : ANSI_FG_RED;
 
-    // 4列 × 8行 寄存器网格
+    fprintf(diff_fp, "--- cycle %d ---\n", cycle);
+    fprintf(diff_fp, "  PC:  NPC=%s0x%08x" ANSI_NONE "  REF=%s0x%08x" ANSI_NONE "  %s\n",
+            color, npc->pc, color, ref->pc,
+            pc_ok ? "[OK]" : "[MISMATCH]");
+
+    // 4列 × 8行 寄存器网格: NPC/REF 格式
     for (int row = 0; row < 8; row++) {
-        fprintf(diff_fp, "%sx%-2d-x%-2d" ANSI_NONE, ANSI_FG_CYAN, row * 4, row * 4 + 3);
+        fprintf(diff_fp, "  %sx%02d-x%02d" ANSI_NONE, ANSI_FG_CYAN, row * 4, row * 4 + 3);
         for (int col = 0; col < 4; col++) {
             int i = row * 4 + col;
             bool ok = (npc->gpr[i] == ref->gpr[i]);
-            fprintf(diff_fp, "\t%sNPC=%08x REF=%08x" ANSI_NONE,
+            fprintf(diff_fp, "  %s%08x/%08x" ANSI_NONE,
                     ok ? ANSI_FG_GREEN : ANSI_FG_RED,
                     npc->gpr[i], ref->gpr[i]);
         }
