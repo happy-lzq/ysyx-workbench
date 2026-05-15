@@ -15,7 +15,6 @@ sim: $(VSRCS) $(CSRCS)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 run: sim
-	@echo ".bin = [$(IMG)]"
 	./build/sim $(ARGS)
 
 clean:
