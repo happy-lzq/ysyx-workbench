@@ -32,4 +32,6 @@ run: insert-arg
 	$(MAKE) -C $(NPC_HOME) run ARGS="$(NEMUFLAGS)"
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
+vcd: insert-arg 
+	$(MAKE) -C $(NPC_HOME) vcd 
 .PHONY: insert-arg

@@ -16,6 +16,9 @@ sim: $(VSRCS) $(CSRCS)
 run: sim
 	./build/sim $(ARGS)
 
+vcd: build/wave.vcd
+	gtkwave build/wave.vcd
+
 clean:
 	rm -rf build obj_dir
 

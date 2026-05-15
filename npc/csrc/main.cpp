@@ -5,7 +5,7 @@
 
 
 NPC_state npc_s, ref_s;
-Vcore_top *top = new Vcore_top;
+Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 uint64_t sim_time = 0;
 int idx =0;
@@ -25,6 +25,7 @@ void single_cycle(){
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv);
     Verilated::traceEverOn(true);
+    top = new Vcore_top;
     parse_agrs(argc,argv);
 
     tfp = new VerilatedVcdC;

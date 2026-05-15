@@ -1,6 +1,9 @@
 #include <difftest.h>
 #include <dlfcn.h>
 
+#include <verilated_vcd_c.h>
+extern VerilatedVcdC* tfp;
+
 void (*ref_difftest_memcpy)(paddr_t, void*, size_t, bool) = NULL;
 void (*ref_difftest_regcpy)(void*, bool) = NULL;
 void (*ref_difftest_exec)(uint64_t) = NULL;
@@ -55,9 +58,12 @@ void difftest_step(Vcore_top* top,int idx){
 	}
 	if (!match_pc){
 		panic("difftest mismatch at cycle %d : pc=%08x\n",idx,npc_s.pc);
+		if (tfp) tfp->close();
 	}
 	if (!match_gpr){
+		
 		panic("difftest pc is match, but gpr mismatch, at cycle %d : npc-gpr[%d]=%08x  ref-npc[%d]=%08x\n",idx,i,npc_s.gpr[i],i,ref_s.gpr[i]);
+		if (tfp) tfp->close();
 	}
 	
 	
