@@ -15,6 +15,7 @@ void load_bin(Vcore_top* top,const char*path){
     while (fread(buf,1,4,fp) == 4){
         __uint32_t word = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
         npc_imem(top,idx,word,WRITE);           // bin load cpu-imem
+        npc_mem(top,idx,word,WRITE); 
         memcpy(&npc_pmem[idx * 4], buf, 4);     
         idx++;
     }
