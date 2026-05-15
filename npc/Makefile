@@ -14,8 +14,8 @@ sim: $(VSRCS) $(CSRCS)
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
 run: sim
-	./build/sim $(ARGS)
-	gtkwave build/wave.vcd
+	-./build/sim $(ARGS)
+	gtkwave build/wave.vcd	
 
 clean:
 	rm -rf build obj_dir

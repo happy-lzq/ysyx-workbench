@@ -33,3 +33,5 @@ run: insert-arg
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
 
+.PHONY: insert-arg vcd
+
