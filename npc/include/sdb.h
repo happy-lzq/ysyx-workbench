@@ -4,12 +4,11 @@
 #include <npc.h>
 #include <getopt.h>
 
+// ==================== SDB 用到的全局变量（在 main.cpp/monitor.cpp 定义） ====================
+extern const char *img_file;
 extern const char *diff_so_file;
-extern const char *img_file ;
-extern int parse_agrs(int argc,char *argv[]);
-extern const char *build_named_log_file(char *buf, size_t buf_size,
-                                        const char *path,
-                                        const char *default_path,
-                                        const char *suffix);
+
+// ==================== SDB API ====================
+int parse_agrs(int argc, char *argv[]);
 
 #endif

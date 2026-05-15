@@ -1,4 +1,5 @@
 #include <difftest.h>
+#include <dlfcn.h>
 
 void (*ref_difftest_memcpy)(paddr_t, void*, size_t, bool) = NULL;
 void (*ref_difftest_regcpy)(void*, bool) = NULL;
