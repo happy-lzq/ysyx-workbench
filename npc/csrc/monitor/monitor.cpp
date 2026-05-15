@@ -12,9 +12,8 @@ int parse_agrs(int argc,char *argv[]){
         switch (o) {
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
-            default:
-                break;
+            default  : exit(0);
         }
     }
-    
+    return 0;
 }
