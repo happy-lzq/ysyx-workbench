@@ -13,7 +13,6 @@ long img_size = 0;
 
 const char* img_file = NULL;
 const char* diff_so_file = NULL;
-const char* wave_vcd = NULL;
 uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){

@@ -42,7 +42,6 @@ extern int idx;
 extern long img_size;
 extern const char *img_file;
 extern const char *diff_so_file;
-extern const char* wave_vcd;
 extern FILE *diff_fp;
 
 // ==================== 函数声明 ====================

@@ -15,9 +15,6 @@ sim: $(VSRCS) $(CSRCS)
 
 run: sim
 	./build/sim $(ARGS)
-
-vcd: sim
-	-./build/sim $(ARGS)
 	gtkwave build/wave.vcd
 
 clean:
