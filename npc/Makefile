@@ -16,7 +16,7 @@ sim: $(VSRCS) $(CSRCS)
 run: sim
 	-./build/sim $(ARGS)
 	gtkwave build/wave.vcd	
-
+# '-' 即是当前失败后面的执行也别停止
 clean:
 	rm -rf build obj_dir
 

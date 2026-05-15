@@ -111,6 +111,70 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
     __VdfgRegularize_h495687df_0_8 = 0;
     // Body
     vlSelfRef.debug_pc = vlSelfRef.core_top__DOT__pc;
+    vlSelfRef.debug_gpr[0U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0U];
+    vlSelfRef.debug_gpr[1U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [1U];
+    vlSelfRef.debug_gpr[2U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [2U];
+    vlSelfRef.debug_gpr[3U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [3U];
+    vlSelfRef.debug_gpr[4U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [4U];
+    vlSelfRef.debug_gpr[5U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [5U];
+    vlSelfRef.debug_gpr[6U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [6U];
+    vlSelfRef.debug_gpr[7U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [7U];
+    vlSelfRef.debug_gpr[8U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [8U];
+    vlSelfRef.debug_gpr[9U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [9U];
+    vlSelfRef.debug_gpr[0xaU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xaU];
+    vlSelfRef.debug_gpr[0xbU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xbU];
+    vlSelfRef.debug_gpr[0xcU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xcU];
+    vlSelfRef.debug_gpr[0xdU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xdU];
+    vlSelfRef.debug_gpr[0xeU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xeU];
+    vlSelfRef.debug_gpr[0xfU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0xfU];
+    vlSelfRef.debug_gpr[0x10U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x10U];
+    vlSelfRef.debug_gpr[0x11U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x11U];
+    vlSelfRef.debug_gpr[0x12U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x12U];
+    vlSelfRef.debug_gpr[0x13U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x13U];
+    vlSelfRef.debug_gpr[0x14U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x14U];
+    vlSelfRef.debug_gpr[0x15U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x15U];
+    vlSelfRef.debug_gpr[0x16U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x16U];
+    vlSelfRef.debug_gpr[0x17U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x17U];
+    vlSelfRef.debug_gpr[0x18U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x18U];
+    vlSelfRef.debug_gpr[0x19U] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x19U];
+    vlSelfRef.debug_gpr[0x1aU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1aU];
+    vlSelfRef.debug_gpr[0x1bU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1bU];
+    vlSelfRef.debug_gpr[0x1cU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1cU];
+    vlSelfRef.debug_gpr[0x1dU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1dU];
+    vlSelfRef.debug_gpr[0x1eU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1eU];
+    vlSelfRef.debug_gpr[0x1fU] = vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+        [0x1fU];
     vlSelfRef.core_top__DOT__rs1_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
                                                   (0xffffU 
@@ -839,6 +903,9 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->clk = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 16707436170211756652ull);
     vlSelf->rst = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 18209466448985614591ull);
     vlSelf->debug_pc = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 4804012649788666537ull);
+    for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
+        vlSelf->debug_gpr[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 5785235992965279543ull);
+    }
     vlSelf->core_top__DOT__rs1_addr = VL_SCOPED_RAND_RESET_I(5, __VscopeHash, 12294012412567293440ull);
     vlSelf->core_top__DOT__rs2_addr = VL_SCOPED_RAND_RESET_I(5, __VscopeHash, 2711145848174800480ull);
     vlSelf->core_top__DOT__rd_addr = VL_SCOPED_RAND_RESET_I(5, __VscopeHash, 9222939784570157495ull);

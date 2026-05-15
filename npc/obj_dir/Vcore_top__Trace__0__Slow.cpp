@@ -15,11 +15,21 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+97,0,"clk",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+98,0,"rst",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+99,0,"debug_pc",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->pushPrefix("debug_gpr", VerilatedTracePrefixType::ARRAY_UNPACKED);
+    for (int i = 0; i < 32; ++i) {
+        tracep->declBus(c+100+i*1,0,"",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, true,(i+0), 31,0);
+    }
+    tracep->popPrefix();
     tracep->popPrefix();
     tracep->pushPrefix("core_top", VerilatedTracePrefixType::SCOPE_MODULE);
     tracep->declBus(c+97,0,"clk",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+98,0,"rst",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+99,0,"debug_pc",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->pushPrefix("debug_gpr", VerilatedTracePrefixType::ARRAY_UNPACKED);
+    for (int i = 0; i < 32; ++i) {
+        tracep->declBus(c+100+i*1,0,"",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, true,(i+0), 31,0);
+    }
+    tracep->popPrefix();
     tracep->declBus(c+1,0,"rs1_addr",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 4,0);
     tracep->declBus(c+2,0,"rs2_addr",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 4,0);
     tracep->declBus(c+3,0,"rd_addr",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 4,0);
@@ -46,7 +56,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+12,0,"alu_result",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+13,0,"imm_out",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+12,0,"mem_addr",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+100,0,"mem_rdata_raw",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+132,0,"mem_rdata_raw",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+10,0,"mem_wdata_raw",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+23,0,"mem_rdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->pushPrefix("u_ex_stage", VerilatedTracePrefixType::SCOPE_MODULE);
@@ -132,8 +142,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+14,0,"pc",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+15,0,"pc_plus4",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+16,0,"instr",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+101,0,"RESET_VECTOR",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+102,0,"IMEM_SIZE",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+133,0,"RESET_VECTOR",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+134,0,"IMEM_SIZE",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+34,0,"pc_next",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->popPrefix();
     tracep->pushPrefix("u_mem_stage", VerilatedTracePrefixType::SCOPE_MODULE);
@@ -144,7 +154,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+12,0,"mem_addr",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+10,0,"mem_wdata_raw",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+23,0,"mem_rdata",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+102,0,"MMEM_SIZE",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+134,0,"MMEM_SIZE",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::PARAMETER, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+35,0,"mem_wmask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
     tracep->declBus(c+36,0,"mem_rdata_raw",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+37,0,"mem_wdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
@@ -184,7 +194,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+10,0,"sw_wdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+61,0,"sh_wdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+62,0,"sb_wdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+103,0,"sw_mask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
+    tracep->declBus(c+135,0,"sw_mask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
     tracep->declBus(c+63,0,"sh_mask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
     tracep->declBus(c+64,0,"sb_mask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
     tracep->popPrefix();
@@ -198,6 +208,11 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+8,0,"rd_wdata",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+9,0,"rs1_rdata",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+10,0,"rs2_rdata",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->pushPrefix("debug_gpr", VerilatedTracePrefixType::ARRAY_UNPACKED);
+    for (int i = 0; i < 32; ++i) {
+        tracep->declBus(c+100+i*1,0,"",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, true,(i+0), 31,0);
+    }
+    tracep->popPrefix();
     tracep->pushPrefix("rf", VerilatedTracePrefixType::ARRAY_UNPACKED);
     for (int i = 0; i < 32; ++i) {
         tracep->declBus(c+65+i*1,0,"",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::VAR, VerilatedTraceSigType::LOGIC, true,(i+0), 31,0);
@@ -256,10 +271,10 @@ VL_ATTR_COLD void Vcore_top___024root__trace_const_0_sub_0(Vcore_top___024root* 
     // Init
     uint32_t* const oldp VL_ATTR_UNUSED = bufp->oldp(vlSymsp->__Vm_baseCode);
     // Body
-    bufp->fullIData(oldp+100,(vlSelfRef.core_top__DOT__mem_rdata_raw),32);
-    bufp->fullIData(oldp+101,(0x80000000U),32);
-    bufp->fullIData(oldp+102,(0x10000U),32);
-    bufp->fullCData(oldp+103,(0xfU),4);
+    bufp->fullIData(oldp+132,(vlSelfRef.core_top__DOT__mem_rdata_raw),32);
+    bufp->fullIData(oldp+133,(0x80000000U),32);
+    bufp->fullIData(oldp+134,(0x10000U),32);
+    bufp->fullCData(oldp+135,(0xfU),4);
 }
 
 VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* vlSelf, VerilatedVcd::Buffer* bufp);
@@ -591,4 +606,36 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullBit(oldp+97,(vlSelfRef.clk));
     bufp->fullBit(oldp+98,(vlSelfRef.rst));
     bufp->fullIData(oldp+99,(vlSelfRef.debug_pc),32);
+    bufp->fullIData(oldp+100,(vlSelfRef.debug_gpr[0]),32);
+    bufp->fullIData(oldp+101,(vlSelfRef.debug_gpr[1]),32);
+    bufp->fullIData(oldp+102,(vlSelfRef.debug_gpr[2]),32);
+    bufp->fullIData(oldp+103,(vlSelfRef.debug_gpr[3]),32);
+    bufp->fullIData(oldp+104,(vlSelfRef.debug_gpr[4]),32);
+    bufp->fullIData(oldp+105,(vlSelfRef.debug_gpr[5]),32);
+    bufp->fullIData(oldp+106,(vlSelfRef.debug_gpr[6]),32);
+    bufp->fullIData(oldp+107,(vlSelfRef.debug_gpr[7]),32);
+    bufp->fullIData(oldp+108,(vlSelfRef.debug_gpr[8]),32);
+    bufp->fullIData(oldp+109,(vlSelfRef.debug_gpr[9]),32);
+    bufp->fullIData(oldp+110,(vlSelfRef.debug_gpr[10]),32);
+    bufp->fullIData(oldp+111,(vlSelfRef.debug_gpr[11]),32);
+    bufp->fullIData(oldp+112,(vlSelfRef.debug_gpr[12]),32);
+    bufp->fullIData(oldp+113,(vlSelfRef.debug_gpr[13]),32);
+    bufp->fullIData(oldp+114,(vlSelfRef.debug_gpr[14]),32);
+    bufp->fullIData(oldp+115,(vlSelfRef.debug_gpr[15]),32);
+    bufp->fullIData(oldp+116,(vlSelfRef.debug_gpr[16]),32);
+    bufp->fullIData(oldp+117,(vlSelfRef.debug_gpr[17]),32);
+    bufp->fullIData(oldp+118,(vlSelfRef.debug_gpr[18]),32);
+    bufp->fullIData(oldp+119,(vlSelfRef.debug_gpr[19]),32);
+    bufp->fullIData(oldp+120,(vlSelfRef.debug_gpr[20]),32);
+    bufp->fullIData(oldp+121,(vlSelfRef.debug_gpr[21]),32);
+    bufp->fullIData(oldp+122,(vlSelfRef.debug_gpr[22]),32);
+    bufp->fullIData(oldp+123,(vlSelfRef.debug_gpr[23]),32);
+    bufp->fullIData(oldp+124,(vlSelfRef.debug_gpr[24]),32);
+    bufp->fullIData(oldp+125,(vlSelfRef.debug_gpr[25]),32);
+    bufp->fullIData(oldp+126,(vlSelfRef.debug_gpr[26]),32);
+    bufp->fullIData(oldp+127,(vlSelfRef.debug_gpr[27]),32);
+    bufp->fullIData(oldp+128,(vlSelfRef.debug_gpr[28]),32);
+    bufp->fullIData(oldp+129,(vlSelfRef.debug_gpr[29]),32);
+    bufp->fullIData(oldp+130,(vlSelfRef.debug_gpr[30]),32);
+    bufp->fullIData(oldp+131,(vlSelfRef.debug_gpr[31]),32);
 }

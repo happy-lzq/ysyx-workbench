@@ -2,9 +2,11 @@ module core_top (
     clk
     ,rst
     ,debug_pc
+    ,debug_gpr
 );
     input  wire [0 :0]                            clk,rst;
     output wire [31:0]                           debug_pc;
+    output wire [31:0]                    debug_gpr[0:31];
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
@@ -23,12 +25,14 @@ module core_top (
     wire [31:0]               mem_rdata_raw,mem_wdata_raw; 
     wire [31:0]                                 mem_rdata;
 
+
     assign jump_jalr        = alu_result;
     assign imm_jal          = imm_out;
     assign imm_br           = imm_out;
     assign mem_addr         = alu_result;
     assign mem_wdata_raw    = rs2_rdata;    
     assign debug_pc         = pc;
+
     regfile u_regfile (
     .clk          (clk),       
     .rs1_addr     (rs1_addr),
@@ -37,7 +41,8 @@ module core_top (
     .rd_wdata     (rd_wdata),
     .reg_write    (reg_write),
     .rs1_rdata    (rs1_rdata),
-    .rs2_rdata    (rs2_rdata)
+    .rs2_rdata    (rs2_rdata),
+    .debug_gpr    (debug_gpr)
 );
     if_stage u_if_stage (
     .clk          (clk),

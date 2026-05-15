@@ -52,6 +52,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
     IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__mem_wdata;
     IData/*31:0*/ __VdfgRegularize_h3c5bdd75_0_0;
     IData/*31:0*/ __VactIterCount;
+    VL_OUT(debug_gpr[32],31,0);
     VlUnpacked<IData/*31:0*/, 32> core_top__DOT__u_regfile__DOT__rf;
     VlUnpacked<IData/*31:0*/, 65536> core_top__DOT__u_if_stage__DOT__imem;
     VlUnpacked<IData/*31:0*/, 65536> core_top__DOT__u_mem_stage__DOT__mem;
