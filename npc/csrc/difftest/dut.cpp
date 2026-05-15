@@ -62,7 +62,7 @@ void difftest_step(Vcore_top* top,int idx){
         }
         if (!match_gpr){
                 if (tfp) tfp->close();
-                panic("difftest pc is match, but gpr mismatch, at cycle %d : npc-gpr[%d]=%08x  ref-npc[%d]=%08x\n",idx,i,npc_s.gpr[i],i,ref_s.gpr[i]);
+                panic("difftest pc is match, but gpr mismatch, at cycle %d : pc=%08x [ npc-gpr[%d]=%08x  ref-npc[%d]=%08x ]\n",idx,npc_s.pc,i,npc_s.gpr[i],i,ref_s.gpr[i]);
 		}
 	
 	
