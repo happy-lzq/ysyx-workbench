@@ -37,6 +37,11 @@ void init_difftest(const char* so_path,long img_size){
 void difftest_step(Vcore_top* top){
 	ref_difftest_exec(1);
 	ref_difftest_regcpy(&ref_s,DIFFTEST_TO_DUT);
+	for (int i = 0; i < 32; i++)
+	{
+		printf("REF-GPR-VAL : x%d: %08x\n",i,ref_s.gpr[i]);
+	}
+	
 	npc_s.pc  = npc_pc(top,0,READ); 
 	if (ref_s.pc != npc_s.pc){
 		printf("ERROR PC : NPC=%08x NEMU=%08x\n",npc_s.pc,ref_s.pc);
