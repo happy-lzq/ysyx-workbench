@@ -30,5 +30,6 @@ image: image-dep
 
 run: insert-arg
 	$(MAKE) -C $(NPC_HOME) run ARGS="$(NEMUFLAGS)"
-
+gdb: insert-arg
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
 .PHONY: insert-arg
