@@ -42,13 +42,13 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
     if (!diff_fp) return;
 
     bool pc_ok = (npc->pc == ref->pc);
-    fprintf(diff_fp, "--- cycle %d ---  PC: %s0x%08x" ANSI_NONE "  %s",
+    fprintf(diff_fp, "--- cycle %d ---  PC: %s0x%08x" ANSI_NONE "  %s\n",
             cycle,
             pc_ok ? ANSI_FG_GREEN : ANSI_FG_RED,
             pc_ok ? npc->pc : npc->pc,
             pc_ok ? "OK" : "MISMATCH");
     if (!pc_ok)
-        fprintf(diff_fp, "                    REF=0x%08x\n", ref->pc);
+        fprintf(diff_fp, "                 REF=0x%08x\n", ref->pc);
 
     // 4列 × 8行 寄存器网格
     for (int row = 0; row < 8; row++) {
