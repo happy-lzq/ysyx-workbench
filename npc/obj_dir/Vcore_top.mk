@@ -47,12 +47,15 @@ VM_USER_LDLIBS = \
 VM_USER_CLASSES = \
   dut \
   main \
+  monitor \
+  tools \
 
 # User .cpp directories (from .cpp's on Verilator command line)
 VM_USER_DIR = \
   .. \
   ../csrc \
   ../csrc/difftest \
+  ../csrc/monitor \
 
 ### Default rules...
 # Include list of all generated classes
@@ -66,6 +69,10 @@ VPATH += $(VM_USER_DIR)
 dut.o: csrc/difftest/dut.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 main.o: csrc/main.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+monitor.o: csrc/monitor/monitor.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+tools.o: csrc/monitor/tools.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 
 ### Link rules... (from --exe)

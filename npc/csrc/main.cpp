@@ -1,16 +1,17 @@
 #include <difftest.h>
-
+#include <getopt.h>
+#include <sdb.h>
 NPC_state npc_s, ref_s;
+DEBUG_FILE_PATH dfp;
 Vcore_top *top = new Vcore_top;
 int idx =0;
-const char* img_path = NULL;
-const char* diff_so_path = NULL;
+const char* img_file = NULL;
+const char* diff_so_file = NULL;
 long img_size = 0;
 uint8_t npc_pmem[PMEM_SIZE];
 
-uint8_t* guest_to_host(paddr_t paddr) {
-    return npc_pmem + paddr - RESET_VECTOR;
-}
+
+
 
 static void load_bin(Vcore_top* top,const char*path){
     FILE* fp = fopen(path,"rb");
@@ -38,18 +39,11 @@ void single_cycle(){
 }
 
 int main(int argc, char* argv[]){
-    Verilated::commandArgs(argc, argv); 
-    for (int i = 0; i < argc; i++){
-        if (strncmp(argv[i],"--bin=",6)== 0 ){
-            img_path = argv[i] + 6;
-        }
-        if (strncmp(argv[i],"--diff=",7)== 0){
-            diff_so_path = argv[i] + 7;
-        }
-    }
-
-    if (img_path) {
-        load_bin(top, img_path);
+    Verilated::commandArgs(argc, argv);
+    parse_agrs(argc,argv);
+    
+    if (img_file) {
+        load_bin(top, img_file);
     } else {
         printf("No --img= specified, imem is all zeros (NOPs)\n");
     }
@@ -60,8 +54,8 @@ int main(int argc, char* argv[]){
     printf("\ncycle %d  pc = 0x%08x\n",0,top->debug_pc);
     top->clk = 0; top->rst = 0; top->eval();
     // difftest-exec
-    if (diff_so_path) {
-        init_difftest(diff_so_path, img_size);
+    if (diff_so_file) {
+        init_difftest(diff_so_file, img_size);
     }
     for (int i = 1; i < idx+1; i++){
         single_cycle();
