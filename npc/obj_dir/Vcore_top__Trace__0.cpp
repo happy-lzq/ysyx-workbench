@@ -346,7 +346,6 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
     }
     bufp->chgBit(oldp+96,(vlSelfRef.clk));
     bufp->chgBit(oldp+97,(vlSelfRef.rst));
-    bufp->chgIData(oldp+98,(vlSelfRef.debug_pc),32);
 }
 
 void Vcore_top___024root__trace_cleanup(void* voidSelf, VerilatedVcd* /*unused*/) {

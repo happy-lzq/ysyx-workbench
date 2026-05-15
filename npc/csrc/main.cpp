@@ -39,7 +39,7 @@ int main(int argc, char* argv[]){
     tfp->dump(sim_time+=5);
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     tfp->dump(sim_time+=5);
-    printf("\ncycle %d  pc = 0x%08x\n",0,top->debug_pc);
+    
     top->clk = 0; top->rst = 0; top->eval();
     tfp->dump(sim_time+=5);
     // difftest-exec

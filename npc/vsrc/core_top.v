@@ -1,10 +1,8 @@
 module core_top (
     clk
     ,rst
-    ,debug_pc
 );
     input  wire [0 :0]                            clk,rst;
-    output wire [31:0]                           debug_pc;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
@@ -29,8 +27,7 @@ module core_top (
     assign imm_br           = imm_out;
     assign mem_addr         = alu_result;
     assign mem_wdata_raw    = rs2_rdata;    
-    assign debug_pc         = pc;
-
+    
     regfile u_regfile (
     .clk          (clk),       
     .rs1_addr     (rs1_addr),

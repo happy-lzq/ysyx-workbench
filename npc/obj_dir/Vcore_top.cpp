@@ -12,7 +12,6 @@ Vcore_top::Vcore_top(VerilatedContext* _vcontextp__, const char* _vcname__)
     , vlSymsp{new Vcore_top__Syms(contextp(), _vcname__, this)}
     , clk{vlSymsp->TOP.clk}
     , rst{vlSymsp->TOP.rst}
-    , debug_pc{vlSymsp->TOP.debug_pc}
     , rootp{&(vlSymsp->TOP)}
 {
     // Register model with the context

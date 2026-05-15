@@ -183,7 +183,6 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
     }
     vlSelfRef.core_top__DOT__pc = ((IData)(vlSelfRef.rst)
                                     ? 0x80000000U : vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next);
-    vlSelfRef.debug_pc = vlSelfRef.core_top__DOT__pc;
     vlSelfRef.core_top__DOT__rs1_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
                                                   (0xffffU 
