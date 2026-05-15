@@ -27,6 +27,7 @@ __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction)
 }
 
 __EXPORT void difftest_regcpy(void *dut, bool direction) {
+  printf("[REF regcpy] direction=%d, cpu.pc=0x%08x\n", direction, cpu.pc);
   if (direction == DIFFTEST_TO_REF){
     memcpy(&cpu,dut,DIFFTEST_REG_SIZE);
   } else{
@@ -35,9 +36,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 }
 
 __EXPORT void difftest_exec(uint64_t n) {
-  printf("[NEMU] exec %lu: pc before = 0x%08x\n", n, cpu.pc);
   cpu_exec(n);
-  printf("[NEMU] exec done: pc after = 0x%08x\n", cpu.pc);
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
