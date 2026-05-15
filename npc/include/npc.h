@@ -23,11 +23,11 @@ typedef struct {
 } NPC_state;
 
 typedef struct {
-    const char *diff;
-    const char *ftrace;
-    const char *itrace;
-    const char *mtrace;
-    const char *dtrace;
+     char diff[128];
+     char ftrace[128];
+     char itrace[128];
+     char mtrace[128];
+     char dtrace[128];
 } DEBUG_FILE_PATH;
 
 // ==================== 全局变量声明 ====================
@@ -37,10 +37,15 @@ extern DEBUG_FILE_PATH dfp;
 extern uint8_t npc_pmem[PMEM_SIZE];
 extern int idx;
 extern long img_size;
+extern const char *img_file;
+extern const char *diff_so_file;
+extern FILE *diff_fp;
 
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
+void init_diff_log(const char *img_path);
+void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
 
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };

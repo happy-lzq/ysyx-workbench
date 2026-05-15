@@ -32,25 +32,34 @@ void init_difftest(const char* so_path,long img_size){
 	 npc_s.gpr[i] = npc_gpr(top,i,0,READ);
 	}
 	npc_s.pc     = npc_pc(top,0,READ);
-	ref_difftest_regcpy(npc_s.gpr,DIFFTEST_TO_REF);
+	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
 }
 
-void difftest_step(Vcore_top* top){
+void difftest_step(Vcore_top* top,int idx){
 	ref_difftest_exec(1);
 	ref_difftest_regcpy(&ref_s,DIFFTEST_TO_DUT);
-	for (int i = 0; i < 32; i++)
-	{
-		printf("REF-GPR-VAL : x%d: %08x\n",i,ref_s.gpr[i]);
+	npc_s.pc  = npc_pc(top,0,READ); 
+	for (int i = 0; i < 32; i++){
+		npc_s.gpr[i] = npc_gpr(top,i,0,READ);
+	}
+	diff_log_write(&npc_s,&ref_s,idx);
+	bool match_pc,match_gpr;
+	match_pc = (npc_s.pc == ref_s.pc) ? true : false;
+	int i = 0;
+	for (i; i < 32; i++){
+		if (npc_s.gpr[i] != ref_s.gpr[i]){
+			match_gpr = false;
+			break;
+		}
+		match_gpr = true;
+	}
+	if (!match_pc){
+		panic("difftest mismatch at cycle %d : pc=%08x\n",idx,npc_s.pc);
+	}
+	if (!match_gpr){
+		panic("difftest pc is match, but gpr mismatch, at cycle %d : gpr[%d]=%08x\n",idx,i,npc_s.gpr[i]);
 	}
 	
-	npc_s.pc  = npc_pc(top,0,READ); 
-	if (ref_s.pc != npc_s.pc){
-		printf("ERROR PC : NPC=%08x NEMU=%08x\n",npc_s.pc,ref_s.pc);
-	}
-	for (int i = 0; i < 32; i++){
-		uint32_t cur_val = npc_gpr(top,i,0,READ);
-		if (ref_s.gpr[i] != cur_val){
-			printf("ERROR x%d: NPC=%08x NEMU=%08x\n", i,cur_val,ref_s.gpr[i]);
-		}
-	}
+	
+	
 }
