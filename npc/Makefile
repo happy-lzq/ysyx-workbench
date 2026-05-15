@@ -17,8 +17,7 @@ run: sim
 	./build/sim $(ARGS)
 
 vcd: sim
-	./build/sim $(ARGS)
-	gtkwave build/wave.vcd
+	-./build/sim $(ARGS)
 
 clean:
 	rm -rf build obj_dir
