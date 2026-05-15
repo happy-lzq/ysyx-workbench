@@ -1,6 +1,5 @@
 VSRCS=$(shell find vsrc/ -name "*.v")
 CSRCS=$(shell find csrc/ -name "*.cpp")
-
 TOP=core_top
 
 SIM_CFLAGS = -I$(NPC_HOME)/csrc -I$(NPC_HOME)/include -I$(NPC_HOME)/obj_dir
