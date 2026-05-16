@@ -13,11 +13,11 @@ module mem_stage (
     input   wire [31:0] mem_wdata_raw ; 
     output  wire [31:0] mem_rdata ;
 
-    parameter MMEM_SIZE = 65536;
+    parameter MMEM_SIZE = 262144;  // 1MB / 4B = 262144 words
     reg  [31:0] dmem [0:MMEM_SIZE-1];
     wire [3 :0] mem_wmask ; 
     wire [31:0] mem_rdata_raw, mem_wdata;
-    wire [15:0] mem_idx = mem_addr[17:2]; // 字节地址 ——> 字地址
+    wire [17:0] mem_idx = mem_addr[19:2]; // 字节地址 ——> 字地址
     // Load
     assign mem_rdata_raw = dmem[mem_idx];
     // Store 
@@ -42,4 +42,3 @@ module mem_stage (
     ,.mem_wmask         (mem_wmask      )
     ); 
 endmodule
-

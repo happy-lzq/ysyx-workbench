@@ -55,7 +55,7 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
                                      ? ((IData)(vlSelfRef.core_top__DOT__mem_read)
                                          ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                              ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                            [(0xffffU 
+                                            [(0x3ffffU 
                                               & (vlSelfRef.core_top__DOT__jump_jalr 
                                                  >> 2U))]
                                              : ((1U 
@@ -96,8 +96,8 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
         bufp->chgIData(oldp+13,(vlSelfRef.core_top__DOT__pc),32);
         bufp->chgIData(oldp+14,(((IData)(4U) + vlSelfRef.core_top__DOT__pc)),32);
         bufp->chgIData(oldp+15,(vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                [(0xffffU & (vlSelfRef.core_top__DOT__pc 
-                                             >> 2U))]),32);
+                                [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
+                                              >> 2U))]),32);
         bufp->chgCData(oldp+16,(vlSelfRef.core_top__DOT__alu_op),5);
         bufp->chgBit(oldp+17,(vlSelfRef.core_top__DOT__alu_src_a));
         bufp->chgCData(oldp+18,(vlSelfRef.core_top__DOT__alu_src_b),2);
@@ -107,8 +107,8 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
         bufp->chgIData(oldp+22,(((IData)(vlSelfRef.core_top__DOT__mem_read)
                                   ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                       ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                     [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                                  >> 2U))]
+                                     [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                                   >> 2U))]
                                       : ((1U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                           ? (((- (IData)(
                                                          (1U 
@@ -139,7 +139,7 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
         bufp->chgCData(oldp+27,(vlSelfRef.core_top__DOT__u_id_stage__DOT__funct7),7);
         bufp->chgIData(oldp+28,((((- (IData)((IData)(vlSelfRef.core_top__DOT__u_id_stage__DOT__imm_gen_pic__DOT____VdfgRegularize_hebd20cbd_0_0))) 
                                   << 0xcU) | (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                              [(0xffffU 
+                                              [(0x3ffffU 
                                                 & (vlSelfRef.core_top__DOT__pc 
                                                    >> 2U))] 
                                               >> 0x14U))),32);
@@ -153,44 +153,44 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
                                                | (0x800U 
                                                   & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                      [
-                                                     (0xffffU 
+                                                     (0x3ffffU 
                                                       & (vlSelfRef.core_top__DOT__pc 
                                                          >> 2U))] 
                                                      << 4U))) 
                                               | ((0x7e0U 
                                                   & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                      [
-                                                     (0xffffU 
+                                                     (0x3ffffU 
                                                       & (vlSelfRef.core_top__DOT__pc 
                                                          >> 2U))] 
                                                      >> 0x14U)) 
                                                  | (0x1eU 
                                                     & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                        [
-                                                       (0xffffU 
+                                                       (0x3ffffU 
                                                         & (vlSelfRef.core_top__DOT__pc 
                                                            >> 2U))] 
                                                        >> 7U)))))),32);
         bufp->chgIData(oldp+31,((0xfffff000U & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                 [(0xffffU & (vlSelfRef.core_top__DOT__pc 
-                                              >> 2U))])),32);
+                                 [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
+                                               >> 2U))])),32);
         bufp->chgIData(oldp+32,((((- (IData)((IData)(vlSelfRef.core_top__DOT__u_id_stage__DOT__imm_gen_pic__DOT____VdfgRegularize_hebd20cbd_0_0))) 
                                   << 0x14U) | (((0xff000U 
                                                  & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                                 [(0xffffU 
+                                                 [(0x3ffffU 
                                                    & (vlSelfRef.core_top__DOT__pc 
                                                       >> 2U))]) 
                                                 | (0x800U 
                                                    & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                       [
-                                                      (0xffffU 
+                                                      (0x3ffffU 
                                                        & (vlSelfRef.core_top__DOT__pc 
                                                           >> 2U))] 
                                                       >> 9U))) 
                                                | (0x7feU 
                                                   & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                      [
-                                                     (0xffffU 
+                                                     (0x3ffffU 
                                                       & (vlSelfRef.core_top__DOT__pc 
                                                          >> 2U))] 
                                                      >> 0x14U))))),32);
@@ -243,37 +243,37 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
                                                  + vlSelfRef.core_top__DOT__pc)))))),32);
         bufp->chgCData(oldp+34,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wmask),4);
         bufp->chgIData(oldp+35,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                             >> 2U))]),32);
+                                [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                              >> 2U))]),32);
         bufp->chgIData(oldp+36,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wdata),32);
-        bufp->chgSData(oldp+37,((0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                            >> 2U))),16);
+        bufp->chgIData(oldp+37,((0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                             >> 2U))),18);
         bufp->chgCData(oldp+38,((3U & vlSelfRef.core_top__DOT__jump_jalr)),2);
         bufp->chgBit(oldp+39,((1U & (vlSelfRef.core_top__DOT__jump_jalr 
                                      >> 1U))));
         bufp->chgCData(oldp+40,((0xffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                 [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                              >> 2U))])),8);
+                                 [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                               >> 2U))])),8);
         bufp->chgCData(oldp+41,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                          [(0xffffU 
+                                          [(0x3ffffU 
                                             & (vlSelfRef.core_top__DOT__jump_jalr 
                                                >> 2U))] 
                                           >> 8U))),8);
         bufp->chgCData(oldp+42,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                          [(0xffffU 
+                                          [(0x3ffffU 
                                             & (vlSelfRef.core_top__DOT__jump_jalr 
                                                >> 2U))] 
                                           >> 0x10U))),8);
         bufp->chgCData(oldp+43,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                 [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                              >> 2U))] 
+                                 [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                               >> 2U))] 
                                  >> 0x18U)),8);
         bufp->chgSData(oldp+44,((0xffffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                 [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                              >> 2U))])),16);
+                                 [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                               >> 2U))])),16);
         bufp->chgSData(oldp+45,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                 [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                              >> 2U))] 
+                                 [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                               >> 2U))] 
                                  >> 0x10U)),16);
         bufp->chgCData(oldp+46,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected),8);
         bufp->chgSData(oldp+47,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected),16);

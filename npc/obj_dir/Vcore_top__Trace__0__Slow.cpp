@@ -146,7 +146,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->declBus(c+35,0,"mem_wmask",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 3,0);
     tracep->declBus(c+36,0,"mem_rdata_raw",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+37,0,"mem_wdata",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
-    tracep->declBus(c+38,0,"mem_idx",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 15,0);
+    tracep->declBus(c+38,0,"mem_idx",-1, VerilatedTraceSigDirection::NONE, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 17,0);
     tracep->pushPrefix("lsu_pic", VerilatedTracePrefixType::SCOPE_MODULE);
     tracep->declBus(c+12,0,"mem_addr",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+36,0,"mem_rdata_raw",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
@@ -256,7 +256,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_const_0_sub_0(Vcore_top___024root* 
     // Body
     bufp->fullIData(oldp+99,(vlSelfRef.core_top__DOT__mem_rdata_raw),32);
     bufp->fullIData(oldp+100,(0x80000000U),32);
-    bufp->fullIData(oldp+101,(0x10000U),32);
+    bufp->fullIData(oldp+101,(0x40000U),32);
     bufp->fullCData(oldp+102,(0xfU),4);
 }
 
@@ -306,7 +306,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
                                   ? ((IData)(vlSelfRef.core_top__DOT__mem_read)
                                       ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                           ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                         [(0xffffU 
+                                         [(0x3ffffU 
                                            & (vlSelfRef.core_top__DOT__jump_jalr 
                                               >> 2U))]
                                           : ((1U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
@@ -344,8 +344,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullIData(oldp+14,(vlSelfRef.core_top__DOT__pc),32);
     bufp->fullIData(oldp+15,(((IData)(4U) + vlSelfRef.core_top__DOT__pc)),32);
     bufp->fullIData(oldp+16,(vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                             [(0xffffU & (vlSelfRef.core_top__DOT__pc 
-                                          >> 2U))]),32);
+                             [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
+                                           >> 2U))]),32);
     bufp->fullCData(oldp+17,(vlSelfRef.core_top__DOT__alu_op),5);
     bufp->fullBit(oldp+18,(vlSelfRef.core_top__DOT__alu_src_a));
     bufp->fullCData(oldp+19,(vlSelfRef.core_top__DOT__alu_src_b),2);
@@ -355,8 +355,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullIData(oldp+23,(((IData)(vlSelfRef.core_top__DOT__mem_read)
                                ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                    ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                  [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                               >> 2U))]
+                                  [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                                >> 2U))]
                                    : ((1U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
                                        ? (((- (IData)(
                                                       (1U 
@@ -385,7 +385,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullCData(oldp+28,(vlSelfRef.core_top__DOT__u_id_stage__DOT__funct7),7);
     bufp->fullIData(oldp+29,((((- (IData)((IData)(vlSelfRef.core_top__DOT__u_id_stage__DOT__imm_gen_pic__DOT____VdfgRegularize_hebd20cbd_0_0))) 
                                << 0xcU) | (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                           [(0xffffU 
+                                           [(0x3ffffU 
                                              & (vlSelfRef.core_top__DOT__pc 
                                                 >> 2U))] 
                                            >> 0x14U))),32);
@@ -399,44 +399,44 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
                                             | (0x800U 
                                                & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
-                                                  (0xffffU 
+                                                  (0x3ffffU 
                                                    & (vlSelfRef.core_top__DOT__pc 
                                                       >> 2U))] 
                                                   << 4U))) 
                                            | ((0x7e0U 
                                                & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
-                                                  (0xffffU 
+                                                  (0x3ffffU 
                                                    & (vlSelfRef.core_top__DOT__pc 
                                                       >> 2U))] 
                                                   >> 0x14U)) 
                                               | (0x1eU 
                                                  & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                     [
-                                                    (0xffffU 
+                                                    (0x3ffffU 
                                                      & (vlSelfRef.core_top__DOT__pc 
                                                         >> 2U))] 
                                                     >> 7U)))))),32);
     bufp->fullIData(oldp+32,((0xfffff000U & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                              [(0xffffU & (vlSelfRef.core_top__DOT__pc 
-                                           >> 2U))])),32);
+                              [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
+                                            >> 2U))])),32);
     bufp->fullIData(oldp+33,((((- (IData)((IData)(vlSelfRef.core_top__DOT__u_id_stage__DOT__imm_gen_pic__DOT____VdfgRegularize_hebd20cbd_0_0))) 
                                << 0x14U) | (((0xff000U 
                                               & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                              [(0xffffU 
+                                              [(0x3ffffU 
                                                 & (vlSelfRef.core_top__DOT__pc 
                                                    >> 2U))]) 
                                              | (0x800U 
                                                 & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                    [
-                                                   (0xffffU 
+                                                   (0x3ffffU 
                                                     & (vlSelfRef.core_top__DOT__pc 
                                                        >> 2U))] 
                                                    >> 9U))) 
                                             | (0x7feU 
                                                & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
-                                                  (0xffffU 
+                                                  (0x3ffffU 
                                                    & (vlSelfRef.core_top__DOT__pc 
                                                       >> 2U))] 
                                                   >> 0x14U))))),32);
@@ -488,37 +488,37 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
                                               + vlSelfRef.core_top__DOT__pc)))))),32);
     bufp->fullCData(oldp+35,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wmask),4);
     bufp->fullIData(oldp+36,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                             [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                          >> 2U))]),32);
+                             [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                           >> 2U))]),32);
     bufp->fullIData(oldp+37,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wdata),32);
-    bufp->fullSData(oldp+38,((0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                         >> 2U))),16);
+    bufp->fullIData(oldp+38,((0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                          >> 2U))),18);
     bufp->fullCData(oldp+39,((3U & vlSelfRef.core_top__DOT__jump_jalr)),2);
     bufp->fullBit(oldp+40,((1U & (vlSelfRef.core_top__DOT__jump_jalr 
                                   >> 1U))));
     bufp->fullCData(oldp+41,((0xffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                              [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                           >> 2U))])),8);
+                              [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                            >> 2U))])),8);
     bufp->fullCData(oldp+42,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                       [(0xffffU & 
+                                       [(0x3ffffU & 
                                          (vlSelfRef.core_top__DOT__jump_jalr 
                                           >> 2U))] 
                                        >> 8U))),8);
     bufp->fullCData(oldp+43,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                       [(0xffffU & 
+                                       [(0x3ffffU & 
                                          (vlSelfRef.core_top__DOT__jump_jalr 
                                           >> 2U))] 
                                        >> 0x10U))),8);
     bufp->fullCData(oldp+44,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                              [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                           >> 2U))] 
+                              [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                            >> 2U))] 
                               >> 0x18U)),8);
     bufp->fullSData(oldp+45,((0xffffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                              [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                           >> 2U))])),16);
+                              [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                            >> 2U))])),16);
     bufp->fullSData(oldp+46,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                              [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                           >> 2U))] 
+                              [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
+                                            >> 2U))] 
                               >> 0x10U)),16);
     bufp->fullCData(oldp+47,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected),8);
     bufp->fullSData(oldp+48,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected),16);

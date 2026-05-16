@@ -17,7 +17,7 @@ module if_stage (
     output  wire [31:0]                 pc_plus4,instr;
 
     parameter RESET_VECTOR = 32'h8000_0000;
-    parameter IMEM_SIZE    = 65536        ;  // imem dmem 统一 2^16=65526
+    parameter IMEM_SIZE    = 262144       ;  // 1MB / 4B = 262144 words
 
     wire [31:0] pc_next;
     reg  [31:0] imem [0:IMEM_SIZE - 1];
@@ -28,7 +28,7 @@ module if_stage (
                      (pc_sel == 2'b11 ) ? (br_taken ? pc + imm_br : pc + 32'd4) : pc + 32'd4 ;
 
     assign pc_plus4 = pc + 32'd4;
-    assign instr    = imem[pc[17:2]];
+    assign instr    = imem[pc[19:2]];
 
     always @(posedge clk ) begin
         if (rst) 

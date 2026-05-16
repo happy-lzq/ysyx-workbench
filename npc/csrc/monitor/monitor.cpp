@@ -13,6 +13,7 @@ void load_bin(Vcore_top* top,const char*path){
 
     __uint8_t buf[4];
     while (fread(buf,1,4,fp) == 4){
+        Assert((idx + 1) * 4 <= PMEM_SIZE, "image is too large for pmem\n");
         __uint32_t word = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
         npc_imem(top,idx,word,WRITE);           // bin load cpu-imem
         npc_dmem(top,idx,word,WRITE); 
