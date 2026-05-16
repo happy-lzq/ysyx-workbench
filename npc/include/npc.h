@@ -74,12 +74,12 @@ static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) 
     else
         return top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx];
 }
-static inline uint32_t npc_mem(Vcore_top *top, int idx, uint32_t val, int r_w) {
+static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) {
     if (r_w == WRITE)
-        return top->rootp->core_top__DOT__u_mem_stage__DOT__mem[idx] = val;
+        return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx] = val;
         
     else
-        return top->rootp->core_top__DOT__u_mem_stage__DOT__mem[idx];
+        return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx];
 }
 
 // ==================== 调试宏 ====================

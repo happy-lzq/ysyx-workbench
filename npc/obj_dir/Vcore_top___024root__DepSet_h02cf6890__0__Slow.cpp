@@ -708,11 +708,11 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
     }
     vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected 
         = (0xffU & ((0U == (3U & vlSelfRef.core_top__DOT__jump_jalr))
-                     ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                     ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                     [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                  >> 2U))] : ((1U == 
                                               (3U & vlSelfRef.core_top__DOT__jump_jalr))
-                                              ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                                              ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                                  [(0xffffU 
                                                    & (vlSelfRef.core_top__DOT__jump_jalr 
                                                       >> 2U))] 
@@ -722,14 +722,14 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                   (3U 
                                                    & vlSelfRef.core_top__DOT__jump_jalr))
                                                   ? 
-                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                                   [
                                                   (0xffffU 
                                                    & (vlSelfRef.core_top__DOT__jump_jalr 
                                                       >> 2U))] 
                                                   >> 0x10U)
                                                   : 
-                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                                   [
                                                   (0xffffU 
                                                    & (vlSelfRef.core_top__DOT__jump_jalr 
@@ -737,10 +737,10 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                   >> 0x18U)))));
     vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected 
         = (0xffffU & ((2U & vlSelfRef.core_top__DOT__jump_jalr)
-                       ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                       ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                           [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                        >> 2U))] >> 0x10U)
-                       : vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                       : vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                       [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                    >> 2U))]));
     vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next 
@@ -870,7 +870,7 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->core_top__DOT__u_ex_stage__DOT__src1 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 5256965371199316806ull);
     vlSelf->core_top__DOT__u_ex_stage__DOT__src2 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 6802426516301857958ull);
     for (int __Vi0 = 0; __Vi0 < 65536; ++__Vi0) {
-        vlSelf->core_top__DOT__u_mem_stage__DOT__mem[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 7803367757265537014ull);
+        vlSelf->core_top__DOT__u_mem_stage__DOT__dmem[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 17667369412193926368ull);
     }
     vlSelf->core_top__DOT__u_mem_stage__DOT__mem_wmask = VL_SCOPED_RAND_RESET_I(4, __VscopeHash, 16035830778309949707ull);
     vlSelf->core_top__DOT__u_mem_stage__DOT__mem_wdata = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 13701141684010482380ull);

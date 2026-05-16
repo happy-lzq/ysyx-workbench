@@ -305,7 +305,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
                               : ((1U == (IData)(vlSelfRef.core_top__DOT__reg_wdata_src))
                                   ? ((IData)(vlSelfRef.core_top__DOT__mem_read)
                                       ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
-                                          ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                                          ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                          [(0xffffU 
                                            & (vlSelfRef.core_top__DOT__jump_jalr 
                                               >> 2U))]
@@ -354,7 +354,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullCData(oldp+22,(vlSelfRef.core_top__DOT__reg_wdata_src),2);
     bufp->fullIData(oldp+23,(((IData)(vlSelfRef.core_top__DOT__mem_read)
                                ? ((0U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
-                                   ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+                                   ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                   [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                                >> 2U))]
                                    : ((1U == (IData)(vlSelfRef.core_top__DOT__lsu_type))
@@ -487,7 +487,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
                                            : ((IData)(4U) 
                                               + vlSelfRef.core_top__DOT__pc)))))),32);
     bufp->fullCData(oldp+35,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wmask),4);
-    bufp->fullIData(oldp+36,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullIData(oldp+36,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                              [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                           >> 2U))]),32);
     bufp->fullIData(oldp+37,(vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_wdata),32);
@@ -496,27 +496,27 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullCData(oldp+39,((3U & vlSelfRef.core_top__DOT__jump_jalr)),2);
     bufp->fullBit(oldp+40,((1U & (vlSelfRef.core_top__DOT__jump_jalr 
                                   >> 1U))));
-    bufp->fullCData(oldp+41,((0xffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullCData(oldp+41,((0xffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                               [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                            >> 2U))])),8);
-    bufp->fullCData(oldp+42,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullCData(oldp+42,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                        [(0xffffU & 
                                          (vlSelfRef.core_top__DOT__jump_jalr 
                                           >> 2U))] 
                                        >> 8U))),8);
-    bufp->fullCData(oldp+43,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullCData(oldp+43,((0xffU & (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                                        [(0xffffU & 
                                          (vlSelfRef.core_top__DOT__jump_jalr 
                                           >> 2U))] 
                                        >> 0x10U))),8);
-    bufp->fullCData(oldp+44,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullCData(oldp+44,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                               [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                            >> 2U))] 
                               >> 0x18U)),8);
-    bufp->fullSData(oldp+45,((0xffffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullSData(oldp+45,((0xffffU & vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                               [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                            >> 2U))])),16);
-    bufp->fullSData(oldp+46,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem
+    bufp->fullSData(oldp+46,((vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
                               [(0xffffU & (vlSelfRef.core_top__DOT__jump_jalr 
                                            >> 2U))] 
                               >> 0x10U)),16);
