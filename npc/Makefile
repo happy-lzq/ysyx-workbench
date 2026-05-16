@@ -18,7 +18,7 @@ run: sim
 # 	gtkwave build/wave.vcd	
 # '-' 即是当前失败后面的执行也别停止
 vcd: $(WAVE_FILE)
-	gtkwave $@
+	gtkwave $(WAVE_FILE)
 clean:
 	rm -rf build obj_dir
 
