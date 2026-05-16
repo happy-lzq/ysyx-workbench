@@ -21,7 +21,7 @@ void load_bin(Vcore_top* top,const char*path){
     }
     img_size = idx * 4;  // 指令总数=idx 
     fclose(fp);
-    printf("Loaded %d pc_addr to ref_mem and npc_mem form %s\n",idx,path);
+    printf("\nLoaded %d pc_addr to ref_mem and npc_mem form %s\n",idx,path);
 }
 
 int parse_agrs(int argc,char *argv[]){

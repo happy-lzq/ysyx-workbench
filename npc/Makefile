@@ -1,7 +1,7 @@
 VSRCS=$(shell find vsrc/ -name "*.v")
 CSRCS=$(shell find csrc/ -name "*.cpp")
 TOP=core_top
-
+WAVE_FILE=build/wave.vcd
 SIM_CFLAGS = -I$(NPC_HOME)/csrc -I$(NPC_HOME)/include -I$(NPC_HOME)/obj_dir
 LDFLAGS    = -ldl
 FILE_PATH += -bin
@@ -17,6 +17,8 @@ run: sim
 	./build/sim $(ARGS)
 # 	gtkwave build/wave.vcd	
 # '-' 即是当前失败后面的执行也别停止
+vcd: WAVE_FILE
+	gtkwave $@
 clean:
 	rm -rf build obj_dir
 
