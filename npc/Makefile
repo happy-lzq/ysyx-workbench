@@ -15,28 +15,32 @@ SIM_CFLAGS = -I$(NPC_HOME)/csrc \
 
 LDFLAGS    = -ldl
 
-# 根据 CONFIG_WAVE 决定是否传递 --trace 给 Verilator
-VERILATOR_FLAGS = --cc --exe --build
-ifdef CONFIG_WAVE
-VERILATOR_FLAGS += --trace
-endif
-
+# ==================== sim: 无波形，快速 ====================
 sim: $(VSRCS) $(CSRCS)
-	verilator $(VERILATOR_FLAGS) \
+	verilator --cc --exe --build \
 	--top-module $(TOP) $(VSRCS) $(CSRCS) \
 	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
 	@mkdir -p build
 	mv obj_dir/V$(TOP) build/sim
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
+# ==================== sim-trace: 带 --trace，生成 VCD ====================
+sim-trace: $(VSRCS) $(CSRCS)
+	verilator --cc --exe --build --trace \
+	--top-module $(TOP) $(VSRCS) $(CSRCS) \
+	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
+	@mkdir -p build
+	mv obj_dir/V$(TOP) build/sim-trace
+	$(call git_commit, "sim RTL with trace") # DO NOT REMOVE THIS LINE!!!
+
 run: sim
 	./build/sim $(ARGS)
 
-vcd: $(WAVE_FILE)
+vcd: sim-trace
+	./build/sim-trace $(ARGS)
 	gtkwave $(WAVE_FILE)
 
 clean:
 	rm -rf build obj_dir
 
 include ../Makefile
-include $(NPC_HOME)/scripts/config.mk
