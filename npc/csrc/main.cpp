@@ -27,12 +27,12 @@ int main(int argc, char* argv[]){
     top = new Vcore_top;
     parse_agrs(argc,argv);
     
-#ifdef VM_TRACE
-    Verilated::traceEverOn(true);
-    tfp = new VerilatedVcdC;
-    top->trace(tfp, 99);
-    tfp->open("build/wave.vcd");
-#endif
+    if (wave_enabled) {
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedVcdC;
+        top->trace(tfp, 99);
+        tfp->open("build/wave.vcd");
+    }
 
     load_bin(top, img_file);
     // 复位

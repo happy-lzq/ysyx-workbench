@@ -15,29 +15,23 @@ SIM_CFLAGS = -I$(NPC_HOME)/csrc \
 
 LDFLAGS    = -ldl
 
-# ==================== sim: 无波形，快速 ====================
+# ==================== sim: 始终编译带 --trace（信号暴露必需） ====================
+# --trace 不仅控制VCD，还让Verilator把所有内部信号暴露到头文件，
+# 否则 npc.h 中的 npc_gpr/npc_pc/npc_imem/npc_dmem 访问器全部失效。
+# VCD 是否生成由运行时 --wave 参数控制。
 sim: $(VSRCS) $(CSRCS)
-	verilator --cc --exe --build \
+	verilator --cc --exe --build --trace \
 	--top-module $(TOP) $(VSRCS) $(CSRCS) \
 	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
 	@mkdir -p build
 	mv obj_dir/V$(TOP) build/sim
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
 
-# ==================== sim-trace: 带 --trace，生成 VCD ====================
-sim-trace: $(VSRCS) $(CSRCS)
-	verilator --cc --exe --build --trace \
-	--top-module $(TOP) $(VSRCS) $(CSRCS) \
-	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
-	@mkdir -p build
-	mv obj_dir/V$(TOP) build/sim-trace
-	$(call git_commit, "sim RTL with trace") # DO NOT REMOVE THIS LINE!!!
-
 run: sim
 	./build/sim $(ARGS)
 
-vcd: sim-trace
-	./build/sim-trace $(ARGS)
+vcd: sim
+	./build/sim $(ARGS) --wave
 	gtkwave $(WAVE_FILE)
 
 clean:

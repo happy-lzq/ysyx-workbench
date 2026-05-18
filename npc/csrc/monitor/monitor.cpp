@@ -1,6 +1,7 @@
 #include <sdb.h>
 #include <difftest.h>
 
+bool wave_enabled = false;
 
 void load_bin(Vcore_top* top,const char*path){
     Assert(path,"IMG-BIN-FILE IS FATL!\n");
@@ -29,14 +30,16 @@ int parse_agrs(int argc,char *argv[]){
     const struct option table[] = {
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
+        {"wave" , no_argument      , NULL,'w'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
     int o;
-    while ( (o = getopt_long(argc, argv, "-h:v:s:d:i:", table, NULL)) != -1) {
+    while ( (o = getopt_long(argc, argv, "-h:v:s:d:i:w", table, NULL)) != -1) {
         switch (o) {
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
+            case 'w' : wave_enabled = true   ; break;
             default  : exit(0);
         }
     }

@@ -44,6 +44,7 @@ extern long img_size;
 extern const char *img_file;
 extern const char *diff_so_file;
 extern FILE *diff_fp;
+extern bool wave_enabled;
 
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
