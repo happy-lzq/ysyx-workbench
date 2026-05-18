@@ -11,10 +11,11 @@
 #include <Vcore_top.h>
 #include <verilated_vcd_c.h>
 #include <Vcore_top___024root.h>
+#include <generated/autoconf.h>
 
-// ==================== 基础常量 ====================
-#define RESET_VECTOR 0x80000000
-#define PMEM_SIZE (128 * 1024 * 1024)
+// ==================== 基础常量（由 Kconfig 生成） ====================
+#define RESET_VECTOR CONFIG_RESET_VECTOR
+#define PMEM_SIZE    CONFIG_PMEM_SIZE
 
 // ==================== 基础类型 ====================
 typedef uint32_t paddr_t;

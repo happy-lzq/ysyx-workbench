@@ -27,21 +27,22 @@ int main(int argc, char* argv[]){
     top = new Vcore_top;
     parse_agrs(argc,argv);
     
+#ifdef CONFIG_WAVE
     Verilated::traceEverOn(true);
     tfp = new VerilatedVcdC;
     top->trace(tfp, 99);
     tfp->open("build/wave.vcd");
+#endif
 
-    
     load_bin(top, img_file);
     // 复位
     top->clk = 0; top->rst = 1; top->eval();
-    tfp->dump(sim_time+=5);
+    if (tfp) tfp->dump(sim_time+=5);
     top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
-    tfp->dump(sim_time+=5);
+    if (tfp) tfp->dump(sim_time+=5);
     
     top->clk = 0; top->rst = 0; top->eval();
-    tfp->dump(sim_time+=5);
+    if (tfp) tfp->dump(sim_time+=5);
     // difftest-exec
     if (diff_so_file) {
         init_diff_log(img_file);
