@@ -9,7 +9,7 @@ module core_top (
     wire [1 :0]                                    pc_sel;
     wire [31:0]                  jump_jalr,imm_jal,imm_br;
     wire [31:0]                                        pc;
-    wire [31:0]                            pc_plus4,instr;
+    wire [31:0]                       pc_plus4,instr,inst;
     wire [4 :0]                                    alu_op;
     wire [0 :0]                                 alu_src_a;
     wire [1 :0]                                 alu_src_b;
@@ -51,8 +51,7 @@ module core_top (
     .pc_plus4     (pc_plus4),
     .instr        (instr)
 );
-    id_stage u_id_stage (
-    // control
+id_stage u_id_stage (
     .instr            (instr),
     .rs1_addr         (rs1_addr),
     .rs2_addr         (rs2_addr),
@@ -68,9 +67,9 @@ module core_top (
     .lsu_type         (lsu_type),
     .reg_write        (reg_write),
     .reg_wdata_src    (reg_wdata_src),
-    // imm_gen
     .pc_sel           (pc_sel),
-    .imm_out          (imm_out)
+    .imm_out          (imm_out),
+    .inst             (inst)
 );
     ex_stage u_ex_stage (
     .rs1_rdata     (rs1_rdata),

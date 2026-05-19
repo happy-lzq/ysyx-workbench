@@ -1,5 +1,6 @@
 module control (
-    opcode
+    inst
+    ,opcode
     ,funct3
     ,funct7
     ,alu_op
@@ -13,10 +14,12 @@ module control (
     ,reg_wdata_src
     ,pc_sel
 );
-    input [6:0] opcode;
-    input [2:0] funct3;
-    input [6:0] funct7;
 
+
+    input [6 :0] opcode;
+    input [2 :0] funct3;
+    input [6 :0] funct7;
+    input [31:0] inst  ;
     output reg [4:0] alu_op;
     output reg [0:0] alu_src_a;
     output reg [1:0] alu_src_b;
@@ -25,7 +28,12 @@ module control (
     output reg [2:0] lsu_type;
     output reg [1:0] reg_wdata_src;
     output reg [1:0] pc_sel;
+    
+    wire [11:0] funct12 = inst[31:20] ;
 
+
+
+// ============== 常规指令 ========================//
     always@(*)begin
     // 第一步：给所有信号设默认值（非分支、不访存、不写回）
         alu_op        = 5'b0;  //SUB
@@ -40,7 +48,7 @@ module control (
         pc_sel        = 2'b00;
 
         case (opcode)
-        // ==== R =====
+// =========================== R =====================================
           7'b0110011 : begin
             reg_write = 1'b1;
             case (funct3)
@@ -55,7 +63,8 @@ module control (
                 default: alu_op = 5'b0;
             endcase            
           end
-        // ==== I-算术立即数 ====
+
+// ========================= I-算术立即数 ================================
           7'b0010011 : begin
             reg_write = 1'b1 ;
             alu_src_b = 2'b01;
@@ -71,7 +80,8 @@ module control (
                 default: alu_op = 5'b0;
             endcase
           end
-          // ==== I-Load ====
+
+// ========================== I-Load =================================
           7'b0000011 : begin
             alu_src_b     = 2'b01;
             reg_write     = 1'b1;
@@ -87,7 +97,8 @@ module control (
                 default: ;
             endcase 
           end
-          // ==== I-跳转 jalr ====
+
+// ========================= I-跳转 jalr ===========================
           7'b1100111 : begin
             alu_src_b     = 2'b01;
             alu_op        = 5'b0_0001;
@@ -95,7 +106,8 @@ module control (
             reg_wdata_src = 2'b10;
             pc_sel        = 2'b10;
           end
-          // ==== S-Store ====
+
+// ============================ S-Store ===========================
           7'b0100011 : begin
             alu_src_b     = 2'b01;
             mem_write     = 1'b1;
@@ -120,7 +132,8 @@ module control (
               default: ;
             endcase
           end
-          // U型指令
+
+// ========================  U型指令 =============================
           7'b0110111 : begin // lui
             alu_op        = 5'b0_1010;
             reg_write     = 1'b1 ; 
@@ -137,7 +150,62 @@ module control (
             reg_wdata_src = 2'b10;
             pc_sel        = 2'b01;
           end
-          default: ;
-        endcase
+
+// ================  system inst  ======================== //
+          7'b1110011 : begin
+            case (funct3) 
+              3'b000 : begin
+              case (funct12) 
+              12'b0000_0000_0001 : begin
+
+              end
+              12'b0000_0000_0000 : begin
+
+              end
+              12'b0011_0000_0010 : begin
+                
+              end
+              12'b0001_0000_0101 : begin
+                
+              end
+              default : ;
+              endcase
+            end
+              3'b001 : begin    // csrrw
+                
+              end
+              3'b010 : begin    // csrrs
+                
+              end
+              3'b011 : begin    // csrrc
+                
+              end 
+              3'b101 : begin    // csrrwi
+                
+              end
+              3'b110 : begin    // csrrsi
+                
+              end
+              3'b111 : begin    // csrrci
+                
+              end
+              default:;
+            endcase
+          end
+
+// ===============  memory inst ================================//
+          7'b0001111 : begin
+            case (funct3)
+              3'b000 : begin
+                
+              end
+              3'b001 : begin
+                
+              end
+              default : ;
+            endcase
+          end
+         default : ;
+      endcase
     end
 endmodule
