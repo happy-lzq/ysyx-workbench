@@ -9,5 +9,5 @@
 !*.cpp
 !.gitignore
 !README.md
-!notes
+!notes/**
 build/

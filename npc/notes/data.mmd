@@ -1,0 +1,83 @@
+---
+title: NPC 单周期 RV32I — 完整数据通路 (基于代码)
+---
+flowchart LR
+    subgraph IF[" if_stage " ]
+        PCREG[" PC寄存器
+pc <= pc_next " ]
+        IMEM[" imem
+instr=imem[pc>>2] " ]
+        ADD4[" +4加法器
+pc_plus4 " ]
+        PCSEL[" PC选择MUX
+00=+4 01=pc+imm_jal
+10={jump_jalr[31:1],1b0}
+11=br_taken?+imm_br:+4 " ]
+    end
+    subgraph ID[" id_stage " ]
+        DEC[" 字段切片
+opcode=funct3=funct7
+rs1_addr=rs2_addr=rd_addr " ]
+        CTRL[" control.v
+10组控制信号 " ]
+        IMM[" imm_gen.v
+imm_out " ]
+    end
+    subgraph EX[" ex_stage " ]
+        AMUX[" 源A MUX
+0=rs1 1=pc
+-> src1 " ]
+        BMUX[" 源B MUX
+00=rs2 01=imm 10=4
+-> src2 " ]
+        ALU0[" alu.v
+alu_result " ]
+        BR[" br_cond.v
+br_taken " ]
+    end
+    subgraph MEM[" mem_stage " ]
+        MMEM[" mem[1M]
+mem_rdata_raw " ]
+        LSU0[" lsu.v
+mem_rdata=wdata=wmask " ]
+    end
+    subgraph WB[" wb_stage " ]
+        WMUX[" 写回MUX
+0=ALU 1=MEM 2=PC+4
+reg_wdata " ]
+    end
+    subgraph RF[" regfile " ]
+        RF_R[" 读口
+rs1_rdata rs2_rdata " ]
+        RF_W[" 写口
+rd_wdata<=rf[rd_addr] " ]
+    end
+
+    IF --> ID --> EX --> MEM --> WB
+
+    IMEM -- "instr" --> DEC
+    IMM -- "imm_out" --> BMUX
+    IMM -- "imm_out" --> PCSEL
+    DEC -- "rs1_addr rs2_addr" --> RF_R
+    DEC -- "rd_addr" --> RF_W
+    RF_R -- "rs1_rdata" --> AMUX
+    RF_R -- "rs2_rdata" --> BMUX
+    RF_R -- "rs2_rdata" --> MEM
+    RF_R -- "rs1_rdata rs2_rdata" --> BR
+    PCREG -- "pc" --> AMUX
+    PCREG -- "pc" --> EX
+    ADD4 -- "pc_plus4" --> WMUX
+    ADD4 -- "pc_plus4" --> PCSEL
+    ALU0 -- "alu_result" --> MMEM
+    ALU0 -- "alu_result" --> WMUX
+    ALU0 -- "alu_result" --> PCSEL
+    MMEM -- "mem_rdata_raw" --> LSU0
+    LSU0 -- "mem_rdata" --> WMUX
+    BR -- "br_taken" --> PCSEL
+    WMUX -- "reg_wdata" --> RF_W
+    CTRL -- "alu_op alu_src_a alu_src_b" --> EX
+    CTRL -- "br_type" --> BR
+    CTRL -- "mem_read mem_write lsu_type" --> MEM
+    CTRL -- "reg_wdata_src" --> WMUX
+    CTRL -- "reg_write" --> RF_W
+    CTRL -- "pc_sel" --> IF

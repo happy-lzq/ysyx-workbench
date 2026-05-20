@@ -1,0 +1,25 @@
+---
+title: NPC 单周期 RV32I — 架构设计总图 (代码实现)
+---
+flowchart TB
+    subgraph TOP[" " ]
+        direction LR
+        RF
+    end
+    subgraph BOT[" " ]
+        direction LR
+        IF --> ID --> EX --> MEM --> WB
+    end
+
+    RF["<b>regfile.v</b><br/>32x32 寄存器文件<br/>读:2路组合 rs1_rdata/rs2_rdata<br/>写:时序 rd_wdata=>rf[rd_addr]" ]
+
+    IF["<b>if_stage.v</b><br/>PC寄存器+PC选择MUX<br/>指令存储器 imem[64K]<br/>pc_plus4=pc+4" ]
+    ID["<b>id_stage.v</b><br/>instr字段切片<br/>imm_gen 立即数生成<br/>control 10组控制信号" ]
+    EX["<b>ex_stage.v</b><br/>src1/src2 MUX<br/>alu 11种运算<br/>br_cond 6种分支判断" ]
+    MEM["<b>mem_stage.v</b><br/>统一内存 mem[64K]<br/>组合读 mem_rdata_raw<br/>时序写 + lsu翻译" ]
+    WB["<b>wb_stage.v</b><br/>写回MUX 3选1<br/>0=ALU / 1=MEM / 2=PC+4" ]
+
+    ID -- " rs1_addr rs2_addr rd_addr " --> RF
+    RF -- " rs1_rdata rs2_rdata " --> EX
+    WB -- " reg_wdata + reg_write " --> RF
+    EX -- " br_taken alu_result " --> IF
