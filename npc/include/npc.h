@@ -19,6 +19,14 @@
 
 // ==================== 基础类型 ====================
 typedef uint32_t paddr_t;
+typedef uint32_t vaddr_t;
+// enum {NEMU_RUNNING, NEMU_STOP, NEMU_END, NEMU_ABORT, NEMU_QUIT};
+
+// typedef struct {
+//   int state;
+//   vaddr_t halt_pc;
+//   uint32_t halt_ret;
+// }NPCState;
 
 typedef struct {
     uint32_t gpr[32];

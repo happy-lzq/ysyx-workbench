@@ -7,7 +7,7 @@ module if_stage (
     ,imm_jal 
     ,imm_br
     ,pc
-    ,pc_plus4                       // 用于regfile 写回
+    ,pc_plus4                       
     ,instr
 );
     input   wire                      clk,rst,br_taken;

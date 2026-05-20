@@ -3,16 +3,23 @@ module control (
     ,opcode
     ,funct3
     ,funct7
-    ,alu_op
-    ,alu_src_a
-    ,alu_src_b
-    ,br_type
-    ,mem_read
-    ,mem_write
-    ,lsu_type
-    ,reg_write
-    ,reg_wdata_src
-    ,pc_sel
+    ,alu_op          
+    ,alu_src_a       
+    ,alu_src_b       
+    ,br_type         
+    ,mem_read        
+    ,mem_write       
+    ,lsu_type        
+    ,reg_write       
+    ,reg_wdata_src   
+    ,pc_sel          
+    ,csr_op          
+    ,csr_read        
+    ,csr_write       
+    ,csr_addr        
+    ,csr_zimm        
+    ,csr_imm         
+    ,mret  
 );
 
 
@@ -20,18 +27,25 @@ module control (
     input [2 :0] funct3;
     input [6 :0] funct7;
     input [31:0] inst  ;
-    output reg [4:0] alu_op;
-    output reg [0:0] alu_src_a;
-    output reg [1:0] alu_src_b;
-    output reg [2:0] br_type;
-    output reg [0:0] mem_read,mem_write,reg_write;
-    output reg [2:0] lsu_type;
-    output reg [1:0] reg_wdata_src;
-    output reg [1:0] pc_sel;
+    output reg  [4 :0] alu_op;
+    output reg  [0 :0] alu_src_a;
+    output reg  [1 :0] alu_src_b;
+    output reg  [2 :0] br_type;
+    output reg  [0 :0] mem_read,mem_write,reg_write;
+    output reg  [2 :0] lsu_type;
+    output reg  [1 :0] reg_wdata_src;
+    output reg  [1 :0] pc_sel;
+  // CSR output data stream
+    output reg  [0 :0] csr_read,csr_write,csr_imm,mret;
+    output reg  [1 :0] csr_op;
+    output wire [11:0] csr_addr;
+    output wire [31:0] csr_zimm;
+  
+
+    wire [11:0] funct12  = inst[31:20] ;
+    assign csr_addr      = inst[31:20] ;
+    assign csr_zimm      = {{27{1'b0}},inst[19:15]};
     
-    wire [11:0] funct12 = inst[31:20] ;
-
-
 
 // ============== 常规指令 ========================//
     always@(*)begin
@@ -46,8 +60,98 @@ module control (
         reg_write     = 0;
         reg_wdata_src = 2'b00;
         pc_sel        = 2'b00;
-
+        // csr 
+        csr_op        = 2'b00;
+        csr_read      = 0;
+        csr_write     = 0;
+        csr_imm       = 1'b0;
+        mret          = 0;
         case (opcode)
+// ================  system inst  ======================== //
+          7'b1110011 : begin
+            case (funct3) 
+              3'b000 : begin
+              case (funct12) 
+              12'b0000_0000_0001 : begin                  // ebreak
+
+              end
+              12'b0000_0000_0000 : begin                  // ecall
+
+              end
+              12'b0011_0000_0010 : begin                  // mret
+                
+              end
+              12'b0001_0000_0101 : begin                  // wfi  
+                
+              end
+              default : ;
+              endcase
+            end
+              3'b001 : begin                              // csrrw
+                csr_op        = 2'b00;                        // 写
+                csr_read      = 1'b1;                         // load  csr
+                csr_write     = 1'b1;                         // store csr
+                reg_write     = 1'b1;                         // store regfile
+                csr_imm       = 1'b1;                         // 取rs1_data
+                reg_wdata_src = 2'b11;
+              end
+              3'b010 : begin                              // csrrs
+                csr_op        = 2'b01;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1;
+                csr_imm       = 1'b1; 
+                reg_wdata_src = 2'b11;                        
+              end
+              3'b011 : begin                              // csrrc
+                csr_op        = 2'b10;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1; 
+                csr_imm       = 1'b1;
+                reg_wdata_src = 2'b11;
+              end 
+              3'b101 : begin                              // csrrwi
+                csr_op        = 2'b00;  
+                csr_read      = 1'b1;   
+                csr_write     = 1'b1;   
+                reg_write     = 1'b1;   
+                csr_imm       = 1'b0;
+                reg_wdata_src = 2'b11;
+              end
+              3'b110 : begin                              // csrrsi
+                csr_op        = 2'b01;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1;
+                csr_imm       = 1'b0; 
+                reg_wdata_src = 2'b11;   
+              end
+              3'b111 : begin                              // csrrci
+                csr_op         = 2'b10;  
+                csr_read       = 1'b1; 
+                csr_write      = 1'b1; 
+                reg_write      = 1'b1; 
+                csr_imm        = 1'b0;
+                reg_wdata_src = 2'b11;
+              end
+              default:;
+            endcase
+          end
+
+// ===============  memory inst ================================//
+          7'b0001111 : begin
+            case (funct3)
+              3'b000 : begin                              // fence
+                
+              end
+              3'b001 : begin                              // fence.i
+                
+              end
+              default : ;
+            endcase
+          end
+
 // =========================== R =====================================
           7'b0110011 : begin
             reg_write = 1'b1;
@@ -150,62 +254,7 @@ module control (
             reg_wdata_src = 2'b10;
             pc_sel        = 2'b01;
           end
-
-// ================  system inst  ======================== //
-          7'b1110011 : begin
-            case (funct3) 
-              3'b000 : begin
-              case (funct12) 
-              12'b0000_0000_0001 : begin
-
-              end
-              12'b0000_0000_0000 : begin
-
-              end
-              12'b0011_0000_0010 : begin
-                
-              end
-              12'b0001_0000_0101 : begin
-                
-              end
-              default : ;
-              endcase
-            end
-              3'b001 : begin    // csrrw
-                
-              end
-              3'b010 : begin    // csrrs
-                
-              end
-              3'b011 : begin    // csrrc
-                
-              end 
-              3'b101 : begin    // csrrwi
-                
-              end
-              3'b110 : begin    // csrrsi
-                
-              end
-              3'b111 : begin    // csrrci
-                
-              end
-              default:;
-            endcase
-          end
-
-// ===============  memory inst ================================//
-          7'b0001111 : begin
-            case (funct3)
-              3'b000 : begin
-                
-              end
-              3'b001 : begin
-                
-              end
-              default : ;
-            endcase
-          end
-         default : ;
+        default : ;
       endcase
     end
 endmodule

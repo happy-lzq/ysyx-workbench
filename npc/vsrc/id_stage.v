@@ -1,6 +1,5 @@
 module id_stage (
     instr
-    // control
     ,rs1_addr
     ,rs2_addr
     ,rd_addr
@@ -16,12 +15,18 @@ module id_stage (
     ,reg_write
     ,reg_wdata_src
     ,pc_sel
-    // imm_gen
     ,imm_out
     ,inst
+    ,csr_op
+    ,csr_read
+    ,csr_write
+    ,mret
+    ,csr_addr
+    ,csr_zimm
+    ,csr_imm
 );
     input  wire [31:0] instr;
-    input wire [31:0] rs1_rdata,rs2_rdata;
+    input  wire [31:0] rs1_rdata,rs2_rdata;
     output wire [4 :0] alu_op;
     output wire [0 :0] alu_src_a;
     output wire [1 :0] alu_src_b;
@@ -32,7 +37,11 @@ module id_stage (
     output wire [1 :0] pc_sel;
     output wire [31:0] imm_out,inst;
     output wire [4 :0] rd_addr,rs1_addr,rs2_addr;
-
+    // csr
+    output wire [1:0]  csr_op;
+    output wire [0 :0] csr_read,csr_write,csr_imm,mret;
+    output wire [11:0] csr_addr;
+    output wire [31:0] csr_zimm;
 
 
     wire [6:0] opcode   = instr[6:0];
@@ -42,27 +51,33 @@ module id_stage (
     assign rs2_addr = instr[24:20];
     assign rd_addr  = instr[11:7];
     assign inst = instr;
-    imm_gen imm_gen_pic(
-        .instr      (instr          )
-        ,.imm_out   (imm_out        )
-    );
 
-    control u_control (
-        .inst             (inst),
-        .opcode           (opcode),
-        .funct3           (funct3),
-        .funct7           (funct7),
-        .alu_op           (alu_op),
-        .alu_src_a        (alu_src_a),
-        .alu_src_b        (alu_src_b),
-        .br_type          (br_type),
-        .mem_read         (mem_read),
-        .mem_write        (mem_write),
-        .lsu_type         (lsu_type),
-        .reg_write        (reg_write),
-        .reg_wdata_src    (reg_wdata_src),
-        .pc_sel           (pc_sel)
-    );
+imm_gen u_imm_gen (
+    .instr      (instr),
+    .imm_out    (imm_out)
+);
 
-
+control u_control (
+    .inst             (inst),
+    .opcode           (opcode),
+    .funct3           (funct3),
+    .funct7           (funct7),
+    .alu_op           (alu_op),
+    .alu_src_a        (alu_src_a),
+    .alu_src_b        (alu_src_b),
+    .br_type          (br_type),
+    .mem_read         (mem_read),
+    .mem_write        (mem_write),
+    .lsu_type         (lsu_type),
+    .reg_write        (reg_write),
+    .reg_wdata_src    (reg_wdata_src),
+    .pc_sel           (pc_sel),
+    .csr_op           (csr_op),
+    .csr_read         (csr_read),
+    .csr_write        (csr_write),
+    .mret             (mret),
+    .csr_addr         (csr_addr),
+    .csr_zimm         (csr_zimm),
+    .csr_imm          (csr_imm)
+);
 endmodule
