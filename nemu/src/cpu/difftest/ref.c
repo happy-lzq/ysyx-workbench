@@ -19,15 +19,24 @@
 #include <memory/paddr.h>
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction) {
-  assert(0);
+  if (direction == DIFFTEST_TO_REF){
+    memcpy(guest_to_host(addr), buf, n);
+  } else{
+    memcpy(buf, guest_to_host(addr), n);
+  }
 }
 
 __EXPORT void difftest_regcpy(void *dut, bool direction) {
-  assert(0);
+  // printf("[REF regcpy] direction=%d, cpu.pc=0x%08x\n", direction, cpu.pc);
+  if (direction == DIFFTEST_TO_REF){
+    memcpy(&cpu,dut,DIFFTEST_REG_SIZE);
+  } else{
+    memcpy(dut,&cpu,DIFFTEST_REG_SIZE);
+  }
 }
 
 __EXPORT void difftest_exec(uint64_t n) {
-  assert(0);
+  cpu_exec(n);
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
@@ -36,7 +45,8 @@ __EXPORT void difftest_raise_intr(word_t NO) {
 
 __EXPORT void difftest_init(int port) {
   void init_mem();
-  init_mem();
-  /* Perform ISA dependent initialization. */
-  init_isa();
+  init_mem();   // 初始化分配nemu 物理内存
+  init_isa();   // 初始化cpu结构体--核心GPR+PC
+  nemu_state.state = NEMU_RUNNING; 
 }
+

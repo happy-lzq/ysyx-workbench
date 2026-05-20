@@ -169,17 +169,9 @@ void cpu_exec(uint64_t n) {
       printf("Program execution has ended. To restart the program, exit NEMU and run again.\n");
       return;
     default: nemu_state.state = NEMU_RUNNING;
-/*
-1、默认cpu状态为：END ABORT QUIT 程序结束，终止，退出，直接返回不再运行
-2、其他cpu状态，cpu_exec执行指令前首先将状态修改为RUNNING
-*/ 
-
   }
-
   uint64_t timer_start = get_time();
-
   execute(n);
-
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
 

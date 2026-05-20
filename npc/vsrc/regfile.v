@@ -13,7 +13,6 @@ module regfile (
     input  wire [31:0] rd_wdata;
     output wire [31:0] rs1_rdata,rs2_rdata;
 
-    // define regfile
     reg [31:0] rf [0:31];
 
     assign rs1_rdata = (rs1_addr == 5'b0) ? 32'b0 : rf[rs1_addr];
@@ -24,6 +23,5 @@ module regfile (
             rf[rd_addr] <= rd_wdata;
         end
     end
-
 
 endmodule

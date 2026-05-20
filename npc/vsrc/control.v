@@ -1,31 +1,58 @@
 module control (
-    opcode
+    inst
+    ,opcode
     ,funct3
     ,funct7
-    ,alu_op
-    ,alu_src_a
-    ,alu_src_b
-    ,br_type
-    ,mem_read
-    ,mem_write
-    ,lsu_type
-    ,reg_write
-    ,reg_wdata_src
-    ,pc_sel
+    ,alu_op          
+    ,alu_src_a       
+    ,alu_src_b       
+    ,br_type         
+    ,mem_read        
+    ,mem_write       
+    ,lsu_type        
+    ,reg_write       
+    ,reg_wdata_src   
+    ,pc_sel          
+    ,csr_op          
+    ,csr_read        
+    ,csr_write       
+    ,csr_addr        
+    ,csr_zimm        
+    ,csr_imm
+    ,trap_enter
+    ,trap_code         
+    ,mret  
 );
-    input [6:0] opcode;
-    input [2:0] funct3;
-    input [6:0] funct7;
 
-    output reg [4:0] alu_op;
-    output reg [0:0] alu_src_a;
-    output reg [1:0] alu_src_b;
-    output reg [2:0] br_type;
-    output reg [0:0] mem_read,mem_write,reg_write;
-    output reg [2:0] lsu_type;
-    output reg [1:0] reg_wdata_src;
-    output reg [1:0] pc_sel;
 
+    input       [6 :0] opcode;
+    input       [2 :0] funct3;
+    input       [6 :0] funct7;
+    input       [31:0] inst  ;
+    output reg  [4 :0] alu_op;
+    output reg  [0 :0] alu_src_a;
+    output reg  [1 :0] alu_src_b;
+    output reg  [2 :0] br_type;
+    output reg  [0 :0] mem_read,mem_write,reg_write;
+    output reg  [2 :0] lsu_type;
+    output reg  [1 :0] reg_wdata_src;
+    output reg  [1 :0] pc_sel;
+  // CSR output data stream
+    output reg  [0 :0] csr_read,csr_write,csr_imm;
+    output reg  [1 :0] csr_op;
+    output wire [11:0] csr_addr;
+    output wire [31:0] csr_zimm;
+  // system output data ctream
+    output reg  [0:0]trap_enter,mret;     // ecall/ebreak → 1
+    output reg  [3:0]      trap_code;     // 11=ecall, 3=ebreak
+  
+
+    wire [11:0] funct12  = inst[31:20] ;
+    assign csr_addr      = inst[31:20] ;
+    assign csr_zimm      = {{27{1'b0}},inst[19:15]};
+    
+
+// ============== 常规指令 ========================//
     always@(*)begin
     // 第一步：给所有信号设默认值（非分支、不访存、不写回）
         alu_op        = 5'b0;  //SUB
@@ -38,9 +65,88 @@ module control (
         reg_write     = 0;
         reg_wdata_src = 2'b00;
         pc_sel        = 2'b00;
-
+        // csr 
+        csr_op        = 2'b00;
+        csr_read      = 0;
+        csr_write     = 0;
+        csr_imm       = 1'b0;
+        // system
+        trap_enter    = 0;
+        trap_code     = 4'b0;
+        mret          = 0;
         case (opcode)
-        // ==== R =====
+// ================  system inst  ======================== //
+          7'b1110011 : begin
+            case (funct3) 
+              3'b000 : begin
+              case (funct12) 
+              12'b0000_0000_0001 : begin                  // ebreak
+                trap_enter = 1'b1;
+                trap_code  = 4'b0011;                    
+              end
+              12'b0000_0000_0000 : begin                  // ecall
+                trap_enter = 1'b1;
+                trap_code  = 4'b1011;  
+              end
+              12'b0011_0000_0010 : begin                  // mret
+                mret = 1'b1;
+              end
+              default : ;
+              endcase
+            end
+              3'b001 : begin                              // csrrw
+                csr_op        = 2'b00;                        // 写
+                csr_read      = 1'b1;                         // load  csr
+                csr_write     = 1'b1;                         // store csr
+                reg_write     = 1'b1;                         // store regfile
+                csr_imm       = 1'b1;                         // 取rs1_data
+                reg_wdata_src = 2'b11;
+              end
+              3'b010 : begin                              // csrrs
+                csr_op        = 2'b01;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1;
+                csr_imm       = 1'b1; 
+                reg_wdata_src = 2'b11;                        
+              end
+              3'b011 : begin                              // csrrc
+                csr_op        = 2'b10;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1; 
+                csr_imm       = 1'b1;
+                reg_wdata_src = 2'b11;
+              end 
+              3'b101 : begin                              // csrrwi
+                csr_op        = 2'b00;  
+                csr_read      = 1'b1;   
+                csr_write     = 1'b1;   
+                reg_write     = 1'b1;   
+                csr_imm       = 1'b0;
+                reg_wdata_src = 2'b11;
+              end
+              3'b110 : begin                              // csrrsi
+                csr_op        = 2'b01;  
+                csr_read      = 1'b1; 
+                csr_write     = 1'b1; 
+                reg_write     = 1'b1;
+                csr_imm       = 1'b0; 
+                reg_wdata_src = 2'b11;   
+              end
+              3'b111 : begin                              // csrrci
+                csr_op         = 2'b10;  
+                csr_read       = 1'b1; 
+                csr_write      = 1'b1; 
+                reg_write      = 1'b1; 
+                csr_imm        = 1'b0;
+                reg_wdata_src = 2'b11;
+              end
+              default:;
+            endcase
+          end
+
+// =========================== R =====================================
           7'b0110011 : begin
             reg_write = 1'b1;
             case (funct3)
@@ -55,7 +161,8 @@ module control (
                 default: alu_op = 5'b0;
             endcase            
           end
-        // ==== I-算术立即数 ====
+
+// ========================= I-算术立即数 ================================
           7'b0010011 : begin
             reg_write = 1'b1 ;
             alu_src_b = 2'b01;
@@ -71,7 +178,8 @@ module control (
                 default: alu_op = 5'b0;
             endcase
           end
-          // ==== I-Load ====
+
+// ========================== I-Load =================================
           7'b0000011 : begin
             alu_src_b     = 2'b01;
             reg_write     = 1'b1;
@@ -87,7 +195,8 @@ module control (
                 default: ;
             endcase 
           end
-          // ==== I-跳转 jalr ====
+
+// ========================= I-跳转 jalr ===========================
           7'b1100111 : begin
             alu_src_b     = 2'b01;
             alu_op        = 5'b0_0001;
@@ -95,7 +204,8 @@ module control (
             reg_wdata_src = 2'b10;
             pc_sel        = 2'b10;
           end
-          // ==== S-Store ====
+
+// ============================ S-Store ===========================
           7'b0100011 : begin
             alu_src_b     = 2'b01;
             mem_write     = 1'b1;
@@ -120,7 +230,8 @@ module control (
               default: ;
             endcase
           end
-          // U型指令
+
+// ========================  U型指令 =============================
           7'b0110111 : begin // lui
             alu_op        = 5'b0_1010;
             reg_write     = 1'b1 ; 
@@ -137,7 +248,7 @@ module control (
             reg_wdata_src = 2'b10;
             pc_sel        = 2'b01;
           end
-          default: ;
-        endcase
+        default : ;
+      endcase
     end
 endmodule

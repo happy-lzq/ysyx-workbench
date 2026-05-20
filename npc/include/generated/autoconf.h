@@ -1,0 +1,17 @@
+/*
+ *
+ * Automatically generated file; DO NOT EDIT.
+ * NPC Configuration Menu
+ *
+ */
+#define CONFIG_DMEM_SIZE 65536
+#define CONFIG_ITRACE_START 0
+#define CONFIG_ITRACE 1
+#define CONFIG_PMEM_SIZE 0x8000000
+#define CONFIG_DIFFTEST 1
+#define CONFIG_HAS_SERIAL 1
+#define CONFIG_ISA_riscv32 1
+#define CONFIG_RESET_VECTOR 0x80000000
+#define CONFIG_IMEM_SIZE 65536
+#define CONFIG_ISA "riscv32"
+#define CONFIG_ITRACE_END 10000

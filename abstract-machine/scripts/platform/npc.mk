@@ -8,12 +8,15 @@ AM_SRCS := riscv/npc/start.S \
            platform/dummy/vme.c \
            platform/dummy/mpe.c
 
-CFLAGS    += -fdata-sections -ffunction-sections
+CFLAGS    += -fdata-sections -ffunction-sections -g
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 
-MAINARGS_MAX_LEN = 64
+DIFF_SO_PATH=$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
+NEMUFLAGS += -i $(IMAGE).bin -d $(DIFF_SO_PATH)
+
+MAINARGS_MAX_LEN = 128
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) 
 CFLAGS += -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
@@ -26,6 +29,13 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	echo "TODO: add command here to run simulation"
+	$(MAKE) -C $(NPC_HOME) run ARGS="$(NEMUFLAGS)"
 
-.PHONY: insert-arg
+vcd: insert-arg
+	$(MAKE) -C $(NPC_HOME) vcd ARGS="$(NEMUFLAGS)"
+
+gdb: insert-arg
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
+
+.PHONY: insert-arg vcd
+
