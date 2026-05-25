@@ -84,6 +84,8 @@ module control (
               3'b000 : begin
               case (funct12) 
               12'b0000_0000_0001 : begin                  // ebreak
+                // trap_enter = 1'b1;        后续进入trap使用
+                // trap_code  = 4'b1011;          
                 is_ebreak  = 1'b1;                 
               end
               12'b0000_0000_0000 : begin                  // ecall

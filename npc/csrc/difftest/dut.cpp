@@ -56,6 +56,10 @@ void difftest_step(Vcore_top* top,int idx){
 		}
 		match_gpr = true;
 	}
+	if (!match_pc | !match_gpr ){
+		npc_sim_state.state = NPC_ABORT;
+	}
+	
 	if (!match_pc){
                 if (tfp) tfp->close();
                 panic("difftest mismatch at cycle %d : pc=%08x\n",idx,npc_s.pc);

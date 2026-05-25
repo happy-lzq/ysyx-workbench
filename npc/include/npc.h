@@ -16,17 +16,17 @@
 // ==================== 基础常量（由 Kconfig 生成） ====================
 #define RESET_VECTOR CONFIG_RESET_VECTOR
 #define PMEM_SIZE    CONFIG_PMEM_SIZE
-
+#define MAX_CYCLE 1000000
 // ==================== 基础类型 ====================
 typedef uint32_t paddr_t;
 typedef uint32_t vaddr_t;
-// enum {NEMU_RUNNING, NEMU_STOP, NEMU_END, NEMU_ABORT, NEMU_QUIT};
+enum {NPC_STOP,NPC_RUNNING, NPC_END, NPC_ABORT, NPC_QUIT};
 
-// typedef struct {
-//   int state;
-//   vaddr_t halt_pc;
-//   uint32_t halt_ret;
-// }NPCSIM_State;
+typedef struct {
+  int state;
+  vaddr_t halt_pc;
+  uint32_t halt_ret;
+}NPCSIM_State;
 
 typedef struct {
     uint32_t gpr[32];
@@ -45,6 +45,7 @@ typedef struct {
 extern Vcore_top *top;
 extern VerilatedVcdC* tfp ;
 extern NPC_state npc_s, ref_s;
+extern NPCSIM_State npc_sim_state;
 extern DEBUG_FILE_PATH dfp;
 extern uint8_t npc_pmem[PMEM_SIZE];
 extern int idx;
@@ -53,13 +54,16 @@ extern const char *img_file;
 extern const char *diff_so_file;
 extern FILE *diff_fp;
 extern bool wave_enabled;
+extern uint64_t sim_time;
 
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
 void init_diff_log(const char *img_path);
 void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
-
+void halt();
+void npc_init();
+void npc_state_check();
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };
 
