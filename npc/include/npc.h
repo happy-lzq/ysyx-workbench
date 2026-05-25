@@ -26,7 +26,7 @@ typedef uint32_t vaddr_t;
 //   int state;
 //   vaddr_t halt_pc;
 //   uint32_t halt_ret;
-// }NPCState;
+// }NPCSIM_State;
 
 typedef struct {
     uint32_t gpr[32];

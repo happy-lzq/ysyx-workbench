@@ -39,9 +39,9 @@ module ex_stage (
     wire [31:0] csr_src = csr_imm ? rs1_rdata : csr_zimm;
     always @(*) begin
         case (csr_op)
-           2'b00 : csr_wdata = rs1_rdata ;            // csrrw csrrwi
-           2'b01 : csr_wdata = rs1_rdata &  csr_src;  // csrrs csrrsi
-           2'b10 : csr_wdata = rs1_rdata & ~csr_src;  // csrrc csrrci
+           2'b00 : csr_wdata = csr_src;               // csrrw csrrwi
+           2'b01 : csr_wdata = csr_rdata |  csr_src;  // csrrs csrrsi
+           2'b10 : csr_wdata = csr_rdata & ~csr_src;  // csrrc csrrci
             default: csr_wdata = 32'b0;
     endcase
     end

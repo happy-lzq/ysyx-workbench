@@ -20,10 +20,13 @@ module id_stage (
     ,csr_op
     ,csr_read
     ,csr_write
-    ,mret
     ,csr_addr
     ,csr_zimm
     ,csr_imm
+    ,mret
+    ,trap_enter
+    ,trap_code
+    ,is_ebreak
 );
     input  wire [31:0] instr;
     input  wire [31:0] rs1_rdata,rs2_rdata;
@@ -31,18 +34,18 @@ module id_stage (
     output wire [0 :0] alu_src_a;
     output wire [1 :0] alu_src_b;
     output wire [2 :0] br_type;
-    output wire [0 :0] mem_read,mem_write,reg_write;
+    output wire [0 :0] mem_read,mem_write,reg_write,is_ebreak;
     output wire [2 :0] lsu_type;
     output wire [1 :0] reg_wdata_src;
     output wire [1 :0] pc_sel;
     output wire [31:0] imm_out,inst;
     output wire [4 :0] rd_addr,rs1_addr,rs2_addr;
     // csr
-    output wire [1:0]  csr_op;
-    output wire [0 :0] csr_read,csr_write,csr_imm,mret;
+    output wire [1 :0]  csr_op;
+    output wire [0 :0] csr_read,csr_write,csr_imm,mret,trap_enter;
     output wire [11:0] csr_addr;
     output wire [31:0] csr_zimm;
-
+    output wire [3 :0] trap_code; 
 
     wire [6:0] opcode   = instr[6:0];
     wire [2:0] funct3   = instr[14:12];
@@ -56,7 +59,6 @@ imm_gen u_imm_gen (
     .instr      (instr),
     .imm_out    (imm_out)
 );
-
 control u_control (
     .inst             (inst),
     .opcode           (opcode),
@@ -75,9 +77,13 @@ control u_control (
     .csr_op           (csr_op),
     .csr_read         (csr_read),
     .csr_write        (csr_write),
-    .mret             (mret),
     .csr_addr         (csr_addr),
     .csr_zimm         (csr_zimm),
-    .csr_imm          (csr_imm)
+    .csr_imm          (csr_imm),
+    .trap_enter       (trap_enter),
+    .trap_code        (trap_code),
+    .is_ebreak        (is_ebreak),
+    .mret             (mret)
 );
+
 endmodule

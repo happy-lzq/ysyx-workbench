@@ -1,8 +1,13 @@
 module core_top (
     clk
     ,rst
+    ,halt
+    ,halt_pc
+    ,halt_ret
 );
     input  wire [0 :0]                            clk,rst;
+    output wire [0 :0]                               halt;
+    output wire [31:0]                   halt_pc,halt_ret;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
@@ -11,7 +16,7 @@ module core_top (
     wire [31:0]                                        pc;
     wire [31:0]                       pc_plus4,instr,inst;
     wire [4 :0]                                    alu_op;
-    wire [0 :0]                                 alu_src_a;
+    wire [0 :0]                       is_ebreak,alu_src_a;
     wire [1 :0]                                 alu_src_b;
     wire [2 :0]                                   br_type;
     wire [2 :0]                                  lsu_type;
@@ -23,57 +28,60 @@ module core_top (
     wire [1 :0]                                    csr_op; 
     wire [4 :0]                                   csr_rs1;
     wire [11:0]                                  csr_addr;
-    wire [31:0]               trap_pc,trap_code,csr_wdata;
+    wire [31:0]                         trap_pc,csr_wdata;
     wire [0: 0]csr_imm,csr_write,csr_read,mret,trap_enter;
     wire [31:0]            csr_rdata,trap_target,csr_zimm;
+    wire [3 :0]                                 trap_code;
+    wire [31:0]                                     rs_a0;
 
     assign jump_jalr        = alu_result;
     assign imm_jal          = imm_out;
     assign imm_br           = imm_out;
     assign mem_addr         = alu_result;
     assign mem_wdata_raw    = rs2_rdata;    
- 
+    assign trap_pc          = pc;
 
 regfile u_regfile (
-    .clk          (clk),       
+    .clk          (clk),
     .rs1_addr     (rs1_addr),
     .rs2_addr     (rs2_addr),
     .rd_addr      (rd_addr),
     .rd_wdata     (rd_wdata),
     .reg_write    (reg_write),
     .rs1_rdata    (rs1_rdata),
-    .rs2_rdata    (rs2_rdata)
+    .rs2_rdata    (rs2_rdata),
+    .rs_a0        (rs_a0)
 );
 
 csr u_csr (
     .clk            (clk),
     .rst            (rst),
-    .csr_op         (csr_op),
-    .csr_imm        (csr_imm),
     .csr_addr       (csr_addr),
     .csr_write      (csr_write),
     .csr_wdata      (csr_wdata),
     .csr_read       (csr_read),
-    .csr_rs1        (csr_rs1),
-    .trap_enter     (trap_enter),
+    .csr_rdata      (csr_rdata),
+    .mret           (mret),
     .trap_pc        (trap_pc),
     .trap_code      (trap_code),
-    .mret           (mret),
-    .csr_rdata      (csr_rdata),
+    .trap_enter     (trap_enter),
     .trap_target    (trap_target)
 );
 
 if_stage u_if_stage (
-    .clk          (clk),
-    .rst          (rst),
-    .pc_sel       (pc_sel),
-    .br_taken     (br_taken),
-    .jump_jalr    (jump_jalr),
-    .imm_jal      (imm_jal),
-    .imm_br       (imm_br),
-    .pc           (pc),
-    .pc_plus4     (pc_plus4),
-    .instr        (instr)
+    .clk            (clk),
+    .rst            (rst),
+    .trap_enter     (trap_enter),
+    .trap_target    (trap_target),
+    .mret           (mret),
+    .pc_sel         (pc_sel),
+    .br_taken       (br_taken),
+    .jump_jalr      (jump_jalr),
+    .imm_jal        (imm_jal),
+    .imm_br         (imm_br),
+    .pc             (pc),
+    .pc_plus4       (pc_plus4),
+    .instr          (instr)
 );
 
 id_stage u_id_stage (
@@ -98,10 +106,13 @@ id_stage u_id_stage (
     .csr_op           (csr_op),
     .csr_read         (csr_read),
     .csr_write        (csr_write),
-    .mret             (mret),
     .csr_addr         (csr_addr),
     .csr_zimm         (csr_zimm),
-    .csr_imm          (csr_imm)
+    .csr_imm          (csr_imm),
+    .mret             (mret),
+    .trap_enter       (trap_enter),
+    .trap_code        (trap_code),
+    .is_ebreak        (is_ebreak)
 );
 ex_stage u_ex_stage (
     .rs1_rdata     (rs1_rdata),
@@ -138,4 +149,16 @@ wb_stage u_wb_stage (
     .csr_rdata        (csr_rdata),
     .reg_wdata        (rd_wdata)
 );
+
+halt u_halt (
+    .clk          (clk),
+    .rst          (rst),
+    .is_ebreak    (is_ebreak),
+    .pc           (pc),
+    .rs_a0        (rs_a0),
+    .halt_reg     (halt),
+    .halt_pc      (halt_pc),
+    .halt_ret     (halt_ret)
+);
+
 endmodule

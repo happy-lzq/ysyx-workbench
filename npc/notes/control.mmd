@@ -1,0 +1,78 @@
+---
+title: NPC 单周期 RV32I — 控制信号全景
+---
+graph TB
+    subgraph INPUT["指令输入"]
+        INSTR["instr[31:0]"]
+    end
+
+    INSTR --> DEC["字段拆解"]
+
+    subgraph FIELDS["译码字段"]
+        OP["opcode[6:0]"]
+        F3["funct3[14:12]"]
+        F7["funct7[31:25]"]
+    end
+
+    DEC --> OP
+    DEC --> F3
+    DEC --> F7
+
+    subgraph CTRL_BOX["control.v 主控单元"]
+        TABLE["组合逻辑真值表
+------------------------------
+opcode + funct3 + funct7
+          |
+          v
+     控制信号"]
+    end
+
+    OP --> TABLE
+    F3 --> TABLE
+    F7 --> TABLE
+
+    subgraph EX_OUT["到 EX 阶段"]
+        S_ALUOP["alu_op[3:0]
+ALU 操作码"]
+        S_ALUA["alu_src_a
+0=rs1 1=pc"]
+        S_ALUB["alu_src_b[1:0]
+0=rs2 1=imm 2=4"]
+        S_BR["br_type[2:0]
+0=none 1=BEQ 2=BNE
+3=BLT 4=BGE 5=BLTU 6=BGEU"]
+    end
+
+    subgraph MEM_OUT["到 MEM 阶段"]
+        S_MEMR["mem_read
+0/1 是否读内存"]
+        S_MEMW["mem_write
+0/1 是否写内存"]
+        S_LSU["lsu_type[2:0]
+0=LW 1=LH 2=LB
+3=LHU 4=LBU
+5=SW 6=SH 7=SB"]
+    end
+
+    subgraph WB_OUT["到 WB 阶段"]
+        S_REGW["reg_write
+0/1 是否写寄存器"]
+        S_WDSRC["reg_wdata_src[1:0]
+0=ALU 1=MEM 2=PC+4"]
+    end
+
+    subgraph IF_OUT["到 IF 阶段"]
+        S_PCSEL["pc_sel[1:0]
+0=+4 1=jal 2=jalr 3=branch"]
+    end
+
+    TABLE --> S_ALUOP
+    TABLE --> S_ALUA
+    TABLE --> S_ALUB
+    TABLE --> S_BR
+    TABLE --> S_MEMR
+    TABLE --> S_MEMW
+    TABLE --> S_LSU
+    TABLE --> S_REGW
+    TABLE --> S_WDSRC
+    TABLE --> S_PCSEL
