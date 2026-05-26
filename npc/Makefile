@@ -13,7 +13,7 @@ SIM_CFLAGS = -I$(NPC_HOME)/csrc \
 			 -I$(NPC_HOME)/obj_dir \
 			 -I$(NPC_HOME)/include/generated
 
-LDFLAGS    = -ldl
+LDFLAGS = -ldl -lreadline   # ← 加 -lreadline
 
 # ==================== run-vcd 执行逻辑 ====================
 

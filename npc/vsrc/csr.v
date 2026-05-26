@@ -1,7 +1,6 @@
 module csr (
     clk
     ,rst
-    ,csr_imm
     ,csr_addr
     ,csr_write
     ,csr_wdata
@@ -28,7 +27,7 @@ module csr (
     input  wire [11:0] csr_addr;
     input  wire [31:0] trap_pc,csr_wdata;
     input  wire [3 :0] trap_code;
-    input  wire [0: 0] clk,rst,csr_imm,csr_write,csr_read,mret,trap_enter;
+    input  wire [0: 0] clk,rst,csr_write,csr_read,mret,trap_enter;
     output wire [31:0] csr_rdata,trap_target;
 
     assign csr_rdata = csr_read ? ((csr_addr == mstatus) ? csr_mstatus      : 
@@ -44,7 +43,7 @@ module csr (
 
     always @(posedge clk ) begin
         if (rst) begin
-            csr_mstatus     <= 32'h0000_1800;
+            csr_mstatus     <= 32'h0000_1800;       //RISC-V 规定复位后 CPU 处于 M-mode
             csr_mtvec       <= 32'h8000_0000;
             csr_mepc        <= 32'h0;
             csr_mcause      <= 32'h0;

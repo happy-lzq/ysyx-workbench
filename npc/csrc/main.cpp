@@ -2,21 +2,30 @@
 #include <difftest.h>
 #include <sdb.h>
 
-
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;
 
-uint64_t sim_time = 0;
 int idx =0;
 long img_size = 0;
-
+int cycle = 0;
 const char* img_file = NULL;
 const char* diff_so_file = NULL;
 uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     top->clk = 1; top->eval();
+
+        printf("\n[cycle %d] pc=0x%08x trap_enter=%d mret=%d trap_target=0x%08x\n",
+           cycle,
+           npc_pc(top, 0, READ),
+           top->rootp->core_top__DOT__trap_enter,
+           top->rootp->core_top__DOT__mret,
+           top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
+    
+
+    halt();
+    isa_reg_display();  
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
     if (tfp) tfp->dump(sim_time+=5);
@@ -34,29 +43,62 @@ int main(int argc, char* argv[]){
         tfp->open("build/wave.vcd");
     }
 
-    load_bin(top, img_file);
-    // 复位
-    top->clk = 0; top->rst = 1; top->eval();
-    if (tfp) tfp->dump(sim_time+=5);
-    top->clk = 1; top->eval();                  // 上升沿，rst=1复位 初始化
-    if (tfp) tfp->dump(sim_time+=5);
-    
-    top->clk = 0; top->rst = 0; top->eval();
-    if (tfp) tfp->dump(sim_time+=5);
-    // difftest-exec
+    npc_init();
+
     if (diff_so_file) {
         init_diff_log(img_file);
         init_difftest(diff_so_file, img_size);
     }
-    for (int i = 1; i < idx+1; i++){
-        single_cycle();
-        difftest_step(top,i);
+
+    init_sdb();  
+
+    while (npc_sim_state.state != NPC_QUIT) {
+        switch (npc_sim_state.state) {
+        case NPC_RUNNING:
+            single_cycle();
+            if (diff_so_file) {
+                difftest_step(top, cycle);
+            }
+            if (npc_sim_state.state == NPC_RUNNING && check_watchpoint(&used_list) > 0) {
+                npc_sim_state.state = NPC_STOP;
+            }
+            cycle++;
+            npc_state_check();
+            break;
+        case NPC_STOP:
+            sdb_mainloop();   // ← 进入 sdb 交互
+            break;
+        case NPC_END:
+        case NPC_ABORT:
+            goto exit_loop;
+        }
     }
+    exit_loop:
     
+
     if (tfp) {
         tfp->close();
         delete tfp;
     }
     delete top ;
-    return 0;
+    // 根据真实状态返回退出码
+    if (npc_sim_state.state == NPC_END && npc_sim_state.halt_ret == 0)
+        return 0;   // 真正跑完且通过
+    else
+        return 1;   // 非正常退出
 }
+
+/*
+
+NPC_END (ebreak):
+  halt_ret = x10 (a0)    → "程序的退出码"
+  意义: 0=测试通过, 非0=测试失败
+
+NPC_ABORT (difftest mismatch):
+  halt_ret = 出错的寄存器号  → "哪个寄存器不匹配"
+  意义: 告诉 npc_state_check 打印详细的错误信息
+
+NPC_ABORT (断言/非法指令):
+  halt_ret = -1           → "非正常终止"
+  意义: 标记异常
+*/

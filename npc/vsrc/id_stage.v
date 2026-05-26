@@ -26,6 +26,7 @@ module id_stage (
     ,mret
     ,trap_enter
     ,trap_code
+    ,is_ebreak
 );
     input  wire [31:0] instr;
     input  wire [31:0] rs1_rdata,rs2_rdata;
@@ -33,7 +34,7 @@ module id_stage (
     output wire [0 :0] alu_src_a;
     output wire [1 :0] alu_src_b;
     output wire [2 :0] br_type;
-    output wire [0 :0] mem_read,mem_write,reg_write;
+    output wire [0 :0] mem_read,mem_write,reg_write,is_ebreak;
     output wire [2 :0] lsu_type;
     output wire [1 :0] reg_wdata_src;
     output wire [1 :0] pc_sel;
@@ -58,7 +59,6 @@ imm_gen u_imm_gen (
     .instr      (instr),
     .imm_out    (imm_out)
 );
-
 control u_control (
     .inst             (inst),
     .opcode           (opcode),
@@ -82,6 +82,8 @@ control u_control (
     .csr_imm          (csr_imm),
     .trap_enter       (trap_enter),
     .trap_code        (trap_code),
+    .is_ebreak        (is_ebreak),
     .mret             (mret)
 );
+
 endmodule

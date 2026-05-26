@@ -155,7 +155,7 @@ static int decode_exec(Decode *s) {
       // 1. 系统指令 (系统调用、断点) 放在最前面
       word_t csr_num = BITS(s->isa.inst, 31, 20);
       word_t zimm = BITS(s->isa.inst, 19, 15); 
-      INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); 
+      INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10)));  
       INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11,s->pc)); // M——>11
       INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N,
     // MIE  当前 machine mode 下，中断总开关是否开启 ： 1 接受中断，0不接受中断

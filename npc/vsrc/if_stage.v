@@ -27,9 +27,9 @@ module if_stage (
 
     assign pc_next = (trap_enter | mret ) ? trap_target           :
                      ((pc_sel == 2'b00 ) ? pc + 32'd4             :
-                     (pc_sel == 2'b01 ) ? pc + imm_jal            :
-                     (pc_sel == 2'b10 ) ? {jump_jalr[31:1],1'b0}  :
-                     (pc_sel == 2'b11 ) ? (br_taken ? pc + imm_br : pc + 32'd4) : pc + 32'd4 );
+                      (pc_sel == 2'b01 ) ? pc + imm_jal            :
+                      (pc_sel == 2'b10 ) ? {jump_jalr[31:1],1'b0}  :
+                      (pc_sel == 2'b11 ) ? (br_taken ? pc + imm_br : pc + 32'd4) : pc + 32'd4 );
 
     assign pc_plus4 = pc + 32'd4;
     assign instr    = imem[pc[19:2]];

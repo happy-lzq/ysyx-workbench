@@ -38,32 +38,29 @@ void init_difftest(const char* so_path,long img_size){
 	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
 }
 
-void difftest_step(Vcore_top* top,int idx){
-	ref_difftest_exec(1);
-	ref_difftest_regcpy(&ref_s,DIFFTEST_TO_DUT);
-	npc_s.pc  = npc_pc(top,0,READ); 
-	for (int i = 0; i < 32; i++){
-		npc_s.gpr[i] = npc_gpr(top,i,0,READ);
-	}
-	diff_log_write(&npc_s,&ref_s,idx);
-	bool match_pc,match_gpr;
-	match_pc = (npc_s.pc == ref_s.pc) ? true : false;
-	int i = 0;
-	for (i; i < 32; i++){
-		if (npc_s.gpr[i] != ref_s.gpr[i]){
-			match_gpr = false;
-			break;
-		}
-		match_gpr = true;
-	}
-	if (!match_pc){
-                if (tfp) tfp->close();
-                panic("difftest mismatch at cycle %d : pc=%08x\n",idx,npc_s.pc);
+void difftest_step(Vcore_top* top, int idx) {
+    ref_difftest_exec(1);
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    npc_s.pc = npc_pc(top, 0, READ);
+    for (int i = 0; i < 32; i++) {
+        npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
+    }
+    diff_log_write(&npc_s, &ref_s, idx);
+
+    // PC 对比
+    if (npc_s.pc != ref_s.pc) {
+        npc_sim_state.state    = NPC_ABORT;
+        npc_sim_state.halt_pc  = npc_s.pc;
+        npc_sim_state.halt_ret = -1;
+        return;     // ← 不再 panic，让主循环退出
+    }
+    // GPR 对比
+    for (int i = 0; i < 32; i++) {
+        if (npc_s.gpr[i] != ref_s.gpr[i]) {
+            npc_sim_state.state    = NPC_ABORT;
+            npc_sim_state.halt_pc  = npc_s.pc;
+            npc_sim_state.halt_ret = i;  // ← 用 halt_ret 传失败寄存器号
+            return;
         }
-        if (!match_gpr){
-                if (tfp) tfp->close();
-                panic("difftest pc is match, but gpr mismatch, at cycle %d : pc=%08x [ npc-gpr[%d]=%08x  ref-npc[%d]=%08x ]\n",idx,npc_s.pc,i,npc_s.gpr[i],i,ref_s.gpr[i]);
-		}
-	
-	
+    }
 }
