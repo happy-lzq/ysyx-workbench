@@ -16,15 +16,21 @@ void isa_reg_display() {
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-    // "$a0" → 10, "$t0" → 5, "$0" → 0
+    
+    if (strcmp(s, "$pc") == 0) {
+        *success = true;
+        return npc_pc(top, 0, READ);
+    }
     for (int i = 0; i < 32; i++) {
-        if (strcmp(s, regs[i]) == 0 || 
-            (s[0]=='$' && atoi(s+1) == i)) {
+        if (strcmp(s, regs[i]) == 0) {
+            *success = true;
+            return npc_gpr(top, i, 0, READ);
+        }
+        if (s[0] == '$' && s[1] >= '0' && s[1] <= '9' && atoi(s+1) == i) {
             *success = true;
             return npc_gpr(top, i, 0, READ);
         }
     }
-    if (strcmp(s, "$pc") == 0) { *success = true; return npc_pc(top,0,READ); }
     *success = false;
     return 0;
 }
