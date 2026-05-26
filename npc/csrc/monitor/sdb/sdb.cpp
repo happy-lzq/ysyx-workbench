@@ -131,7 +131,6 @@ static int cmd_si(char *args) {
         }
         npc_state_check();
     }
-    isa_reg_display();
     npc_sim_state.state = NPC_STOP;
     return 0;
 }
