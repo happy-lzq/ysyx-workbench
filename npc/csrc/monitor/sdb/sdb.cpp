@@ -122,6 +122,7 @@ static int cmd_q(char *args) {
   // cmd_si 单步执行指定指令数的命令处理函数
 static int cmd_si(char *args) {
     int n = (args == NULL) ? 1 : strtoul(args, NULL, 10);
+    npc_sim_state.state = NPC_RUNNING;
     for (int i = 0; i < n; i++) {
         single_cycle();
         if (diff_so_file) difftest_step(top, cycle++);
