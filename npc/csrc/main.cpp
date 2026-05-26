@@ -60,8 +60,11 @@ int main(int argc, char* argv[]){
             if (diff_so_file) {
                 difftest_step(top, cycle);
             }
-            check_watchpoint(&used_list);     // ← 缺少：监视点检测
+            if (npc_sim_state.state == NPC_RUNNING && check_watchpoint(&used_list) > 0) {
+                npc_sim_state.state = NPC_STOP;
+            }
             cycle++;
+            npc_state_check();
             break;
         case NPC_STOP:
             sdb_mainloop();   // ← 进入 sdb 交互
@@ -72,7 +75,7 @@ int main(int argc, char* argv[]){
         }
     }
     exit_loop:
-    npc_state_check();
+    
 
     if (tfp) {
         tfp->close();
