@@ -14,7 +14,7 @@ LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 
 DIFF_SO_PATH=$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
-NEMUFLAGS += -i $(IMAGE).bin -d $(DIFF_SO_PATH)
+NPCFLAGS += -i $(IMAGE).bin -d $(DIFF_SO_PATH) -b
 
 MAINARGS_MAX_LEN = 128
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
@@ -29,13 +29,13 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NPC_HOME) run ARGS="$(NEMUFLAGS)"
+	$(MAKE) -C $(NPC_HOME) run ARGS="$(NPCFLAGS)"
 
 vcd: insert-arg
-	$(MAKE) -C $(NPC_HOME) vcd ARGS="$(NEMUFLAGS)"
+	$(MAKE) -C $(NPC_HOME) vcd ARGS="$(NPCFLAGS)"
 
 gdb: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)"
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NPCFLAGS)"
 
 .PHONY: insert-arg vcd
 

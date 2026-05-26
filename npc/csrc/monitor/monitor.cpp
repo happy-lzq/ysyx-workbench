@@ -33,6 +33,7 @@ int parse_agrs(int argc,char *argv[]){
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
         {"wave" , no_argument      , NULL,'w'},
+        {"batch", no_argument  , NULL, 'b'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
@@ -42,6 +43,7 @@ int parse_agrs(int argc,char *argv[]){
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
             case 'w' : wave_enabled = true   ; break;
+            case 'b' : sdb_set_batch_mode(); break;
             default  : exit(0);
         }
     }
