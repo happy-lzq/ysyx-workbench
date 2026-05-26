@@ -46,11 +46,12 @@ int main(int argc, char* argv[]){
         switch (npc_sim_state.state) {
         case NPC_RUNNING:
             single_cycle();
-            if (npc_sim_state.state == NPC_RUNNING) {
-                if (diff_so_file) difftest_step(top, cycle);
-                check_watchpoint(&used_list);     // ← 缺少：监视点检测
-                cycle++;
+            printf("cycle %d, pc=0x%08x\n", cycle, npc_pc(top, 0, READ));
+            if (diff_so_file) {
+                difftest_step(top, cycle);
             }
+            check_watchpoint(&used_list);     // ← 缺少：监视点检测
+            cycle++;
             break;
         case NPC_STOP:
             sdb_mainloop();   // ← 进入 sdb 交互
