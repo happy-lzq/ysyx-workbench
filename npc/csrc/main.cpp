@@ -56,7 +56,6 @@ int main(int argc, char* argv[]){
         switch (npc_sim_state.state) {
         case NPC_RUNNING:
             single_cycle();
-            printf("cycle %d, pc=0x%08x\n", cycle, npc_pc(top, 0, READ));
             if (diff_so_file) {
                 difftest_step(top, cycle);
             }
