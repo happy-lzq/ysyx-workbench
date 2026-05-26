@@ -2,7 +2,6 @@
 #include <difftest.h>
 #include <sdb.h>
 
-
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;

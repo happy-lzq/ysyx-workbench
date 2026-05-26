@@ -269,49 +269,52 @@ word_t eval(int l,int r,bool *success,bool *hex){
       int op = find_main_operator(l,r,success);
       if (tokens[op].type == TK_DEREF ||tokens[op].type == TK_NEG || tokens[op].type == TK_PLUS){
         switch (tokens[op].type){
-        case TK_DEREF:
+        case TK_DEREF: {
           word_t addr = eval(l+1,r,success,hex);
           return vaddr_read(addr,sizeof(int));
           break;
-        case TK_NEG :
+        }
+        case TK_NEG : {
           word_t num_neg = eval(l+1,r,success,hex);
           return -num_neg;
           break;
-        default :
+        }
+        default : {
           word_t num_plus = eval(l+1,r,success,hex);
           return num_plus;
           break;
+        }
         }} else {
       // 双目运算符处理
-      if (*success == false) return 0;
-      val1 = eval(l,op-1,success,hex);
-      val2 = eval(op+1,r,success,hex);
-      switch (tokens[op].type) {
-        case '+': return val1 + val2;
-        case '-': return val1 - val2;
-        case '*': return val1 * val2;
-        case TK_EQ    : return (word_t) (val1 == val2 ? 1 : 0); 
-        case TK_NOTEQ : return (word_t) (val1 != val2 ? 1 : 0); 
-        case TK_AND   : 
-          if (val1==0 || val2==0){
-            return 0;
-          } else return (word_t) (val1 && val2 );
-        case TK_OR    : 
-          if (val1==1 || val2==1){
-            return 1;
-          } else return (word_t) (val1 && val2 );
-        return (word_t) (val1 || val2 );
-        case '/':
-          if (tokens[op].type != TK_AND || tokens[op].type != TK_OR){
-            if (val2 == 0) {
-              printf("division by zero\n");
-              *success = false;
-              return 0;
-            }
-          }
-          return val1 / val2;
-        // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
-        default: assert(0); // 未知类型直接报错
+          if (*success == false) return 0;
+          val1 = eval(l,op-1,success,hex);
+          val2 = eval(op+1,r,success,hex);
+          switch (tokens[op].type) {
+            case '+': return val1 + val2;
+            case '-': return val1 - val2;
+            case '*': return val1 * val2;
+            case TK_EQ    : return (word_t) (val1 == val2 ? 1 : 0); 
+            case TK_NOTEQ : return (word_t) (val1 != val2 ? 1 : 0); 
+            case TK_AND   : 
+              if (val1==0 || val2==0){
+                return 0;
+              } else return (word_t) (val1 && val2 );
+            case TK_OR    : 
+              if (val1==1 || val2==1){
+                return 1;
+              } else return (word_t) (val1 && val2 );
+            return (word_t) (val1 || val2 );
+            case '/':
+              if (tokens[op].type != TK_AND || tokens[op].type != TK_OR){
+                if (val2 == 0) {
+                  printf("division by zero\n");
+                  *success = false;
+                  return 0;
+                }
+              }
+              return val1 / val2;
+            // 其它类型如 TK_NUM、TK_REG、括号等在递归出口已处理
+            default: assert(0); // 未知类型直接报错
       }
      }
     }
