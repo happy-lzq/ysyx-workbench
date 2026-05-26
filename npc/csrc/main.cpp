@@ -68,7 +68,11 @@ int main(int argc, char* argv[]){
         delete tfp;
     }
     delete top ;
-    return 0;
+    // 根据真实状态返回退出码
+    if (npc_sim_state.state == NPC_END && npc_sim_state.halt_ret == 0)
+        return 0;   // 真正跑完且通过
+    else
+        return 1;   // 非正常退出
 }
 
 /*
