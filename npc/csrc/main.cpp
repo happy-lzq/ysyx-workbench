@@ -15,6 +15,15 @@ uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     top->clk = 1; top->eval();
+
+        printf("[cycle %d] pc=0x%08x trap_enter=%d mret=%d trap_target=0x%08x\n",
+           cycle,
+           npc_pc(top, 0, READ),
+           top->rootp->core_top__DOT__trap_enter,
+           top->rootp->core_top__DOT__mret,
+           top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
+    
+           
     halt();
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
