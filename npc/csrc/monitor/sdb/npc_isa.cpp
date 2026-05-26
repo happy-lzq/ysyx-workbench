@@ -12,11 +12,11 @@ void isa_reg_display() {
         printf("%-4s: 0x%08x  ", regs[i], npc_gpr(top, i, 0, READ));
         if ((i+1) % 4 == 0) printf("\n");
     }
-    printf("pc : 0x%08x\n", npc_pc(top, 0, READ));
+    // printf("pc : 0x%08x\n", npc_pc(top, 0, READ));
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-    
+
     if (strcmp(s, "$pc") == 0) {
         *success = true;
         return npc_pc(top, 0, READ);
