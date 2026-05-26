@@ -23,8 +23,9 @@ void single_cycle(){
            top->rootp->core_top__DOT__mret,
            top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
     
-           
+
     halt();
+    isa_reg_display();  
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
     if (tfp) tfp->dump(sim_time+=5);
