@@ -33,17 +33,17 @@ int parse_agrs(int argc,char *argv[]){
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
         {"wave" , no_argument      , NULL,'w'},
-        {"batch", no_argument  , NULL, 'b'},
+        {"batch", no_argument      , NULL,'b'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
     int o;
-    while ( (o = getopt_long(argc, argv, "-h:v:s:d:i:w", table, NULL)) != -1) {
+    while ( (o = getopt_long(argc, argv, "-b:h:v:s:d:i:w", table, NULL)) != -1) {
         switch (o) {
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
-            case 'w' : wave_enabled = true   ; break;
-            case 'b' : sdb_set_batch_mode(); break;
+            case 'w' : wave_enabled = true  ; break;
+            case 'b' : sdb_set_batch_mode() ; break;
             default  : exit(0);
         }
     }
