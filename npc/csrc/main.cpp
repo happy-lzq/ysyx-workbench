@@ -34,21 +34,34 @@ int main(int argc, char* argv[]){
         tfp->open("build/wave.vcd");
     }
 
-    load_bin(top, img_file);
     npc_init();
 
-    // difftest-exec
     if (diff_so_file) {
         init_diff_log(img_file);
         init_difftest(diff_so_file, img_size);
     }
-    
-    while (npc_sim_state.state == NPC_RUNNING && cycle < MAX_CYCLE ){
-        single_cycle();
-        difftest_step(top,cycle);
-        cycle++;
-    }
 
+    init_sdb();  
+
+    while (npc_sim_state.state != NPC_QUIT) {
+        switch (npc_sim_state.state) {
+        case NPC_RUNNING:
+            single_cycle();
+            if (npc_sim_state.state == NPC_RUNNING) {
+                if (diff_so_file) difftest_step(top, cycle);
+                check_watchpoint(&used_list);     // ← 缺少：监视点检测
+                cycle++;
+            }
+            break;
+        case NPC_STOP:
+            sdb_mainloop();   // ← 进入 sdb 交互
+            break;
+        case NPC_END:
+        case NPC_ABORT:
+            goto exit_loop;
+        }
+    }
+    exit_loop:
     npc_state_check();
 
     if (tfp) {

@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>   
 #include <stddef.h>
+#include <regex.h>
 #include <getopt.h>
 #include <verilated.h>
 #include <Vcore_top.h>
@@ -20,6 +22,7 @@
 // ==================== 基础类型 ====================
 typedef uint32_t paddr_t;
 typedef uint32_t vaddr_t;
+typedef uint32_t word_t;
 enum {NPC_STOP,NPC_RUNNING, NPC_END, NPC_ABORT, NPC_QUIT};
 
 typedef struct {
@@ -55,7 +58,7 @@ extern const char *diff_so_file;
 extern FILE *diff_fp;
 extern bool wave_enabled;
 extern uint64_t sim_time;
-
+extern int cycle;
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
@@ -64,6 +67,12 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
 void halt();
 void npc_init();
 void npc_state_check();
+void single_cycle();
+void sdb_mainloop();
+void init_sdb();
+
+
+
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };
 
@@ -96,9 +105,7 @@ static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) 
         return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx];
 }
 
-static inline uint32_t npc_mem_read (Vcore_top *top){
 
-}
 
 
 // ==================== 调试宏 ====================
