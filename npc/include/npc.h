@@ -96,6 +96,11 @@ static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) 
         return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx];
 }
 
+static inline uint32_t npc_mem_read (Vcore_top *top){
+
+}
+
+
 // ==================== 调试宏 ====================
 #define ANSI_FG_RED     "\33[1;31m"
 #define ANSI_FG_GREEN   "\33[1;32m"

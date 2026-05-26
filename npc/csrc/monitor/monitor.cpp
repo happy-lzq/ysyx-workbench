@@ -56,23 +56,23 @@ void halt(){
     }
 }
 
-void npc_state_check(){
-        switch (npc_sim_state.state)
-    {
-        case NPC_END:
-            if (npc_sim_state.halt_ret == 0)
-                Log("HIT GOOD TRAP at pc=0x%08x", npc_sim_state.halt_pc);
-            else
-                Log("HIT BAD TRAP at pc=0x%08x, ret=%d", 
-                    npc_sim_state.halt_pc, npc_sim_state.halt_ret);
-            break;
-        case NPC_ABORT:
+void npc_state_check() {
+    switch (npc_sim_state.state) {
+    case NPC_END:
+        if (npc_sim_state.halt_ret == 0)
+            Log("HIT GOOD TRAP at pc=0x%08x", npc_sim_state.halt_pc);
+        else
+            Log("HIT BAD TRAP at pc=0x%08x, ret=%d", 
+                npc_sim_state.halt_pc, npc_sim_state.halt_ret);
+        break;
+    case NPC_ABORT:
+        if (npc_sim_state.halt_ret >= 0)
+            Log("ABORT: gpr[%d] mismatch at pc=0x%08x",
+                npc_sim_state.halt_ret, npc_sim_state.halt_pc);
+        else
             Log("ABORT at pc=0x%08x", npc_sim_state.halt_pc);
-            break;
-    default:
         break;
     }
-    
 }
 
 void npc_init(){
@@ -87,3 +87,5 @@ void npc_init(){
     top->clk = 0; top->rst = 0; top->eval();
     if (tfp) tfp->dump(sim_time+=5);
 }
+
+

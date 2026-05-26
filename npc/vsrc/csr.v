@@ -43,7 +43,7 @@ module csr (
 
     always @(posedge clk ) begin
         if (rst) begin
-            csr_mstatus     <= 32'h0000_1800;
+            csr_mstatus     <= 32'h0000_1800;       //RISC-V 规定复位后 CPU 处于 M-mode
             csr_mtvec       <= 32'h8000_0000;
             csr_mepc        <= 32'h0;
             csr_mcause      <= 32'h0;
