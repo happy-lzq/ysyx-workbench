@@ -5,6 +5,7 @@
 
 // ======================== itrace =======================
 extern const char *elf_file;
+extern const FILE *itrace_fp;
 
 
 
