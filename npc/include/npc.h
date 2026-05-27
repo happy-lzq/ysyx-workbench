@@ -95,9 +95,9 @@ static inline uint32_t npc_pc(Vcore_top *top, uint32_t val, int r_w) {
 
 static inline uint32_t npc_inst(Vcore_top *top, uint32_t val, int r_w) {
     if (r_w == WRITE)
-        return top->rootp->core_top__DOT__pc = val;
+        return top->instr = val;
     else
-        return top->rootp->core_top__DOT__pc;
+        return top->instr;
 }
 
 static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) {
