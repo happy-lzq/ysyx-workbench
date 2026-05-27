@@ -32,7 +32,7 @@ void single_cycle(){
             npc_sim_state.state = NPC_STOP;
         }
     #endif
-     
+    npc_state_check();
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
     if (tfp) tfp->dump(sim_time+=5);
@@ -44,7 +44,6 @@ void npc_exec(){
         case NPC_RUNNING:
             single_cycle();
             cycle++;
-            npc_state_check();
             break;
         case NPC_STOP:
             sdb_mainloop();  
