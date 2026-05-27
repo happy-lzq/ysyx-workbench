@@ -125,7 +125,6 @@ static int cmd_si(char *args) {
     npc_sim_state.state = NPC_RUNNING;
     for (int i = 0; i < n; i++) {
         single_cycle();
-        npc_state_check();
     }
     npc_sim_state.state = NPC_STOP;
     return 0;
