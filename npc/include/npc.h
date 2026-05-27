@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <regex.h>
 #include <getopt.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include <verilated.h>
 #include <Vcore_top.h>
 #include <verilated_vcd_c.h>

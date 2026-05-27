@@ -15,8 +15,7 @@
 
 #include <sdb.h>
 #include <difftest.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+
 
 
 // 自动计算数组元素个数，动态计算cmd_table[]中的指令数
@@ -54,14 +53,14 @@ static struct {
   int (*handler) (char *);
 } cmd_table [] = {
   { "help", "Display information about all supported commands", cmd_help },
-  { "c", "Continue the execution of the program", cmd_c },
-  { "q", "Exit NEMU", cmd_q },
-  {"si", "Step execute",cmd_si},
-  {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
-  {"x","read memery from addr (x n 0x80000000)",cmd_x},
-  {"p","parse expression",cmd_p},
-  {"w","watchpoint add (w <expr>)",cmd_w},
-  {"d","watchpoint delete (d < no>)",cmd_d}
+  { "c"   , "Continue the execution of the program", cmd_c },
+  { "q"   , "Exit NEMU", cmd_q },
+  {"si"   , "Step execute",cmd_si},
+  {"info" ,"Generic program status (r: register, w: watchpoint)", cmd_info },
+  {"x"    ,"read memery from addr (x n 0x80000000)",cmd_x},
+  {"p"    ,"parse expression",cmd_p},
+  {"w"    ,"watchpoint add (w <expr>)",cmd_w},
+  {"d"    ,"watchpoint delete (d < no>)",cmd_d}
   /* TODO: Add more commands */
 
 };
