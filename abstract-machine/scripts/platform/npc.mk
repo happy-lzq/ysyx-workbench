@@ -14,7 +14,8 @@ LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 
 DIFF_SO_PATH=$(NEMU_HOME)/build/riscv32-nemu-interpreter-so
-NPCFLAGS += -i $(IMAGE).bin -d $(DIFF_SO_PATH) -b
+NPCFLAGS += -i $(IMAGE).bin -d $(DIFF_SO_PATH) 
+# NPCFLAGS += -b
 
 MAINARGS_MAX_LEN = 128
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
