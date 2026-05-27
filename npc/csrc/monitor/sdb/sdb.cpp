@@ -125,10 +125,6 @@ static int cmd_si(char *args) {
     npc_sim_state.state = NPC_RUNNING;
     for (int i = 0; i < n; i++) {
         single_cycle();
-        if (diff_so_file) difftest_step(top, cycle++);
-        if (npc_sim_state.state == NPC_RUNNING && check_watchpoint(&used_list) > 0) {
-            npc_sim_state.state = NPC_STOP;
-        }
         npc_state_check();
     }
     npc_sim_state.state = NPC_STOP;

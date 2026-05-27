@@ -3,6 +3,9 @@
 
 #include <verilated_vcd_c.h>
 extern VerilatedVcdC* tfp;
+long img_size = 0;
+const char* img_file = NULL;
+const char* diff_so_file = NULL;
 
 void (*ref_difftest_memcpy)(paddr_t, void*, size_t, bool) = NULL;
 void (*ref_difftest_regcpy)(void*, bool) = NULL;
@@ -62,5 +65,12 @@ void difftest_step(Vcore_top* top, int idx) {
             npc_sim_state.halt_ret = i;  // ← 用 halt_ret 传失败寄存器号
             return;
         }
+    }
+}
+
+void diff_so_path(){
+    if (diff_so_file) {
+        init_diff_log(img_file);
+        init_difftest(diff_so_file, img_size);
     }
 }
