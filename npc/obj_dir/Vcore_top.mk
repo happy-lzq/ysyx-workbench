@@ -37,7 +37,7 @@ VM_PREFIX = Vcore_top
 VM_MODPREFIX = Vcore_top
 # User CFLAGS (from -CFLAGS on Verilator command line)
 VM_USER_CFLAGS = \
-  -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated \
+  -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated -I/home/luo/ysyx/ysyx-workbench/npc/tools/capstone/repo/include \
 
 # User LDLIBS (from -LDFLAGS on Verilator command line)
 VM_USER_LDLIBS = \
@@ -53,6 +53,8 @@ VM_USER_CLASSES = \
   sdb \
   watchpoint \
   tools \
+  disasm \
+  itrace \
 
 # User .cpp directories (from .cpp's on Verilator command line)
 VM_USER_DIR = \
@@ -61,6 +63,7 @@ VM_USER_DIR = \
   ../csrc/difftest \
   ../csrc/monitor \
   ../csrc/monitor/sdb \
+  ../csrc/monitor/trace \
 
 ### Default rules...
 # Include list of all generated classes
@@ -86,6 +89,10 @@ sdb.o: csrc/monitor/sdb/sdb.cpp
 watchpoint.o: csrc/monitor/sdb/watchpoint.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 tools.o: csrc/monitor/tools.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+disasm.o: csrc/monitor/trace/disasm.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+itrace.o: csrc/monitor/trace/itrace.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 
 ### Link rules... (from --exe)
