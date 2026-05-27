@@ -56,7 +56,6 @@ void npc_exec(){
     }
 }
 
-
 int main(int argc, char* argv[]){
     Verilated::commandArgs(argc, argv);
     top = new Vcore_top;

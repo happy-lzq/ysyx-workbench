@@ -258,7 +258,7 @@ static int cmd_d(char *args){
 
 
 //============================= SDB main loop ========================================//
-#ifdef COFIG_BATCH
+#ifdef CONFIG_BATCH
 void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
