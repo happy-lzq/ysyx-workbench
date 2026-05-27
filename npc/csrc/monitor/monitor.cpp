@@ -78,11 +78,12 @@ void npc_init(){
     // 复位
     top->clk = 0; top->rst = 1; top->eval();
     if (tfp) tfp->dump(sim_time+=5);
-
     top->clk = 1; top->rst = 1; top->eval();                  // 上升沿，rst=1复位 初始化
-    if (tfp) tfp->dump(sim_time+=5);
     npc_sim_state.state = NPC_STOP;
     load_bin(top, img_file);
+    diff_so_path();
+    if (tfp) tfp->dump(sim_time+=5);
+
     top->clk = 0; top->rst = 0; top->eval();
     if (tfp) tfp->dump(sim_time+=5);
 }

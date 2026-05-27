@@ -67,10 +67,9 @@ int main(int argc, char* argv[]){
 
     parse_agrs(argc,argv);
     npc_init();
-    diff_so_path();
     init_sdb();  
     npc_exec();
-    
+
     if (tfp) {
         tfp->close();
         delete tfp;
