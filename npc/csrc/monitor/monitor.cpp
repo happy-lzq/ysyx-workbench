@@ -29,14 +29,16 @@ void load_bin(Vcore_top* top,const char*path){
 
 int parse_agrs(int argc,char *argv[]){
     const struct option table[] = {
+        // {"batch", no_argument      , NULL,'b'},
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
     int o;
-    while ( (o = getopt_long(argc, argv, "-hd:i", table, NULL)) != -1) {
+    while ( (o = getopt_long(argc, argv, "-hd:i:", table, NULL)) != -1) {
         switch (o) {
+            // case 'b' : sdb_set_batch_mode() ; break;
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
             default  : exit(0);
@@ -85,5 +87,4 @@ void npc_init(){
     top->clk = 0; top->rst = 0; top->eval();
     if (tfp) tfp->dump(sim_time+=5);
 }
-
 

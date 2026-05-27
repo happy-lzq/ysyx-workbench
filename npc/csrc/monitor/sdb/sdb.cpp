@@ -21,7 +21,7 @@
 // 自动计算数组元素个数，动态计算cmd_table[]中的指令数
 #define NR_CMD ARRLEN(cmd_table)
 // 定义NEMU进行交互模式，显示(nemu)提示符
-static int is_batch_mode = false;
+
 
 //============================ Command declarations ============================//
 void init_regex();
@@ -257,10 +257,11 @@ static int cmd_d(char *args){
 
 //============================= SDB main loop ========================================//
 #ifdef CONFIG_BATCH
-  is_batch_mode = true;
-  else
-  is_batch_mode = false;
+static int is_batch_mode = true;
+#else
+static int is_batch_mode = false;
 #endif
+
 void sdb_mainloop() {
   // 持续运行直到指令结束或用户退出
   if (is_batch_mode) {
