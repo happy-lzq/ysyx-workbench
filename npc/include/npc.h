@@ -64,15 +64,16 @@ extern int cycle;
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
-void init_diff_log(const char *img_path);
-void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
 void halt_check();
 void npc_init();
 void npc_state_check();
 void single_cycle();
 void sdb_mainloop();
 void init_sdb();
-
+ void build_named_log_file(char *buf, size_t buf_size,
+                                        const char *path,
+                                        const char *default_path,
+                                        const char *suffix) ;
 
 
 // ==================== Verilator RTL 访问器 ====================

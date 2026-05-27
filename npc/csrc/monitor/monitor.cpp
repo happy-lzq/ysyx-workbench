@@ -3,6 +3,7 @@
 
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
+const char *elf_file = NULL;
 
 void load_bin(Vcore_top* top,const char*path){
     Assert(path,"IMG-BIN-FILE IS FATL!\n");
@@ -29,16 +30,16 @@ void load_bin(Vcore_top* top,const char*path){
 
 int parse_agrs(int argc,char *argv[]){
     const struct option table[] = {
-        // {"batch", no_argument      , NULL,'b'},
+        {"elf"  , required_argument, NULL,'e'},
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
     int o;
-    while ( (o = getopt_long(argc, argv, "-hd:i:", table, NULL)) != -1) {
+    while ( (o = getopt_long(argc, argv, "-hd:e:i:", table, NULL)) != -1) {
         switch (o) {
-            // case 'b' : sdb_set_batch_mode() ; break;
+            case 'e' : elf_file     = optarg; break;
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
             default  : exit(0);
@@ -81,7 +82,7 @@ void npc_init(){
     top->clk = 1; top->rst = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     npc_sim_state.state = NPC_STOP;
     load_bin(top, img_file);
-    diff_so_path();
+    difftest_init();
     if (tfp) tfp->dump(sim_time+=5);
 
     top->clk = 0; top->rst = 0; top->eval();

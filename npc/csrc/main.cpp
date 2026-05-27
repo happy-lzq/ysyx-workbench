@@ -33,6 +33,7 @@ void single_cycle(){
         }
     #endif
     npc_state_check();
+    
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
     if (tfp) tfp->dump(sim_time+=5);
