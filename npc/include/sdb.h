@@ -64,7 +64,6 @@ word_t isa_reg_str2val(const char *s, bool *success) ;
 void sdb_mainloop();
 void init_sdb();
 void init_regex();
-void sdb_set_batch_mode();
 void isa_reg_display() ;
 
 #endif
