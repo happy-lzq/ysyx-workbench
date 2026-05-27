@@ -50,6 +50,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
     CData/*0:0*/ __VactContinue;
     SData/*11:0*/ core_top__DOT__csr_addr;
     SData/*15:0*/ core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected;
+    VL_OUT(instr,31,0);
     VL_OUT(halt_pc,31,0);
     VL_OUT(halt_ret,31,0);
     IData/*31:0*/ core_top__DOT__rs1_rdata;

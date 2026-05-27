@@ -291,6 +291,8 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
         vlSelfRef.core_top__DOT__u_regfile__DOT__rf[__VdlyDim0__core_top__DOT__u_regfile__DOT__rf__v0] 
             = __VdlyVal__core_top__DOT__u_regfile__DOT__rf__v0;
     }
+    vlSelfRef.instr = vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
+        [(0x3ffffU & (vlSelfRef.core_top__DOT__pc >> 2U))];
     vlSelfRef.core_top__DOT__rs2_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
                                                   (0x3ffffU 

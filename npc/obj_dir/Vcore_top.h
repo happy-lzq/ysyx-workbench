@@ -32,6 +32,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top VL_NOT_FINAL : public VerilatedMode
     VL_IN8(&clk,0,0);
     VL_IN8(&rst,0,0);
     VL_OUT8(&halt,0,0);
+    VL_OUT(&instr,31,0);
     VL_OUT(&halt_pc,31,0);
     VL_OUT(&halt_ret,31,0);
 

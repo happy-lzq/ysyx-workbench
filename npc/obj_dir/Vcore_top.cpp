@@ -13,6 +13,7 @@ Vcore_top::Vcore_top(VerilatedContext* _vcontextp__, const char* _vcname__)
     , clk{vlSymsp->TOP.clk}
     , rst{vlSymsp->TOP.rst}
     , halt{vlSymsp->TOP.halt}
+    , instr{vlSymsp->TOP.instr}
     , halt_pc{vlSymsp->TOP.halt_pc}
     , halt_ret{vlSymsp->TOP.halt_ret}
     , rootp{&(vlSymsp->TOP)}

@@ -380,8 +380,9 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
     bufp->chgBit(oldp+117,(vlSelfRef.clk));
     bufp->chgBit(oldp+118,(vlSelfRef.rst));
     bufp->chgBit(oldp+119,(vlSelfRef.halt));
-    bufp->chgIData(oldp+120,(vlSelfRef.halt_pc),32);
-    bufp->chgIData(oldp+121,(vlSelfRef.halt_ret),32);
+    bufp->chgIData(oldp+120,(vlSelfRef.instr),32);
+    bufp->chgIData(oldp+121,(vlSelfRef.halt_pc),32);
+    bufp->chgIData(oldp+122,(vlSelfRef.halt_ret),32);
 }
 
 void Vcore_top___024root__trace_cleanup(void* voidSelf, VerilatedVcd* /*unused*/) {
