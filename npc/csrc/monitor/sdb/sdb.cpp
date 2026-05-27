@@ -257,9 +257,9 @@ static int cmd_d(char *args){
 
 //============================= SDB main loop ========================================//
 #ifdef CONFIG_BATCH
-void sdb_set_batch_mode() {
   is_batch_mode = true;
-}
+  else
+  is_batch_mode = false;
 #endif
 void sdb_mainloop() {
   // 持续运行直到指令结束或用户退出
