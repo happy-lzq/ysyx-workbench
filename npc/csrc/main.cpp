@@ -12,24 +12,27 @@ uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     top->clk = 1; top->eval();
+    halt_check();
     printf("\n[cycle %d] pc=0x%08x trap_enter=%d mret=%d trap_target=0x%08x\n",
        cycle,
        npc_pc(top, 0, READ),
        top->rootp->core_top__DOT__trap_enter,
        top->rootp->core_top__DOT__mret,
        top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
-    halt();
+    isa_reg_display(); 
+
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file) {
         difftest_step(top, cycle);
     }
     #endif
+    
     #ifdef CONFIG_WATCHPOINT
         if (npc_sim_state.state == NPC_RUNNING && check_watchpoint(&used_list) > 0) {
             npc_sim_state.state = NPC_STOP;
         }
     #endif
-    isa_reg_display();  
+     
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 0; top->eval();  
     if (tfp) tfp->dump(sim_time+=5);

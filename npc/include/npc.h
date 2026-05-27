@@ -64,7 +64,7 @@ uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
 void init_diff_log(const char *img_path);
 void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
-void halt();
+void halt_check();
 void npc_init();
 void npc_state_check();
 void single_cycle();

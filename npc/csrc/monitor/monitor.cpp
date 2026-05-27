@@ -31,7 +31,6 @@ int parse_agrs(int argc,char *argv[]){
     const struct option table[] = {
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
-        {"batch", no_argument      , NULL,'b'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
@@ -40,14 +39,13 @@ int parse_agrs(int argc,char *argv[]){
         switch (o) {
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
-            case 'b' : sdb_set_batch_mode() ; break;
             default  : exit(0);
         }
     }
     return 0;
 }
 
-void halt(){
+void halt_check(){
         if (top->halt){
         npc_sim_state.state    = NPC_END;
         npc_sim_state.halt_pc  = top->halt_pc;
