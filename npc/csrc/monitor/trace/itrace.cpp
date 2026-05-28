@@ -9,14 +9,12 @@ FILE *itrace_fp;
 
 
 
-void itrace_monitor(const char *path,int cycle){
+void itarce_log_file(const char *path){
   build_named_log_file(dfp.itrace,sizeof(dfp.itrace),path,"build/itrace-log-txt","itrace-log-txt");
   itrace_fp = fopen(dfp.itrace,"w");
   Assert(itrace_fp,"Can not open '%s'", dfp.itrace);
   Log("itrace log written to %s", dfp.itrace);
-  
-  fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
-  
+
 }
 
 
@@ -32,13 +30,8 @@ void itrace_log(uint32_t pc, uint32_t inst_word){
     p += ILEN;
     disassemble(p, logbuf + sizeof(logbuf) - p, pc, inst, ILEN);
     printf("%s\n", logbuf);
-
-    itrace_monitor(img_file,cycle);
-
+    fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
 }
-
-
-
 
  static void iringbuf(const char *log) {
   strcpy(irbuf[irbuf_pos],log);
