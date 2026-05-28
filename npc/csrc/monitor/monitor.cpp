@@ -99,6 +99,7 @@ void assert_fail_msg() {
 void monitor_init(int argc, char* argv[]){
     parse_agrs(argc,argv);
     load_bin(top, img_file);
+    npc_init();
     #ifdef CONFIG_DIFFTEST 
         difftest_init();
     #endif
@@ -107,6 +108,5 @@ void monitor_init(int argc, char* argv[]){
         itarce_log_file(img_file);
     #endif
     init_sdb();  
-    npc_init();
 
 }
