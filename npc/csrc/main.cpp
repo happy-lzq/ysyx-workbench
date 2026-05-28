@@ -76,14 +76,7 @@ int main(int argc, char* argv[]){
         tfp->open("build/wave.vcd");
     #endif
 
-    parse_agrs(argc,argv);
-    npc_init();
-    init_sdb();  
-    #ifdef CONFIG_ITRACE
-        init_disasm();
-        itarce_log_file(img_file);
-    #endif
-    
+    monitor_init(argc,argv);
     npc_exec();
 
     if (tfp) {
