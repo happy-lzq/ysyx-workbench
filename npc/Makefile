@@ -11,7 +11,8 @@ WAVE_FILE=build/wave.vcd
 SIM_CFLAGS = -I$(NPC_HOME)/csrc \
 			 -I$(NPC_HOME)/include \
 			 -I$(NPC_HOME)/obj_dir \
-			 -I$(NPC_HOME)/include/generated
+			 -I$(NPC_HOME)/include/generated \
+			 -I$(NPC_HOME)/tools/capstone/repo/include
 
 LDFLAGS = -ldl -lreadline   # ← 加 -lreadline
 

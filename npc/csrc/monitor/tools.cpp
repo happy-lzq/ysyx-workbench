@@ -1,8 +1,5 @@
 #include <difftest.h>
 
-DEBUG_FILE_PATH dfp;
-FILE *diff_fp = NULL;
-
 uint8_t* guest_to_host(paddr_t paddr) {
     return npc_pmem + paddr - RESET_VECTOR;
 }
@@ -31,35 +28,3 @@ uint8_t* guest_to_host(paddr_t paddr) {
   // Assert(条件，输出文本) 条件成立，不输出；条件不成立，中断输出红色文本
 }
 
-void init_diff_log(const char *path){
-  build_named_log_file(dfp.diff,sizeof(dfp.diff),path,"build/diff-log-txt","diff-log-txt");
-  diff_fp = fopen(dfp.diff,"w");
-  Assert(diff_fp,"Can not open '%s'", dfp.diff);
-  Log("diff log written to %s", dfp.diff);
-}
-
-void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
-    if (!diff_fp) return;
-
-    bool pc_ok = (npc->pc == ref->pc);
-
-    fprintf(diff_fp, "--- cycle %d ---\n", cycle);
-    fprintf(diff_fp, "  PC:  NPC=0x%08x  REF=0x%08x  %s\n",
-            npc->pc, ref->pc,
-            pc_ok ? "[✔]" : "[✘]");
-
-    // 4列 × 8行 寄存器网格: NPC/REF 格式，匹配 [✔]，不匹配 [✘]
-    for (int row = 0; row < 8; row++) {
-        fprintf(diff_fp, "  x%02d-x%02d", row * 4, row * 4 + 3);
-        for (int col = 0; col < 4; col++) {
-            int i = row * 4 + col;
-            bool ok = (npc->gpr[i] == ref->gpr[i]);
-            fprintf(diff_fp, "  %s %08x  %08x",
-                    ok ? "[✔]" : "[✘]",
-                    npc->gpr[i], ref->gpr[i]);
-        }
-        fprintf(diff_fp, "\n");
-    }
-    fprintf(diff_fp, "\n");
-    fflush(diff_fp);
-}

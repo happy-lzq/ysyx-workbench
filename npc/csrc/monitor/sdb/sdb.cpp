@@ -15,14 +15,13 @@
 
 #include <sdb.h>
 #include <difftest.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+
 
 
 // 自动计算数组元素个数，动态计算cmd_table[]中的指令数
 #define NR_CMD ARRLEN(cmd_table)
 // 定义NEMU进行交互模式，显示(nemu)提示符
-static int is_batch_mode = false;
+
 
 //============================ Command declarations ============================//
 void init_regex();
@@ -54,14 +53,14 @@ static struct {
   int (*handler) (char *);
 } cmd_table [] = {
   { "help", "Display information about all supported commands", cmd_help },
-  { "c", "Continue the execution of the program", cmd_c },
-  { "q", "Exit NEMU", cmd_q },
-  {"si", "Step execute",cmd_si},
-  {"info","Generic program status (r: register, w: watchpoint)", cmd_info },
-  {"x","read memery from addr (x n 0x80000000)",cmd_x},
-  {"p","parse expression",cmd_p},
-  {"w","watchpoint add (w <expr>)",cmd_w},
-  {"d","watchpoint delete (d < no>)",cmd_d}
+  { "c"   , "Continue the execution of the program", cmd_c },
+  { "q"   , "Exit NEMU", cmd_q },
+  {"si"   , "Step execute",cmd_si},
+  {"info" ,"Generic program status (r: register, w: watchpoint)", cmd_info },
+  {"x"    ,"read memery from addr (x n 0x80000000)",cmd_x},
+  {"p"    ,"parse expression",cmd_p},
+  {"w"    ,"watchpoint add (w <expr>)",cmd_w},
+  {"d"    ,"watchpoint delete (d < no>)",cmd_d}
   /* TODO: Add more commands */
 
 };
@@ -125,11 +124,6 @@ static int cmd_si(char *args) {
     npc_sim_state.state = NPC_RUNNING;
     for (int i = 0; i < n; i++) {
         single_cycle();
-        if (diff_so_file) difftest_step(top, cycle++);
-        if (npc_sim_state.state == NPC_RUNNING && check_watchpoint(&used_list) > 0) {
-            npc_sim_state.state = NPC_STOP;
-        }
-        npc_state_check();
     }
     npc_sim_state.state = NPC_STOP;
     return 0;
@@ -262,9 +256,11 @@ static int cmd_d(char *args){
 
 
 //============================= SDB main loop ========================================//
-void sdb_set_batch_mode() {
-  is_batch_mode = true;
-}
+#ifdef CONFIG_BATCH
+static int is_batch_mode = true;
+#else
+static int is_batch_mode = false;
+#endif
 
 void sdb_mainloop() {
   // 持续运行直到指令结束或用户退出

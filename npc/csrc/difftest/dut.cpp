@@ -1,16 +1,19 @@
 #include <difftest.h>
 #include <dlfcn.h>
+#include <difftest.h>
 
-#include <verilated_vcd_c.h>
 extern VerilatedVcdC* tfp;
+long img_size = 0;
+const char* img_file = NULL;
+const char* diff_so_file = NULL;
+DEBUG_FILE_PATH dfp;
+FILE *diff_fp = NULL;
 
 void (*ref_difftest_memcpy)(paddr_t, void*, size_t, bool) = NULL;
 void (*ref_difftest_regcpy)(void*, bool) = NULL;
 void (*ref_difftest_exec)(uint64_t) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t) = NULL;
 void (*ref_difftest_init)(int) = NULL;
-
-
 
 void init_difftest(const char* so_path,long img_size){
 	// get nemu-functs-API
@@ -62,5 +65,46 @@ void difftest_step(Vcore_top* top, int idx) {
             npc_sim_state.halt_ret = i;  // ← 用 halt_ret 传失败寄存器号
             return;
         }
+    }
+}
+
+void init_diff_log(const char *path){
+  build_named_log_file(dfp.diff,sizeof(dfp.diff),path,"build/diff-log-txt","diff-log-txt");
+  diff_fp = fopen(dfp.diff,"w");
+  Assert(diff_fp,"Can not open '%s'", dfp.diff);
+  Log("diff log written to %s", dfp.diff);
+}
+
+void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
+    if (!diff_fp) return;
+
+    bool pc_ok = (npc->pc == ref->pc);
+
+    fprintf(diff_fp, "--- cycle %d ---\n", cycle);
+    fprintf(diff_fp, "  PC:  NPC=0x%08x  REF=0x%08x  %s\n",
+            npc->pc, ref->pc,
+            pc_ok ? "[✔]" : "[✘]");
+
+    // 4列 × 8行 寄存器网格: NPC/REF 格式，匹配 [✔]，不匹配 [✘]
+    for (int row = 0; row < 8; row++) {
+        fprintf(diff_fp, "  x%02d-x%02d", row * 4, row * 4 + 3);
+        for (int col = 0; col < 4; col++) {
+            int i = row * 4 + col;
+            bool ok = (npc->gpr[i] == ref->gpr[i]);
+            fprintf(diff_fp, "  %s %08x  %08x",
+                    ok ? "[✔]" : "[✘]",
+                    npc->gpr[i], ref->gpr[i]);
+        }
+        fprintf(diff_fp, "\n");
+    }
+    fprintf(diff_fp, "\n");
+    fflush(diff_fp);
+}
+
+
+void difftest_init(){
+    if (diff_so_file) {
+        init_diff_log(img_file);
+        init_difftest(diff_so_file, img_size);
     }
 }

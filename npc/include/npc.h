@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include <regex.h>
 #include <getopt.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include <verilated.h>
 #include <Vcore_top.h>
 #include <verilated_vcd_c.h>
@@ -62,17 +64,19 @@ extern int cycle;
 // ==================== 函数声明 ====================
 uint8_t *guest_to_host(paddr_t paddr);
 void load_bin(Vcore_top *top, const char *path);
-void init_diff_log(const char *img_path);
-void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
-void halt();
+void halt_check();
 void npc_init();
 void npc_state_check();
 void single_cycle();
 void sdb_mainloop();
 void init_sdb();
+void build_named_log_file(char *buf, size_t buf_size,
+                                        const char *path,
+                                        const char *default_path,
+                                        const char *suffix) ;
+void assert_fail_msg();
 
-
-
+void monitor_init(int argc, char* argv[]);
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };
 
@@ -88,6 +92,13 @@ static inline uint32_t npc_pc(Vcore_top *top, uint32_t val, int r_w) {
         return top->rootp->core_top__DOT__pc = val;
     else
         return top->rootp->core_top__DOT__pc;
+}
+
+static inline uint32_t npc_inst(Vcore_top *top, uint32_t val, int r_w) {
+    if (r_w == WRITE)
+        return top->instr = val;
+    else
+        return top->instr;
 }
 
 static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) {
@@ -125,6 +136,7 @@ static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) 
   do { \
     if (!(cond)) { \
       fprintf(stderr, ANSI_FMT(format, ANSI_FG_RED) "\n", ## __VA_ARGS__); \
+      assert_fail_msg(); \
       assert(0); \
     } \
   } while (0)

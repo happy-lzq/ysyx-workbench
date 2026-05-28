@@ -1,20 +1,21 @@
 module core_top (
     clk
     ,rst
+    ,instr
     ,halt
     ,halt_pc
     ,halt_ret
 );
     input  wire [0 :0]                            clk,rst;
     output wire [0 :0]                               halt;
-    output wire [31:0]                   halt_pc,halt_ret;
+    output wire [31:0]             instr,halt_pc,halt_ret;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
     wire [1 :0]                                    pc_sel;
     wire [31:0]                  jump_jalr,imm_jal,imm_br;
     wire [31:0]                                        pc;
-    wire [31:0]                       pc_plus4,instr,inst;
+    wire [31:0]                             pc_plus4,inst;
     wire [4 :0]                                    alu_op;
     wire [0 :0]                       is_ebreak,alu_src_a;
     wire [1 :0]                                 alu_src_b;

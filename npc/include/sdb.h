@@ -12,6 +12,7 @@
 // ==================== SDB 用到的全局变量（在 main.cpp/monitor.cpp 定义） ====================
 extern const char *img_file;
 extern const char *diff_so_file;
+
 void init_diff_log(const char *path);
 
 // ==================== SDB API ====================
@@ -64,7 +65,6 @@ word_t isa_reg_str2val(const char *s, bool *success) ;
 void sdb_mainloop();
 void init_sdb();
 void init_regex();
-void sdb_set_batch_mode();
 void isa_reg_display() ;
 
 #endif
