@@ -1,6 +1,6 @@
 #include <sdb.h>
 #include <difftest.h>
-
+#include <trace.h>
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
 const char *elf_file = NULL;
@@ -81,8 +81,7 @@ void npc_init(){
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 1; top->rst = 1; top->eval();                  // 上升沿，rst=1复位 初始化
     npc_sim_state.state = NPC_STOP;
-    load_bin(top, img_file);
-    difftest_init();
+
     if (tfp) tfp->dump(sim_time+=5);
 
     top->clk = 0; top->rst = 0; top->eval();
@@ -94,4 +93,20 @@ void assert_fail_msg() {
     #ifdef CONFIG_ITRACE
         assert_fail_msg();
     #endif
+}
+
+
+void monitor_init(int argc, char* argv[]){
+    parse_agrs(argc,argv);
+    load_bin(top, img_file);
+    #ifdef CONFIG_DIFFTEST 
+        difftest_init();
+    #endif
+    #ifdef CONFIG_ITRACE
+        init_disasm();
+        itarce_log_file(img_file);
+    #endif
+    init_sdb();  
+    npc_init();
+
 }

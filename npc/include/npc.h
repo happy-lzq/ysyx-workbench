@@ -76,6 +76,7 @@ void build_named_log_file(char *buf, size_t buf_size,
                                         const char *suffix) ;
 void assert_fail_msg();
 
+void monitor_init(int argc, char* argv[]);
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };
 
