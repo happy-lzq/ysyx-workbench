@@ -74,7 +74,7 @@ void build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
                                         const char *default_path,
                                         const char *suffix) ;
-
+void assert_fail_msg();
 
 // ==================== Verilator RTL 访问器 ====================
 enum { READ, WRITE };
@@ -135,6 +135,7 @@ static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) 
   do { \
     if (!(cond)) { \
       fprintf(stderr, ANSI_FMT(format, ANSI_FG_RED) "\n", ## __VA_ARGS__); \
+      assert_fail_msg(); \
       assert(0); \
     } \
   } while (0)

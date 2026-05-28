@@ -89,3 +89,9 @@ void npc_init(){
     if (tfp) tfp->dump(sim_time+=5);
 }
 
+void assert_fail_msg() {
+    isa_reg_display();
+    #ifdef CONFIG_ITRACE
+        assert_fail_msg();
+    #endif
+}

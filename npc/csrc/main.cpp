@@ -83,6 +83,7 @@ int main(int argc, char* argv[]){
         init_disasm();
         itarce_log_file(img_file);
     #endif
+    
     npc_exec();
 
     if (tfp) {

@@ -18,21 +18,6 @@ void itarce_log_file(const char *path){
 }
 
 
-void itrace_log(uint32_t pc, uint32_t inst_word){
-    char *p = logbuf;
-    uint8_t *inst = (uint8_t *) &inst_word;
-
-    p += snprintf(p, sizeof(logbuf), "0x%08x:", pc);
-    for (int i = ILEN-1; i >=0; i--){
-        p += snprintf(p,4," %02x",inst[i]);
-    }
-    memset(p,' ',ILEN);
-    p += ILEN;
-    disassemble(p, logbuf + sizeof(logbuf) - p, pc, inst, ILEN);
-    printf("%s\n", logbuf);
-    fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
-    fflush(itrace_fp);
-}
 
  static void iringbuf(const char *log) {
   strcpy(irbuf[irbuf_pos],log);
@@ -45,7 +30,7 @@ void itrace_log(uint32_t pc, uint32_t inst_word){
   return ;
  }
 
-static void display_irbuf(void){
+void display_irbuf(void){
   int fail_inst = (irbuf_pos-1 +IRING_BUF_SIZE) % IRING_BUF_SIZE;
   if (!irbuf_full)
   {
@@ -74,3 +59,19 @@ static void display_irbuf(void){
   return ;
 }
 
+void itrace_log(uint32_t pc, uint32_t inst_word){
+    char *p = logbuf;
+    uint8_t *inst = (uint8_t *) &inst_word;
+
+    p += snprintf(p, sizeof(logbuf), "0x%08x:", pc);
+    for (int i = ILEN-1; i >=0; i--){
+        p += snprintf(p,4," %02x",inst[i]);
+    }
+    memset(p,' ',ILEN);
+    p += ILEN;
+    disassemble(p, logbuf + sizeof(logbuf) - p, pc, inst, ILEN);
+    printf("%s\n", logbuf);
+    fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
+    fflush(itrace_fp);
+    iringbuf(logbuf);  // 记录到环形缓冲器
+}

@@ -13,5 +13,5 @@ void init_disasm();
 void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
 void itrace_log(uint32_t pc, uint32_t inst_word);
 void itarce_log_file(const char *path);
-
+void display_irbuf();
 #endif
