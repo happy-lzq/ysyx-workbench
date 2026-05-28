@@ -13,7 +13,7 @@ void itarce_log_file(const char *path){
   build_named_log_file(dfp.itrace,sizeof(dfp.itrace),path,"build/itrace-log-txt","itrace-log-txt");
   itrace_fp = fopen(dfp.itrace,"w");
   Assert(itrace_fp,"Can not open '%s'", dfp.itrace);
-  Log("itrace log written to %s", dfp.itrace);
+  Log("\nitrace log written to %s\n", dfp.itrace);
 
 }
 
