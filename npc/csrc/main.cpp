@@ -38,6 +38,7 @@ void single_cycle(){
 
     #ifdef CONFIG_ITRACE
         itrace_log(this_pc, this_inst);
+        
     #endif
 
     npc_state_check();
@@ -78,9 +79,9 @@ int main(int argc, char* argv[]){
     parse_agrs(argc,argv);
     npc_init();
     init_sdb();  
-#ifdef CONFIG_ITRACE
-    init_disasm();
-#endif
+    #ifdef CONFIG_ITRACE
+        init_disasm();
+    #endif
     npc_exec();
 
     if (tfp) {

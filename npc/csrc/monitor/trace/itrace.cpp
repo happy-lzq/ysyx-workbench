@@ -1,14 +1,26 @@
 #include <trace.h>
 
-#define IRING_BUF_SIZE  16              
-#define ILEN 4
+
 char irbuf [IRING_BUF_SIZE] [128];     // 每行缓冲区
+char logbuf [128];
 bool irbuf_full = false;
 int irbuf_pos = 0;
-FILE *itrace_fp = NULL;
+FILE *itrace_fp;
+
+
+
+void itrace_monitor(const char *path,int cycle){
+  build_named_log_file(dfp.itrace,sizeof(dfp.itrace),path,"build/itrace-log-txt","itrace-log-txt");
+  itrace_fp = fopen(dfp.itrace,"w");
+  Assert(itrace_fp,"Can not open '%s'", dfp.itrace);
+  Log("itrace log written to %s", dfp.itrace);
+  
+  fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
+  
+}
+
 
 void itrace_log(uint32_t pc, uint32_t inst_word){
-    char logbuf[128];
     char *p = logbuf;
     uint8_t *inst = (uint8_t *) &inst_word;
 
@@ -20,7 +32,13 @@ void itrace_log(uint32_t pc, uint32_t inst_word){
     p += ILEN;
     disassemble(p, logbuf + sizeof(logbuf) - p, pc, inst, ILEN);
     printf("%s\n", logbuf);
+
+    itrace_monitor(img_file,cycle);
+
 }
+
+
+
 
  static void iringbuf(const char *log) {
   strcpy(irbuf[irbuf_pos],log);

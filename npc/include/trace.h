@@ -3,6 +3,9 @@
 
 #include <npc.h>
 
+#define IRING_BUF_SIZE  16              
+#define ILEN 4
+
 // ======================== itrace =======================
 extern const char *elf_file;
 extern FILE *itrace_fp;

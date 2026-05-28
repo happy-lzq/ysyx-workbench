@@ -70,7 +70,7 @@ void npc_state_check();
 void single_cycle();
 void sdb_mainloop();
 void init_sdb();
- void build_named_log_file(char *buf, size_t buf_size,
+void build_named_log_file(char *buf, size_t buf_size,
                                         const char *path,
                                         const char *default_path,
                                         const char *suffix) ;
