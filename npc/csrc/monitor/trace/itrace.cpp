@@ -31,6 +31,7 @@ void itrace_log(uint32_t pc, uint32_t inst_word){
     disassemble(p, logbuf + sizeof(logbuf) - p, pc, inst, ILEN);
     printf("%s\n", logbuf);
     fprintf(itrace_fp,"cycle : %05d    %s\n",cycle,logbuf);
+    fflush(itrace_fp);
 }
 
  static void iringbuf(const char *log) {
