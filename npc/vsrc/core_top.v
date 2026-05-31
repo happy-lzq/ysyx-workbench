@@ -53,8 +53,7 @@ regfile u_regfile (
     .rs2_rdata    (rs2_rdata),
     .rs_a0        (rs_a0)
 );
-// const svScope scope = svGetScopeFromName("TOP.u_csr");
-// assert(scope);  // Check for nullptr if scope not found
+
 csr u_csr (
     .clk            (clk),
     .rst            (rst),

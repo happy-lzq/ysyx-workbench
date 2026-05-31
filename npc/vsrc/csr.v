@@ -34,7 +34,7 @@ module csr (
     reg [31:0] csr_mie ;       // 机器中断使能
     reg [31:0] csr_mtval  ;    // 机器陷阱值
     reg [31:0] csr_mscratch ;  // 机器暂存寄存器
-    
+
     reg [63:0] mcycle_64 ;
     input  wire [11:0] csr_addr;
     input  wire [31:0] trap_pc,csr_wdata;
@@ -108,11 +108,5 @@ module csr (
             end 
         end
     end
-    
-export "DPI-C" function get_mstatus;
-
-    function int get_mstatus();
-        return csr_mstatus;
-    endfunction
 
 endmodule

@@ -21,6 +21,17 @@
 #define RESET_VECTOR CONFIG_RESET_VECTOR
 #define PMEM_SIZE    CONFIG_PMEM_SIZE
 #define MAX_CYCLE 1000000
+#define INTR_EMPTY ((word_t)-1)
+// ==================== 定义 CSR 地址宏（与 Verilog 保持一致）
+#define CSR_MSTATUS   0x300
+#define CSR_MTVEC     0x305
+#define CSR_MEPC      0x341
+#define CSR_MCAUSE    0x342
+#define CSR_MIP       0x344
+#define CSR_MIE       0x304
+#define CSR_MTVAL     0x343
+#define CSR_MSCRATCH  0x340
+
 // ==================== 基础类型 ====================
 typedef uint32_t paddr_t;
 typedef uint32_t vaddr_t;
@@ -87,6 +98,7 @@ static inline uint32_t npc_gpr(Vcore_top *top, int idx, uint32_t val, int r_w) {
         return top->rootp->core_top__DOT__u_regfile__DOT__rf[idx];
 }
 
+// 每个周期的当前pc
 static inline uint32_t npc_pc(Vcore_top *top, uint32_t val, int r_w) {
     if (r_w == WRITE)
         return top->rootp->core_top__DOT__pc = val;
@@ -94,6 +106,12 @@ static inline uint32_t npc_pc(Vcore_top *top, uint32_t val, int r_w) {
         return top->rootp->core_top__DOT__pc;
 }
 
+static inline uint32_t npc_npc(Vcore_top *top, uint32_t val, int r_w) {
+    if (r_w == WRITE)
+        return top->rootp->core_top__DOT__u_if_stage__DOT__pc_next = val;
+    else
+        return top->rootp->core_top__DOT__u_if_stage__DOT__pc_next;
+}
 static inline uint32_t npc_inst(Vcore_top *top, uint32_t val, int r_w) {
     if (r_w == WRITE)
         return top->instr = val;
@@ -116,6 +134,45 @@ static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) 
         return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx];
 }
 
+static inline uint32_t npc_csr(Vcore_top *top, uint32_t idx, uint32_t val, int r_w) {
+    switch (idx) {
+        case CSR_MCAUSE:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mcause = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mcause;
+            break;
+        case CSR_MEPC:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mepc = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mepc;
+            break;
+        case CSR_MIE:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mie = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mie;
+            break;
+        case CSR_MIP:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mip = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mip;
+            break;
+        case CSR_MSCRATCH:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mscratch = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mscratch;
+            break;
+        case CSR_MSTATUS:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mstatus = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mstatus;
+            break;
+        case CSR_MTVAL:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mtval = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mtval;
+            break;
+        case CSR_MTVEC:
+            if (r_w == WRITE) top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec = val;
+            else              return top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec;
+            break;
+        default:
+            return 0;
+    }
+    return 0;
+}
 
 
 
