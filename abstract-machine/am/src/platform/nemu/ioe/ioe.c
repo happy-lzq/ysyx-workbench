@@ -55,19 +55,19 @@ static void fail(void *buf) { panic("access nonexist register"); }
 bool ioe_init() {
   for (int i = 0; i < LENGTH(lut); i++)
     if (!lut[i]) lut[i] = fail;
-#ifdef CONFIG_HAS_TIMER
-  __am_timer_init();
-#endif
+    #ifdef CONFIG_HAS_TIMER
+      __am_timer_init();
+    #endif
 
-#ifdef CONFIG_HAS_VGA
-  __am_gpu_init();
-#endif
+    #ifdef CONFIG_HAS_VGA
+      __am_gpu_init();
+    #endif
 
-#ifdef CONFIG_HAS_AUDIO
-  __am_audio_init();
-#endif
-  return true;
-}
+    #ifdef CONFIG_HAS_AUDIO
+      __am_audio_init();
+    #endif
+      return true;
+  }
 
 
 void ioe_read (int reg, void *buf) { ((handler_t)lut[reg])(buf); }

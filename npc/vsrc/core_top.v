@@ -32,7 +32,7 @@ module core_top (
     wire [31:0]                         trap_pc,csr_wdata;
     wire [0: 0]csr_imm,csr_write,csr_read,mret,trap_enter;
     wire [31:0]            csr_rdata,trap_target,csr_zimm;
-    wire [3 :0]                                 trap_code;
+    wire [31:0]                                 trap_code;
     wire [31:0]                                     rs_a0;
 
     assign jump_jalr        = alu_result;
@@ -53,7 +53,8 @@ regfile u_regfile (
     .rs2_rdata    (rs2_rdata),
     .rs_a0        (rs_a0)
 );
-
+// const svScope scope = svGetScopeFromName("TOP.u_csr");
+// assert(scope);  // Check for nullptr if scope not found
 csr u_csr (
     .clk            (clk),
     .rst            (rst),

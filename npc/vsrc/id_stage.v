@@ -45,7 +45,7 @@ module id_stage (
     output wire [0 :0] csr_read,csr_write,csr_imm,mret,trap_enter;
     output wire [11:0] csr_addr;
     output wire [31:0] csr_zimm;
-    output wire [3 :0] trap_code; 
+    output wire [31:0] trap_code; 
 
     wire [6:0] opcode   = instr[6:0];
     wire [2:0] funct3   = instr[14:12];
