@@ -20,6 +20,7 @@
 // ==================== 基础常量（由 Kconfig 生成） ====================
 #define RESET_VECTOR CONFIG_RESET_VECTOR
 #define PMEM_SIZE    CONFIG_PMEM_SIZE
+#define PMEM_WORDS   (PMEM_SIZE / 4)
 #define MAX_CYCLE 1000000
 #define INTR_EMPTY ((word_t)-1)
 // ==================== 定义 CSR 地址宏（与 Verilog 保持一致）
@@ -120,6 +121,10 @@ static inline uint32_t npc_inst(Vcore_top *top, uint32_t val, int r_w) {
 }
 
 static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) {
+    if (idx < 0 || idx >= PMEM_WORDS) {
+        fprintf(stderr, "imem index out of range: %d\n", idx);
+        assert(0);
+    }
     if (r_w == WRITE)
         return top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx] = val;
         
@@ -127,6 +132,10 @@ static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) 
         return top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx];
 }
 static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) {
+    if (idx < 0 || idx >= PMEM_WORDS) {
+        fprintf(stderr, "dmem index out of range: %d\n", idx);
+        assert(0);
+    }
     if (r_w == WRITE)
         return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx] = val;
         

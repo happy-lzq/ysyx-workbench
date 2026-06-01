@@ -111,74 +111,89 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
     __VdfgRegularize_h495687df_0_8 = 0;
     // Body
     vlSelfRef.instr = vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-        [(0x3ffffU & (vlSelfRef.core_top__DOT__pc >> 2U))];
+        [(0x1ffffffU & ((vlSelfRef.core_top__DOT__pc 
+                         - (IData)(0x80000000U)) >> 2U))];
     vlSelfRef.core_top__DOT__rs2_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
-                                                  (0x3ffffU 
-                                                   & (vlSelfRef.core_top__DOT__pc 
+                                                  (0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__pc 
+                                                       - (IData)(0x80000000U)) 
                                                       >> 2U))] 
                                                   >> 0x14U));
     vlSelfRef.core_top__DOT__rd_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                                 [(0x3ffffU 
-                                                   & (vlSelfRef.core_top__DOT__pc 
+                                                 [(0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__pc 
+                                                       - (IData)(0x80000000U)) 
                                                       >> 2U))] 
                                                  >> 7U));
     __VdfgRegularize_h495687df_0_0 = (1U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                            [(0x3ffffU 
-                                              & (vlSelfRef.core_top__DOT__pc 
+                                            [(0x1ffffffU 
+                                              & ((vlSelfRef.core_top__DOT__pc 
+                                                  - (IData)(0x80000000U)) 
                                                  >> 2U))] 
                                             >> 5U));
     __VdfgRegularize_h495687df_0_1 = (1U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                            [(0x3ffffU 
-                                              & (vlSelfRef.core_top__DOT__pc 
+                                            [(0x1ffffffU 
+                                              & ((vlSelfRef.core_top__DOT__pc 
+                                                  - (IData)(0x80000000U)) 
                                                  >> 2U))] 
                                             >> 4U));
     vlSelfRef.core_top__DOT__rs1_addr = (0x1fU & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                   [
-                                                  (0x3ffffU 
-                                                   & (vlSelfRef.core_top__DOT__pc 
+                                                  (0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__pc 
+                                                       - (IData)(0x80000000U)) 
                                                       >> 2U))] 
                                                   >> 0xfU));
     vlSelfRef.core_top__DOT__u_id_stage__DOT__funct7 
         = (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-           [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
-                         >> 2U))] >> 0x19U);
+           [(0x1ffffffU & ((vlSelfRef.core_top__DOT__pc 
+                            - (IData)(0x80000000U)) 
+                           >> 2U))] >> 0x19U);
     __VdfgRegularize_h495687df_0_2 = (1U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                            [(0x3ffffU 
-                                              & (vlSelfRef.core_top__DOT__pc 
+                                            [(0x1ffffffU 
+                                              & ((vlSelfRef.core_top__DOT__pc 
+                                                  - (IData)(0x80000000U)) 
                                                  >> 2U))] 
                                             >> 3U));
     __VdfgRegularize_h495687df_0_3 = (1U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                            [(0x3ffffU 
-                                              & (vlSelfRef.core_top__DOT__pc 
+                                            [(0x1ffffffU 
+                                              & ((vlSelfRef.core_top__DOT__pc 
+                                                  - (IData)(0x80000000U)) 
                                                  >> 2U))] 
                                             >> 2U));
     vlSelfRef.core_top__DOT__u_id_stage__DOT__funct3 
         = (7U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                 [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
-                               >> 2U))] >> 0xcU));
+                 [(0x1ffffffU & ((vlSelfRef.core_top__DOT__pc 
+                                  - (IData)(0x80000000U)) 
+                                 >> 2U))] >> 0xcU));
     vlSelfRef.core_top__DOT__csr_addr = (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                         [(0x3ffffU 
-                                           & (vlSelfRef.core_top__DOT__pc 
+                                         [(0x1ffffffU 
+                                           & ((vlSelfRef.core_top__DOT__pc 
+                                               - (IData)(0x80000000U)) 
                                               >> 2U))] 
                                          >> 0x14U);
     vlSelfRef.core_top__DOT__u_id_stage__DOT__u_imm_gen__DOT____VdfgRegularize_hebd20cbd_0_0 
         = (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-           [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
-                         >> 2U))] >> 0x1fU);
+           [(0x1ffffffU & ((vlSelfRef.core_top__DOT__pc 
+                            - (IData)(0x80000000U)) 
+                           >> 2U))] >> 0x1fU);
     vlSelfRef.core_top__DOT__u_id_stage__DOT__opcode 
         = (0x7fU & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-           [(0x3ffffU & (vlSelfRef.core_top__DOT__pc 
-                         >> 2U))]);
+           [(0x1ffffffU & ((vlSelfRef.core_top__DOT__pc 
+                            - (IData)(0x80000000U)) 
+                           >> 2U))]);
     __VdfgRegularize_h495687df_0_4 = (1U & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                            [(0x3ffffU 
-                                              & (vlSelfRef.core_top__DOT__pc 
+                                            [(0x1ffffffU 
+                                              & ((vlSelfRef.core_top__DOT__pc 
+                                                  - (IData)(0x80000000U)) 
                                                  >> 2U))] 
                                             >> 1U));
     __VdfgRegularize_h495687df_0_5 = (1U & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                      [(0x3ffffU & 
-                                        (vlSelfRef.core_top__DOT__pc 
-                                         >> 2U))]);
+                                      [(0x1ffffffU 
+                                        & ((vlSelfRef.core_top__DOT__pc 
+                                            - (IData)(0x80000000U)) 
+                                           >> 2U))]);
     vlSelfRef.core_top__DOT__rs2_rdata = ((0U == (IData)(vlSelfRef.core_top__DOT__rs2_addr))
                                            ? 0U : vlSelfRef.core_top__DOT__u_regfile__DOT__rf
                                           [vlSelfRef.core_top__DOT__rs2_addr]);
@@ -577,8 +592,9 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
         if (__VdfgRegularize_h495687df_0_5) {
             __VdfgRegularize_h495687df_0_8 = (0xfffff000U 
                                               & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                              [(0x3ffffU 
-                                                & (vlSelfRef.core_top__DOT__pc 
+                                              [(0x1ffffffU 
+                                                & ((vlSelfRef.core_top__DOT__pc 
+                                                    - (IData)(0x80000000U)) 
                                                    >> 2U))]);
             __VdfgRegularize_h495687df_0_6 = (((- (IData)((IData)(vlSelfRef.core_top__DOT__u_id_stage__DOT__u_imm_gen__DOT____VdfgRegularize_hebd20cbd_0_0))) 
                                                << 0xcU) 
@@ -656,8 +672,9 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                    & vlSelfRef.core_top__DOT__csr_rdata)
                                                    : 0U)));
     vlSelfRef.core_top__DOT__imm_jal = ((0x40U & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
-                                         [(0x3ffffU 
-                                           & (vlSelfRef.core_top__DOT__pc 
+                                         [(0x1ffffffU 
+                                           & ((vlSelfRef.core_top__DOT__pc 
+                                               - (IData)(0x80000000U)) 
                                               >> 2U))])
                                          ? ((IData)(__VdfgRegularize_h495687df_0_0)
                                              ? ((IData)(__VdfgRegularize_h495687df_0_1)
@@ -676,21 +693,24 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                      | (((0xff000U 
                                                           & vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                           [
-                                                          (0x3ffffU 
-                                                           & (vlSelfRef.core_top__DOT__pc 
+                                                          (0x1ffffffU 
+                                                           & ((vlSelfRef.core_top__DOT__pc 
+                                                               - (IData)(0x80000000U)) 
                                                               >> 2U))]) 
                                                          | (0x800U 
                                                             & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                                [
-                                                               (0x3ffffU 
-                                                                & (vlSelfRef.core_top__DOT__pc 
+                                                               (0x1ffffffU 
+                                                                & ((vlSelfRef.core_top__DOT__pc 
+                                                                    - (IData)(0x80000000U)) 
                                                                    >> 2U))] 
                                                                >> 9U))) 
                                                         | (0x7feU 
                                                            & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                               [
-                                                              (0x3ffffU 
-                                                               & (vlSelfRef.core_top__DOT__pc 
+                                                              (0x1ffffffU 
+                                                               & ((vlSelfRef.core_top__DOT__pc 
+                                                                   - (IData)(0x80000000U)) 
                                                                   >> 2U))] 
                                                               >> 0x14U))))
                                                      : 0U)
@@ -711,22 +731,25 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                          | (0x800U 
                                                             & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                                [
-                                                               (0x3ffffU 
-                                                                & (vlSelfRef.core_top__DOT__pc 
+                                                               (0x1ffffffU 
+                                                                & ((vlSelfRef.core_top__DOT__pc 
+                                                                    - (IData)(0x80000000U)) 
                                                                    >> 2U))] 
                                                                << 4U))) 
                                                         | ((0x7e0U 
                                                             & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                                [
-                                                               (0x3ffffU 
-                                                                & (vlSelfRef.core_top__DOT__pc 
+                                                               (0x1ffffffU 
+                                                                & ((vlSelfRef.core_top__DOT__pc 
+                                                                    - (IData)(0x80000000U)) 
                                                                    >> 2U))] 
                                                                >> 0x14U)) 
                                                            | (0x1eU 
                                                               & (vlSelfRef.core_top__DOT__u_if_stage__DOT__imem
                                                                  [
-                                                                 (0x3ffffU 
-                                                                  & (vlSelfRef.core_top__DOT__pc 
+                                                                 (0x1ffffffU 
+                                                                  & ((vlSelfRef.core_top__DOT__pc 
+                                                                      - (IData)(0x80000000U)) 
                                                                      >> 2U))] 
                                                                  >> 7U)))))
                                                      : 0U)
@@ -880,42 +903,50 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
     vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected 
         = (0xffU & ((0U == (3U & vlSelfRef.core_top__DOT__jump_jalr))
                      ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                    [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                  >> 2U))] : ((1U == 
-                                               (3U 
-                                                & vlSelfRef.core_top__DOT__jump_jalr))
-                                               ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                                  [
-                                                  (0x3ffffU 
-                                                   & (vlSelfRef.core_top__DOT__jump_jalr 
+                    [(0x1ffffffU & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                     - (IData)(0x80000000U)) 
+                                    >> 2U))] : ((1U 
+                                                 == 
+                                                 (3U 
+                                                  & vlSelfRef.core_top__DOT__jump_jalr))
+                                                 ? 
+                                                (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
+                                                 [(0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                                       - (IData)(0x80000000U)) 
                                                       >> 2U))] 
-                                                  >> 8U)
-                                               : ((2U 
-                                                   == 
-                                                   (3U 
-                                                    & vlSelfRef.core_top__DOT__jump_jalr))
-                                                   ? 
-                                                  (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                                   [
-                                                   (0x3ffffU 
-                                                    & (vlSelfRef.core_top__DOT__jump_jalr 
-                                                       >> 2U))] 
-                                                   >> 0x10U)
-                                                   : 
-                                                  (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                                                   [
-                                                   (0x3ffffU 
-                                                    & (vlSelfRef.core_top__DOT__jump_jalr 
-                                                       >> 2U))] 
-                                                   >> 0x18U)))));
+                                                 >> 8U)
+                                                 : 
+                                                ((2U 
+                                                  == 
+                                                  (3U 
+                                                   & vlSelfRef.core_top__DOT__jump_jalr))
+                                                  ? 
+                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
+                                                  [
+                                                  (0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                                       - (IData)(0x80000000U)) 
+                                                      >> 2U))] 
+                                                  >> 0x10U)
+                                                  : 
+                                                 (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
+                                                  [
+                                                  (0x1ffffffU 
+                                                   & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                                       - (IData)(0x80000000U)) 
+                                                      >> 2U))] 
+                                                  >> 0x18U)))));
     vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected 
         = (0xffffU & ((2U & vlSelfRef.core_top__DOT__jump_jalr)
                        ? (vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                          [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                        >> 2U))] >> 0x10U)
-                       : vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
-                      [(0x3ffffU & (vlSelfRef.core_top__DOT__jump_jalr 
-                                    >> 2U))]));
+                          [(0x1ffffffU & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                           - (IData)(0x80000000U)) 
+                                          >> 2U))] 
+                          >> 0x10U) : vlSelfRef.core_top__DOT__u_mem_stage__DOT__dmem
+                      [(0x1ffffffU & ((vlSelfRef.core_top__DOT__jump_jalr 
+                                       - (IData)(0x80000000U)) 
+                                      >> 2U))]));
     vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next 
         = (((IData)(vlSelfRef.core_top__DOT__mret) 
             | (IData)(vlSelfRef.core_top__DOT__trap_enter))
@@ -1083,7 +1114,7 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->core_top__DOT__u_csr__DOT__csr_mscratch = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 17179779027546281259ull);
     vlSelf->core_top__DOT__u_csr__DOT__mcycle_64 = VL_SCOPED_RAND_RESET_Q(64, __VscopeHash, 5407484547729697954ull);
     vlSelf->core_top__DOT__u_if_stage__DOT__pc_next = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 6969335522121334582ull);
-    for (int __Vi0 = 0; __Vi0 < 262144; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 33554432; ++__Vi0) {
         vlSelf->core_top__DOT__u_if_stage__DOT__imem[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 11290784894032362506ull);
     }
     vlSelf->core_top__DOT__u_id_stage__DOT__opcode = VL_SCOPED_RAND_RESET_I(7, __VscopeHash, 13432465368368238113ull);
@@ -1093,7 +1124,7 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->core_top__DOT__u_ex_stage__DOT__src1 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 5256965371199316806ull);
     vlSelf->core_top__DOT__u_ex_stage__DOT__src2 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 6802426516301857958ull);
     vlSelf->core_top__DOT__u_ex_stage__DOT__csr_src = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 4761910183485316740ull);
-    for (int __Vi0 = 0; __Vi0 < 262144; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 33554432; ++__Vi0) {
         vlSelf->core_top__DOT__u_mem_stage__DOT__dmem[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 17667369412193926368ull);
     }
     vlSelf->core_top__DOT__u_mem_stage__DOT__mem_wmask = VL_SCOPED_RAND_RESET_I(4, __VscopeHash, 16035830778309949707ull);

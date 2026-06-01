@@ -14,7 +14,7 @@ module mem_stage (
     output  wire [31:0] mem_rdata ;
 
 
-    parameter MMEM_SIZE = 262144;  // 1MB / 4B = 262144 words
+    parameter MMEM_SIZE = 33554432;  // 128MB / 4B = 
     reg  [31:0] dmem [0:MMEM_SIZE-1];
     wire [3 :0] mem_wmask ; 
     wire [31:0] mem_rdata_raw, mem_wdata;
