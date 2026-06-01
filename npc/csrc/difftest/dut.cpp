@@ -1,9 +1,6 @@
 #include <difftest.h>
 #include <dlfcn.h>
 #include <difftest.h>
-#include "svdpi.h"
-
-extern "C" int get_mstatus();
 
 extern VerilatedVcdC* tfp;
 long img_size = 0;
@@ -69,14 +66,7 @@ void difftest_step(Vcore_top* top, int idx) {
             return;
         }
     }
-    //csr 对比
-    // mstatus
-    const svScope scope = svGetScopeFromName("TOP.u_csr");
-    assert(scope);  // Check for nullptr if scope not found
-    svSetScope(scope);
 
-    int a = get_mstatus();
-    printf("a = 0x%08x\n",a);
 }
 
 void init_diff_log(const char *path){

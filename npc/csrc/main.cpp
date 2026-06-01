@@ -1,8 +1,7 @@
-
 #include <difftest.h>
 #include <sdb.h>
 #include <trace.h>
-
+#include <interrupt.h>
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;
@@ -40,7 +39,7 @@ void single_cycle(){
         itrace_log(this_pc, this_inst);
         
     #endif
-
+    interrupt_check();
     npc_state_check();
     
     if (tfp) tfp->dump(sim_time+=5);
