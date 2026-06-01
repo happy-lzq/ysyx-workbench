@@ -2,6 +2,8 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+#define MSTATUS 0x1888
+
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 Context* __am_irq_handle(Context *c) {
@@ -51,8 +53,16 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 }
 
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
+  uintptr_t sp = (uintptr_t)kstack.end;
+  sp = (sp - sizeof(Context)) & ~0x7;
 
-  return NULL;
+  Context *ctx = (Context *)sp;
+  *ctx = (Context){0};
+  ctx->mepc = (uintptr_t)entry;
+  ctx->mstatus = MSTATUS;
+  ctx->gpr[2] = (uintptr_t)kstack.end;
+  ctx->gpr[10] = (uintptr_t)arg;
+  return ctx;
 }
 
 void yield() {
@@ -81,4 +91,3 @@ void iset(bool enable) {
     asm volatile("csrc mstatus,%0" : : "r"(1 << 3)); 
   }
 }
-
