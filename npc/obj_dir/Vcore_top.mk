@@ -48,12 +48,12 @@ VM_USER_CLASSES = \
   serial \
   dut \
   main \
+  interrupt \
   monitor \
   expr \
   npc_isa \
   sdb \
   watchpoint \
-  tools \
   disasm \
   itrace \
 
@@ -82,6 +82,8 @@ dut.o: csrc/difftest/dut.cpp
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 main.o: csrc/main.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+interrupt.o: csrc/monitor/interrupt.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 monitor.o: csrc/monitor/monitor.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 expr.o: csrc/monitor/sdb/expr.cpp 
@@ -91,8 +93,6 @@ npc_isa.o: csrc/monitor/sdb/npc_isa.cpp
 sdb.o: csrc/monitor/sdb/sdb.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 watchpoint.o: csrc/monitor/sdb/watchpoint.cpp 
-	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
-tools.o: csrc/monitor/tools.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 disasm.o: csrc/monitor/trace/disasm.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<

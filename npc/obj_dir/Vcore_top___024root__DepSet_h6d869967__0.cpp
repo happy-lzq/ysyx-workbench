@@ -6,13 +6,6 @@
 #include "Vcore_top__Syms.h"
 #include "Vcore_top___024root.h"
 
-void Vcore_top___024root____Vdpiexp_core_top__DOT__u_csr__DOT__get_mstatus_TOP(Vcore_top__Syms* __restrict vlSymsp, IData/*31:0*/ &get_mstatus__Vfuncrtn) {
-    VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root____Vdpiexp_core_top__DOT__u_csr__DOT__get_mstatus_TOP\n"); );
-    // Init
-    // Body
-    get_mstatus__Vfuncrtn = vlSymsp->TOP.core_top__DOT__u_csr__DOT__csr_mstatus;
-}
-
 #ifdef VL_DEBUG
 VL_ATTR_COLD void Vcore_top___024root___dump_triggers__act(Vcore_top___024root* vlSelf);
 #endif  // VL_DEBUG

@@ -9,7 +9,6 @@
 #define VERILATED_VCORE_TOP_H_  // guard
 
 #include "verilated.h"
-#include "svdpi.h"
 
 class Vcore_top__Syms;
 class Vcore_top___024root;
@@ -76,9 +75,6 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top VL_NOT_FINAL : public VerilatedMode
     void trace(VerilatedTraceBaseC* tfp, int levels, int options = 0) { contextp()->trace(tfp, levels, options); }
     /// Retrieve name of this model instance (as passed to constructor).
     const char* name() const;
-
-    /// DPI Export functions
-    static int get_mstatus();
 
     // Abstract methods from VerilatedModel
     const char* hierName() const override final;
