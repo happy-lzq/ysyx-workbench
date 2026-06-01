@@ -13,12 +13,13 @@ module mem_stage (
     input   wire [31:0] mem_wdata_raw ; 
     output  wire [31:0] mem_rdata ;
 
-
-    parameter MMEM_SIZE = 33554432;  // 128MB / 4B = 
+    parameter PMEM_BASE = 32'h8000_0000;
+    parameter MMEM_SIZE = 33554432;  // 128MB / 4B
     reg  [31:0] dmem [0:MMEM_SIZE-1];
     wire [3 :0] mem_wmask ; 
     wire [31:0] mem_rdata_raw, mem_wdata;
-    wire [17:0] mem_idx = mem_addr[19:2]; // 字节地址 ——> 字地址
+    wire [31:0] mem_off = mem_addr - PMEM_BASE;
+    wire [24:0] mem_idx = mem_off[26:2]; // 字节地址 -> 字地址
 
     // Load
     assign mem_rdata_raw = dmem[mem_idx];
