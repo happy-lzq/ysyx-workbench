@@ -44,7 +44,7 @@ extern void __am_asm_trap(void);
 bool cte_init(Context*(*handler)(Event, Context*)) {
   // initialize exception entry
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
-  asm volatile("csrs mie, %0" : : "r"(1<<7));
+  asm volatile("csrs mie, %0" : : "r"(1<<7));   // 打开mie.MTIE中断使能
   // register event handler
   user_handler = handler;
   return true;
@@ -73,7 +73,7 @@ bool ienabled() {
 
 
 
-// “修改 CPU 当前状态里的 machine interrupt 总开关”
+// “修改 CPU 当前状态里的 machine interrupt 总开关” mstatus 中的mie
 void iset(bool enable) {
   if (enable){
     asm volatile("csrs mstatus,%0" : : "r"(1 << 3));
