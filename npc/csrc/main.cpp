@@ -2,6 +2,8 @@
 #include <sdb.h>
 #include <trace.h>
 #include <interrupt.h>
+#include <device.h>
+#include <memory.h>
 
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
@@ -15,6 +17,7 @@ void single_cycle(){
     uint32_t this_inst = top->instr;
     top->clk = 1; top->eval();
     halt_check();
+
 
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file) {

@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cassert>
+#include <cstddef>
 #include <memory.h>
 #include <device.h>
 
@@ -15,7 +16,7 @@ void pmem_init() {
 }
 
 void pmem_load_bin(const char *path) {
-    Assert(!path,"load addr is NULL ");
+    assert(path != NULL);
     FILE *fp = fopen(path, "rb");
     assert(fp);
 
@@ -86,7 +87,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
         uint32_t offset = word_addr - PMEM_BASE;
         for (int i = 0; i < 4; i++) {
             if (wmask & (1 << i))
-                npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
+                npc_pmem[offset + i] = (wdata >> (i * 8)) & 0xFF;
         }
         return;
     }

@@ -24,6 +24,7 @@ int parse_agrs(int argc,char *argv[]){
             default  : exit(0);
         }
     }
+    printf("%s",img_file);
     return 0;
 }
 
