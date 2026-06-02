@@ -1391,3 +1391,124 @@ case 0x20000004: timer_set_ctrl(data); break; // 定时器控制寄存器
 ```
 
 无需修改任何 Verilog 代码、无需新增端口。`dpi_mem_read/write` 的 `if (paddr 在 PMEM 范围) else switch (paddr)` 结构天然支持任意数量的外设。这是 DPI-C 统一内存模型相比旧架构（dev_req/dev_addr 端口）的最大优势。
+
+---
+
+## 八、Difftest 与 MMIO 访问的协调机制
+
+### 8.1 问题背景
+
+NPC 使用 NEMU 作为 difftest 参考模型。Difftest 的工作方式是**每条指令在两个模拟器中同时执行，然后比较寄存器状态**：
+
+```
+程序:  sb UART_ADDR, 'H'
+        │                │
+        ▼                ▼
+      NPC              NEMU (REF)
+        │                │
+   dpi_mem_write     paddr_write
+   路由到 UART        不认识 UART 地址
+   → 终端输出 ✅       → out_of_bound → crash ❌
+```
+
+NEMU 的 difftest REF 构建目标（Shared Object）默认**不包含任何外设支持**——它只需要 CPU 核心来逐指令对比寄存器。当被测程序访问外设地址时（如 `putch` 写串口），REF 侧因不识别该地址而崩溃。
+
+### 8.2 设计思路
+
+NPC 中 Difftest 代码在 `single_cycle()` 的以下位置：
+
+```cpp
+void single_cycle() {
+    top->clk = 1; top->eval();    // ① RTL 执行指令（DPI-C 函数在此被调用）
+    halt_check();
+
+    #ifdef CONFIG_DIFFTEST
+    if (diff_so_file) {
+        difftest_step(top, cycle); // ② NEMU 执行同一条指令并比较
+    }
+    #endif
+    // ...
+}
+```
+
+在执行①的过程中，如果指令访问了外设地址，`dpi_mem_read` 或 `dpi_mem_write` 会进入 MMIO 分支。此时设置一个标志位，在②之前检查该标志位，若为 true 则跳过本次 difftest 对比。
+
+### 8.3 实现
+
+#### 标志位（memory.cpp）
+
+```cpp
+static bool mmio_accessed = false;   // difftest 跳过标志
+
+extern "C" {
+
+int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        // 物理内存读 — 正常
+        return *(uint32_t *)(npc_pmem + offset);
+    }
+    // MMIO 读 — 设置标志
+    mmio_accessed = true;
+    switch (paddr) { ... }
+}
+
+void dpi_mem_write(int addr, int data, int wmask) {
+    uint32_t paddr = (uint32_t)addr;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        // 物理内存写 — 正常
+        return;
+    }
+    // MMIO 写 — 设置标志
+    mmio_accessed = true;
+    switch (paddr) { ... }
+}
+
+}  // extern "C"
+
+// 读取并自动清零（准备好下个周期重新检测）
+bool pmem_mmio_accessed() {
+    bool v = mmio_accessed;
+    mmio_accessed = false;
+    return v;
+}
+```
+
+#### Difftest 守卫（main.cpp）
+
+```cpp
+    #ifdef CONFIG_DIFFTEST
+    if (diff_so_file && !pmem_mmio_accessed()) {   // ← 加 !pmem_mmio_accessed()
+        difftest_step(top, cycle);
+    }
+    #endif
+```
+
+### 8.4 完整时序
+
+```
+普通指令周期（无 MMIO）:
+  eval() → dpi_mem_read/write 全在 PMEM 内 → mmio_accessed = false
+  pmem_mmio_accessed() 返回 false → difftest_step() 正常执行 ✅
+
+MMIO 指令周期（如 sb UART_ADDR）:
+  eval() → dpi_mem_write → paddr 在 PMEM 外 → mmio_accessed = true
+  pmem_mmio_accessed() 返回 true → 跳过 difftest_step()
+  NEMU 不执行此指令 → 不崩 ✅
+```
+
+### 8.5 对比 NEMU 的 `difftest_skip_ref`
+
+| 维度 | NEMU | NPC |
+|:---|:---|:---|
+| 触发方式 | 软件调用 `difftest_skip_ref()` | DPI-C 函数自动设置标志 |
+| 检测时机 | 指令执行前（hostcall 中） | 指令执行后（`eval()` 返回后） |
+| 标志管理 | `static bool is_skip_ref` 手动管理 | `pmem_mmio_accessed()` 读取即清零 |
+| 适用场景 | NEMU 宿主调用（如 `set_nemu_state`） | MMIO 地址检测（任何非 PMEM 访问） |
+
+### 8.6 设计优势
+
+1. **零侵入** — RTL 代码完全不知道 difftest 的存在，MMIO 地址检测对 CPU 透明
+2. **自动检测** — 不需要手动判断"这条指令是不是访存"，地址范围判断天然区分 PMEM vs MMIO
+3. **读取即清零** — `pmem_mmio_accessed()` 返回后标志归零，下个周期重新检测，无状态泄漏
+4. **通用** — 后续添加任何新外设（RTC、Timer），只要地址在 PMEM 范围外，自动跳过 difftest
