@@ -1,4 +1,4 @@
-`include "vsrc/dpi_imports.vh"
+`include "dpi_imports.vh"
 
 module mem_stage (
     clk
@@ -25,7 +25,7 @@ module mem_stage (
     output wire [0 :0] dev_r_w ;
     output wire [31:0] dev_addr;
     output wire [31:0] dev_wdata;
-    output wire [3:0] dev_wmask;
+    output wire [3 :0] dev_wmask;
 
     parameter DATA_ADDR_START = 32'h80000000;
     parameter DATA_ADDR_END   = 32'h88000000;

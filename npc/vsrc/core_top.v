@@ -5,10 +5,18 @@ module core_top (
     ,halt
     ,halt_pc
     ,halt_ret
+    ,dev_req       
+    ,dev_r_w       
+    ,dev_addr      
+    ,dev_wdata     
+    ,dev_wmask     
 );
     input  wire [0 :0]                            clk,rst;
     output wire [0 :0]                               halt;
     output wire [31:0]             instr,halt_pc,halt_ret;
+    output wire [0 :0] dev_req, dev_r_w;
+    output wire [31:0] dev_addr, dev_wdata;
+    output wire [3 :0] dev_wmask;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
     wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
     wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
@@ -35,9 +43,7 @@ module core_top (
     wire [31:0]                                 trap_code;
     wire [31:0]                                     rs_a0;
     
-    wire [0 :0] dev_req, dev_r_w;
-    wire [31:0] dev_addr, dev_wdata;
-    wire [3 :0] dev_wmask;
+
 
     assign jump_jalr        = alu_result;
     assign imm_jal          = imm_out;

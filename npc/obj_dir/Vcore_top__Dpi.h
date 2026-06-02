@@ -16,7 +16,7 @@ extern "C" {
 
 
     // DPI IMPORTS
-    // DPI import at vsrc/dpi_imports.vh:4:29
+    // DPI import at /home/luo/ysyx/ysyx-workbench/npc/vsrc/dpi_imports.vh:4:29
     extern int dpi_mmio_read(int addr);
 
 #ifdef __cplusplus

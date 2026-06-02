@@ -3,7 +3,7 @@
 #include <device.h>
 
 
-static void mmio_write_handler(uint32_t addr, uint32_t wdata, uint8_t wmask) {
+void mmio_write_handler(uint32_t addr, uint32_t wdata, uint8_t wmask) {
     // ===== NPC 外设地址路由表 =====
     switch (addr) {
         case 0x10000000:   // UART 串口

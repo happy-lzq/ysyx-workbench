@@ -22,6 +22,9 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
         VL_OUT8(halt,0,0);
+        VL_OUT8(dev_req,0,0);
+        VL_OUT8(dev_r_w,0,0);
+        VL_OUT8(dev_wmask,3,0);
         CData/*4:0*/ core_top__DOT__rs1_addr;
         CData/*4:0*/ core_top__DOT__rs2_addr;
         CData/*4:0*/ core_top__DOT__rd_addr;
@@ -47,7 +50,6 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         CData/*2:0*/ core_top__DOT__u_id_stage__DOT__funct3;
         CData/*6:0*/ core_top__DOT__u_id_stage__DOT__funct7;
         CData/*0:0*/ core_top__DOT__u_id_stage__DOT__u_imm_gen__DOT____VdfgRegularize_hebd20cbd_0_0;
-        CData/*3:0*/ core_top__DOT__u_mem_stage__DOT__mem_wmask;
         CData/*0:0*/ core_top__DOT__u_mem_stage__DOT__in_pmem;
         CData/*7:0*/ core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected;
         CData/*0:0*/ __VdfgRegularize_h495687df_0_0;
@@ -64,9 +66,9 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         VL_OUT(instr,31,0);
         VL_OUT(halt_pc,31,0);
         VL_OUT(halt_ret,31,0);
+        VL_OUT(dev_addr,31,0);
+        VL_OUT(dev_wdata,31,0);
         IData/*31:0*/ core_top__DOT__rs1_rdata;
-        IData/*31:0*/ core_top__DOT__rs2_rdata;
-        IData/*31:0*/ core_top__DOT__jump_jalr;
         IData/*31:0*/ core_top__DOT__imm_jal;
         IData/*31:0*/ core_top__DOT__pc;
         IData/*31:0*/ core_top__DOT__mem_rdata_raw;
@@ -81,10 +83,10 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         IData/*31:0*/ core_top__DOT__u_csr__DOT__csr_mie;
         IData/*31:0*/ core_top__DOT__u_csr__DOT__csr_mtval;
         IData/*31:0*/ core_top__DOT__u_csr__DOT__csr_mscratch;
-        IData/*31:0*/ core_top__DOT__u_if_stage__DOT__pc_next;
-        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src1;
     };
     struct {
+        IData/*31:0*/ core_top__DOT__u_if_stage__DOT__pc_next;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src1;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src2;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__csr_src;
         IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__mem_rdata_raw;
