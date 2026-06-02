@@ -1,7 +1,7 @@
 #ifndef __NPC_MEMORY_H__
 #define __NPC_MEMORY_H__
 
-#include <stdint.h>
+#include <npc.h>
 
 #define PMEM_BASE 0x80000000U
 #define PMEM_SIZE (128U * 1024 * 1024)   // 128MB

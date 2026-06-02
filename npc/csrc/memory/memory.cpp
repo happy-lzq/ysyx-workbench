@@ -15,7 +15,7 @@ void pmem_init() {
 }
 
 void pmem_load_bin(const char *path) {
-    assert(path);
+    Assert(!path,"load addr is NULL ");
     FILE *fp = fopen(path, "rb");
     assert(fp);
 
@@ -70,7 +70,7 @@ int dpi_mem_read(int addr) {
 
     // MMIO 设备读 — 精确地址（设备寄存器对齐）
     switch (paddr) {
-        case 0x10000000: return 0;           // UART 只写设备
+        case 0xa00003f8: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
         default: return 0;
     }
@@ -93,7 +93,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
 
     // MMIO 设备写
     switch (paddr) {
-        case 0x10000000:  // UART
+        case 0xa00003f8:  // UART (NEMU 兼容地址)
             if (wmask & 0x1)
                 npc_serial_putc(wdata & 0xFF);
             break;

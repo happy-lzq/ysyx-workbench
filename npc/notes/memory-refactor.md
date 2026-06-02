@@ -1161,3 +1161,233 @@ sim: $(VSRCS) $(CSRCS)
 
 **测试验证**：全部 35 项 `cpu-tests` 通过。  
 **测试命令**：`make ARCH=riscv32I-npc run ALL=*`
+
+---
+
+## 七、DPI-C 通信原理专题
+
+### 7.1 什么是 DPI-C？
+
+DPI-C（Direct Programming Interface - C）是 SystemVerilog 标准（IEEE 1800）定义的接口，允许 Verilog/SystemVerilog 代码直接调用 C 函数，C 代码也可以调用 Verilog 的 task/function。它是替代老式 PLI/VPI 的现代化方案。
+
+在 NPC 中，DPI-C 用于建立 **RTL 硬件与 C++ 软件仿真环境之间的通信桥梁**。
+
+### 7.2 DPI-C 的两个方向
+
+```
+方向 A: Import（Verilog 调用 C）
+  Verilog: import "DPI-C" function int dpi_mem_read(input int addr);
+           assign data = dpi_mem_read(addr);  // 像普通函数一样调用
+  C++:     extern "C" int dpi_mem_read(int addr) { ... }
+
+方向 B: Export（C 调用 Verilog）— NPC 暂未使用
+  Verilog: export "DPI-C" function my_verilog_func;
+  C++:     extern void my_verilog_func();  // C 可以调用 Verilog 函数
+```
+
+NPC 目前只使用 **Import** 方向——Verilog 调用 C++ 函数来读写内存。
+
+### 7.3 Import 函数的两种调用时机
+
+这是 DPI-C 在单周期 CPU 仿真中最关键的概念：
+
+```
+┌─────────────────────────────────────────────────────┐
+│  组合逻辑调用（Continuous Assignment）               │
+│  assign instr = dpi_mem_read(pc);                   │
+│                                                     │
+│  特点:                                              │
+│  - 在 eval() 的组合逻辑求解过程中被 Verilator 调用   │
+│  - 输入信号(addr)变化时立即重新调用                  │
+│  - 必须无副作用（Pure function），多次调用结果相同    │
+│  - 返回值参与组合逻辑链，驱动后续运算                 │
+│                                                     │
+│  适用: 读操作（取指、数据加载）                       │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  时序逻辑调用（always @(posedge clk)）               │
+│  always @(posedge clk)                              │
+│      if (mem_write) dpi_mem_write(addr, data, wmask);│
+│                                                     │
+│  特点:                                              │
+│  - 在 posedge clk 的时序逻辑块中调用                 │
+│  - 每个周期至多调用一次                              │
+│  - 可以有副作用（修改 C++ 数组、printf 输出）        │
+│                                                     │
+│  适用: 写操作（数据存储、MMIO 设备输出）              │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 为什么读必须用组合逻辑、写可以用时序逻辑？
+
+```
+CPU 单周期执行流程（eval 内部）:
+
+  clk=1 → eval()
+    │
+    ├── 组合逻辑求解:
+    │     IF: instr = dpi_mem_read(pc)        ← 必须立即返回，驱动 ID/EX
+    │     ID: 译码 instr → 控制信号
+    │     EX: ALU 算地址
+    │     MEM: mem_rdata = dpi_mem_read(addr) ← 必须立即返回，驱动 WB
+    │     WB: 选 rd_wdata
+    │
+    ├── 时序逻辑: regfile[rd] <= rd_wdata
+    │
+    └── 如果 mem_write=1:
+           dpi_mem_write(addr, wdata, wmask)  ← 有副作用，放时序逻辑中安全
+```
+
+**读操作必须组合**：`dpi_mem_read` 的返回值是同一条指令的 WB 阶段的数据来源，必须在同一个 `eval()` 内就绪。
+**写操作可以时序**：`dpi_mem_write` 的副作用（修改内存）不影响当前指令的 WB，只需在下一条指令执行前生效。
+
+### 7.4 完整的 DPI-C 通信栈（以内存读写为例）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 第 1 层: Verilator 自动生成                                  │
+│                                                             │
+│  Verilator 编译时扫描 import 声明 → 生成 C++ 调用桩代码       │
+│  链接时自动将 C++ 函数与 Verilog import 绑定                  │
+│  开发者无需手动注册                                           │
+├─────────────────────────────────────────────────────────────┤
+│ 第 2 层: Verilog 侧声明 (dpi_imports.vh)                     │
+│                                                             │
+│  `include "dpi_imports.vh"                                  │
+│                                                             │
+│  // ========== 统一内存读写 ==========                       │
+│  import "DPI-C" function int  dpi_mem_read(input int addr); │
+│  import "DPI-C" function void dpi_mem_write(                │
+│      input int addr, input int data, input int wmask);      │
+├─────────────────────────────────────────────────────────────┤
+│ 第 3 层: C++ 侧声明 (dpi_export.h)                           │
+│                                                             │
+│  #ifdef __cplusplus                                         │
+│  extern "C" {                                                │
+│  #endif                                                     │
+│  int  dpi_mem_read(int addr);                               │
+│  void dpi_mem_write(int addr, int data, int wmask);         │
+│  #ifdef __cplusplus                                         │
+│  }                                                          │
+│  #endif                                                     │
+├─────────────────────────────────────────────────────────────┤
+│ 第 4 层: C++ 侧实现 (memory.cpp)                             │
+│                                                             │
+│  extern "C" {                                                │
+│  int dpi_mem_read(int addr) {                               │
+│      uint32_t paddr = (uint32_t)addr;                       │
+│      if (paddr >= PMEM_BASE && paddr < PMEM_END) { ... }    │
+│      // MMIO routing                                        │
+│  }                                                          │
+│  void dpi_mem_write(int addr, int data, int wmask) { ... }  │
+│  }                                                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键**：Verilator 自动完成第 1 层——你只需在 `.vh` 中 `import`、在 `.cpp` 中实现，Verilator 负责将它们链接在一起。无需手动注册回调、无需 `dlsym`。
+
+### 7.5 DPI-C 类型映射规则
+
+这是 Bug #1（符号扩展）的直接原因。Verilog 和 C 的类型宽度必须匹配：
+
+| SystemVerilog | C (DPI-C) | 宽度 | 注意事项 |
+|:---|:---|:---|:---|
+| `int` | `int` | 32-bit **signed** | 0x80000000 → C 侧是负数！|
+| `bit [31:0]` | `unsigned int` 或 `uint32_t` | 32-bit **unsigned** | 推荐用于地址 |
+| `byte` | `char` | 8-bit signed | — |
+| `bit [7:0]` | `unsigned char` | 8-bit unsigned | — |
+| `longint` | `long long` | 64-bit signed | — |
+| `void` | `void` | — | 无返回值函数 |
+
+#### NPC 中的类型陷阱与修复
+
+```cpp
+// ❌ 危险: Verilog int → C int → 与 unsigned long 比较 → 符号扩展
+// memory.h: #define PMEM_BASE 0x80000000UL  (64-bit unsigned long)
+// 后果: 0x80000004 作为 int 是 -2147483644，与 UL 比较时符号扩展为 0xFFFFFFFF80000004
+//       → 远大于 PMEM_END → 判断失败
+
+// ✅ 安全方案 A: 函数内强制转换
+int dpi_mem_read(int addr) {              // 保持 int 签名
+    uint32_t paddr = (uint32_t)addr;      // ← 手动截断为 32-bit unsigned
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) { ... }
+}
+
+// ✅ 安全方案 B: 修改常量类型
+#define PMEM_BASE 0x80000000U    // 32-bit unsigned，与 uint32_t 比较无符号扩展
+#define PMEM_END  (PMEM_BASE + PMEM_SIZE)
+```
+
+**推荐方案：A + B 结合使用。** 函数内显式 `(uint32_t)` 转换是最安全的防御性写法，即使常量类型出错也能正常工作。
+
+### 7.6 DPI-C 对比 Top-Level 信号访问
+
+| 维度 | Top-Level 信号 (`top->signal`) | DPI-C (`dpi_xxx()`) |
+|:---|:---|:---|
+| **访问方式** | C++ 读取 Verilator 对象的成员变量 | Verilog 调用 C 函数（或反之） |
+| **方向** | 单向（C++ → RTL 或 RTL → C++，依赖路径） | 双向（import/export） |
+| **类型安全** | ❌ 无（裸指针/变量访问） | ✅ 函数签名编译期检查 |
+| **可综合性** | N/A（仅仿真） | ❌ DPI 不可综合 |
+| **时序** | 只能访问稳定后的值（`eval()` 后） | 组合逻辑中实时调用（`eval()` 期间） |
+| **使用场景** | 读取 RTL 状态（寄存器、PC 等） | 模拟外部设备（内存、UART、Timer） |
+| **代码脆弱性** | 信号改名/移除 → 编译错误（路径失效） | 函数签名不匹配 → 链接错误 |
+
+#### 典型代码对比
+
+**Top-Level 信号方式（读取 RTL 内部 CSR 寄存器）**：
+```cpp
+// npc.h — 直接访问 Verilator 内部
+static inline uint32_t npc_csr(Vcore_top *top, uint32_t idx, uint32_t val, int r_w) {
+    case CSR_MSTATUS:
+        if (r_w == WRITE)
+            top->rootp->core_top__DOT__u_csr__DOT__csr_mstatus = val;
+        else
+            return top->rootp->core_top__DOT__u_csr__DOT__csr_mstatus;
+}
+// 适用场景: 测试框架需要频繁读写 CPU 内部状态（difftest, SDB）
+// 缺点: 信号路径是字符串，改名就失效
+```
+
+**DPI-C 方式（模拟外部内存和外设）**：
+```verilog
+// dpi_imports.vh
+import "DPI-C" function int dpi_mem_read(input int addr);
+```
+```cpp
+// memory.cpp
+extern "C" int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END)
+        return *(uint32_t*)(npc_pmem + (paddr & ~3U) - PMEM_BASE);
+    // MMIO routing...
+}
+// 适用场景: CPU 访存、外设读写
+// 优点: 函数签名明确，逻辑集中，易于测试
+```
+
+### 7.7 DPI-C 使用的黄金法则
+
+1. **组合逻辑中的 import 函数必须无副作用（pure）** — 多次调用返回相同结果，不修改全局状态
+2. **`int` 不是 `uint32_t`** — Verilog `int` 是 32-bit signed，C 侧必须 `(uint32_t)` 转换后再比较
+3. **时序逻辑中的 import 函数可以有副作用** — 写内存、printf 输出都安全
+4. **import 声明集中管理** — 放在 `dpi_imports.vh`，避免散落各文件
+5. **C++ 实现用 `extern "C"`** — 避免 C++ name mangling
+6. **不依赖 Verilator 内部符号** — DPI-C 函数中不要 `#include <Vcore_top.h>` 或访问 `top->rootp`
+7. **DPI 不可综合** — 仅在仿真使用，实际 FPGA 综合时需替换为真实的存储器 IP
+
+### 7.8 新增外设只需加 case
+
+基于 DPI-C 统一内存模型，添加新外设（RTC、Timer、键盘等）只需修改 `memory.cpp`：
+
+```cpp
+// dpi_mem_read 中新增:
+case 0xa0000048: return rtc_time_lo();    // RTC 低 32 位
+case 0xa000004c: return rtc_time_hi();    // RTC 高 32 位（触发刷新）
+
+// dpi_mem_write 中新增:
+case 0x20000000: timer_set_cmp(data); break;  // 设置定时器比较值
+case 0x20000004: timer_set_ctrl(data); break; // 定时器控制寄存器
+```
+
+无需修改任何 Verilog 代码、无需新增端口。`dpi_mem_read/write` 的 `if (paddr 在 PMEM 范围) else switch (paddr)` 结构天然支持任意数量的外设。这是 DPI-C 统一内存模型相比旧架构（dev_req/dev_addr 端口）的最大优势。
