@@ -59,15 +59,16 @@ void pmem_write(uint32_t addr, int len, uint32_t data) {
 extern "C" {
 
 int dpi_mem_read(int addr) {
-    uint32_t paddr = (uint32_t)addr;          // ← 关键！禁止符号扩展
+    uint32_t paddr = (uint32_t)addr;
 
-    // 物理内存
+    // 物理内存 — 字对齐读取（匹配 DMEM 的 word-indexed 行为）
     if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        uint32_t offset = paddr - PMEM_BASE;
+        uint32_t word_addr = paddr & ~3U;         // ← 字对齐！
+        uint32_t offset = word_addr - PMEM_BASE;
         return *(uint32_t *)(npc_pmem + offset);
     }
 
-    // MMIO 设备读
+    // MMIO 设备读 — 精确地址（设备寄存器对齐）
     switch (paddr) {
         case 0x10000000: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
