@@ -869,3 +869,244 @@ case 0x20000000: timer_config(data, wmask); break;
 | 内存调试 | 波形中翻找 | printf + gdb |
 | 总线接口准备 | 从零开始 | 天然适配 |
 | 编译依赖 | 依赖 Verilator 内部符号 | 只依赖 memory.h |
+
+---
+
+## 六、迁移过程中发现并修复的 Bug
+
+### Bug #1：C/C++ 类型提升导致的符号扩展陷阱
+
+**影响**：所有地址 `>= 0x80000000` 的判断全部失败，指令取指返回全零。  
+**表现**：`cpu-tests` 全部测试失败（`gpr[2] mismatch at pc=0x80000008`，sp 不更新）。  
+**根因**：DPI-C 接口传 `int`（32-bit signed），但 `PMEM_BASE` 定义为 `unsigned long`（64-bit）。比较时 `int` 先符号扩展到 64-bit 再比较。
+
+#### 错误的代码（修复前）：
+
+```cpp
+// memory.h
+#define PMEM_BASE 0x80000000UL          // unsigned long (64-bit)
+#define PMEM_END  (PMEM_BASE + PMEM_SIZE)
+
+// memory.cpp
+int dpi_mem_read(int addr) {            // addr = int (32-bit signed)
+    if (addr >= PMEM_BASE && addr < PMEM_END) {  // ← 这里出 bug！
+        uint32_t offset = addr - PMEM_BASE;
+        return *(uint32_t *)(npc_pmem + offset);
+    }
+    // 走到 MMIO default → return 0
+}
+```
+
+#### Bug 的数值追踪：
+
+```
+addr 从 Verilog 传来:  0x80000004 (32-bit 位模式)
+DPI-C → C int:         -2147483644  (signed 32-bit)
+与 PMEM_BASE 比较时:
+  int → unsigned long (64-bit): 0xFFFFFFFF80000004  ← 符号扩展！
+  PMEM_BASE = 0x0000000080000000 (64-bit unsigned)
+  比较: 0xFFFFFFFF80000004 >= 0x0000000080000000 → true ✅
+  但是: 0xFFFFFFFF80000004 <  0x0000000088000000 → FALSE ❌
+       ↑ 这个值远大于 PMEM_END！
+
+结论: 0x80000004 被判断为"不在物理内存范围内" → 走入 MMIO default → return 0
+      → CPU 拿到 0x00000000 指令 (effectively NOP) → 不写寄存器
+```
+
+#### 正确的代码（修复后）：
+
+```cpp
+// memory.h — 将常量改为 32-bit unsigned，避免类型提升到 64-bit
+#define PMEM_BASE 0x80000000U           // unsigned int (32-bit)
+#define PMEM_SIZE (128U * 1024 * 1024)
+#define PMEM_END  (PMEM_BASE + PMEM_SIZE)
+
+// memory.cpp — 显式将 addr 转为 uint32_t，禁止符号扩展
+int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;     // ← 关键！去掉符号位
+
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t word_addr = paddr & ~3U;
+        uint32_t offset = word_addr - PMEM_BASE;
+        return *(uint32_t *)(npc_pmem + offset);
+    }
+    // MMIO ...
+}
+
+void dpi_mem_write(int addr, int data, int wmask) {
+    uint32_t paddr = (uint32_t)addr;     // ← 同样处理
+    uint32_t wdata = (uint32_t)data;
+    // ...
+}
+```
+
+**教训**：DPI-C 的 Verilog `int` 对应 C `int`（signed 32-bit）。处理硬件地址（unsigned 语义）时，C++ 侧**必须**先 `(uint32_t)` 转换再参与运算和比较，否则会被 C 的整型提升规则"暗算"。
+
+---
+
+### Bug #2：`dpi_mem_read` 字节地址 vs 字对齐不匹配
+
+**影响**：所有涉及内存读写（`lw/lh/lb/sw/sh/sb`）的测试失败。  
+**表现**：`cpu-tests` 中 `load-store`、`unalign`、`string`、`crc32`、`hello-str`、`to-lower-case` 共 6 项 FAIL。  
+**根因**：旧 DMEM 是 word-indexed（`dmem[(addr>>2)]`），新 `dpi_mem_read` 从精确字节地址读取 `*(uint32_t*)`，LSU 拿到错误的字。
+
+#### 错误的代码（修复前）：
+
+```cpp
+int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t offset = paddr - PMEM_BASE;   // ← 精确字节偏移！
+        return *(uint32_t *)(npc_pmem + offset); // ← 从未对齐地址读 4 字节！
+    }
+}
+```
+
+#### Bug 的数值追踪（以 `lb 0x80000001` 为例）：
+
+```
+旧 DMEM (word-indexed):
+  mem_idx  = (0x80000001 - 0x80000000) >> 2 = 0
+  dmem[0]  → 读取 0x80000000 处的整个字 (bytes 0-3)
+  LSU 从字中提取 byte 1 ✅
+
+新 dpi_mem_read (byte-indexed):
+  offset   = 0x80000001 - 0x80000000 = 1
+  *(uint32_t*)(npc_pmem + 1) → 读取 npc_pmem[1..4]
+  ↑ 这是 bytes 1-4，不是 bytes 0-3！
+  LSU 从错误的字中提取 byte → 得到错误数据 ❌
+
+同样地:
+  lh 0x80000002:
+    旧: dmem[0] → LSU 提取 bytes 2-3 ✅
+    新: npc_pmem[2..5] → bytes 2-5 ❌ (应该读 bytes 0-3 的 word)
+```
+
+#### 架构对比图示：
+
+```
+旧 DMEM 寻址（Word-Indexed）:
+  地址 0x80000000 ─→ dmem[0] (一个 32-bit word，包含 bytes 0,1,2,3)
+  地址 0x80000001 ─→ dmem[0] (同上，LSU 从 word 中提取 byte 1)
+  地址 0x80000004 ─→ dmem[1] (包含 bytes 4,5,6,7)
+
+新 dpi_mem_read 修复前（Byte-Indexed）:
+  地址 0x80000000 ─→ *(uint32_t*)(npc_pmem + 0) = word at bytes 0-3 ✅
+  地址 0x80000001 ─→ *(uint32_t*)(npc_pmem + 1) = word at bytes 1-4 ❌
+  地址 0x80000004 ─→ *(uint32_t*)(npc_pmem + 4) = word at bytes 4-7 ✅
+```
+
+#### 正确的代码（修复后）：
+
+```cpp
+int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;
+
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t word_addr = paddr & ~3U;         // ← 字对齐！
+        uint32_t offset = word_addr - PMEM_BASE;
+        return *(uint32_t *)(npc_pmem + offset);   // 总是从对齐地址读
+    }
+    // MMIO 设备读 — 使用精确地址（设备寄存器对齐）
+    switch (paddr) { ... }
+}
+```
+
+**为什么 `dpi_mem_write` 不需要同样修改？**  
+因为写路径使用 `wmask`（字节使能），它天然编码了"写哪个字节"：
+
+```cpp
+// dpi_mem_write — 正确（无需修改）
+void dpi_mem_write(int addr, int data, int wmask) {
+    uint32_t paddr = (uint32_t)addr;
+    // ...
+    for (int i = 0; i < 4; i++) {
+        if (wmask & (1 << i))                          // wmask 精确指示每字节
+            npc_pmem[offset + i] = (wdata >> (i*8)) & 0xFF;
+    }
+}
+```
+
+旧 DMEM 写路径：`dmem[mem_idx][7:0] <= mem_wdata[7:0]`（`mem_idx` 字对齐，`[7:0]` 选中字节 0）  
+新 C++ 写路径：`npc_pmem[mem_idx*4 + 0] = ...` — 物理上更新同一个字节 ✅
+
+#### `dpi_mem_read` 的双重角色与对齐策略：
+
+| 调用方 | 地址来源 | 是否需要字对齐？ | 当前行为 |
+|--------|---------|:---:|------|
+| `if_stage.v`：`instr = dpi_mem_read(pc)` | PC 寄存器（总是 4 字节对齐） | N/A | ✅ 自然对齐 |
+| `mem_stage.v`：`mem_rdata_raw = dpi_mem_read(mem_addr)` | ALU 输出（任意字节地址） | **是** | 修复后 ✅ |
+| MMIO 读路由 | 设备地址（如 0x10000000） | **否**（精确匹配） | ✅ 不走字对齐分支 |
+
+**教训**：从 Verilog 的 word-indexed 大数组迁移到 C++ 的 byte-indexed 数组时，读路径需要手动做字对齐以匹配 LSU 的行为预期。写路径因为有 `wmask`，字节偏移隐含在 mask 中，天然正确。
+
+---
+
+### Bug #3：Verilator 编译 include 路径未配置
+
+**影响**：`dpi_imports.vh` 找不到。  
+**表现**：`%Error: Cannot find include file: 'dpi_imports.vh'`  
+**根因**：Verilator 命令行缺少 `-I$(NPC_HOME)/vsrc`，Verilator 的预处理器找不到 include 文件。  
+**注意**：`-CFLAGS` 只传给 C++ 编译器，不影响 Verilog include 搜索路径。
+
+**修复**：在 Makefile 的 `verilator` 命令行添加 `-I$(NPC_HOME)/vsrc`：
+
+```makefile
+# Makefile
+sim: $(VSRCS) $(CSRCS)
+	verilator --cc --exe --build --trace \
+	--top-module $(TOP) $(VSRCS) $(CSRCS) \
+	-I$(NPC_HOME)/vsrc \                         # ← 新增
+	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
+```
+
+---
+
+### Bug #4：`#ifdef` 块被意外嵌套导致编译错误
+
+**影响**：`main.cpp` 编译失败。  
+**表现**：`error: unterminated #ifdef`  
+**根因**：替换 `load_bin` 相关代码时，注释掉的旧 `printf` 调试代码中包含一个未配对的 `#ifdef CONFIG_DIFFTEST`。
+
+**修复前**（错误）：
+```cpp
+    halt_check();
+
+    #ifdef CONFIG_DIFFTEST                              // ← 未配对！注释块内残留
+    //    cycle,
+    //    npc_pc(top, 0, READ),
+    // isa_reg_display(); 
+
+    #ifdef CONFIG_DIFFTEST                              // ← 第二个（正确配对）
+    if (diff_so_file) {
+        difftest_step(top, cycle);
+    }
+    #endif
+```
+
+**修复后**（正确）：
+```cpp
+    halt_check();
+
+    #ifdef CONFIG_DIFFTEST
+    if (diff_so_file) {
+        difftest_step(top, cycle);
+    }
+    #endif
+```
+
+**教训**：删除大段包含预处理指令的代码时，要仔细检查 `#ifdef`/`#ifndef`/`#endif` 的配对数。
+
+---
+
+### Bug 修复总结
+
+| Bug # | 类别 | 根因 | 影响范围 | 修复文件 |
+|-------|------|------|---------|---------|
+| #1 | C/C++ 类型系统 | `int`→`unsigned long` 符号扩展 | 全部指令（取指返回 0） | `memory.h`、`memory.cpp` |
+| #2 | 内存寻址模型 | 字节地址 vs 字对齐不匹配 | `lb/lh/lw/sh/sb/sw` 全部 | `memory.cpp`（`dpi_mem_read`） |
+| #3 | 构建系统 | Verilator include 路径缺失 | 编译失败 | `Makefile` |
+| #4 | 预处理 | `#ifdef` 配对错误 | 编译失败 | `main.cpp` |
+
+**测试验证**：全部 35 项 `cpu-tests` 通过。  
+**测试命令**：`make ARCH=riscv32I-npc run ALL=*`
