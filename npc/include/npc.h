@@ -9,6 +9,9 @@
 #include <stddef.h>
 #include <regex.h>
 #include <getopt.h>
+#include <cstdio>
+#include <cstring>
+#include <cstddef>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <verilated.h>

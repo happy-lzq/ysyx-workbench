@@ -1,7 +1,4 @@
-#include <cstdio>
-#include <cstring>
-#include <cassert>
-#include <cstddef>
+
 #include <memory.h>
 #include <device.h>
 
@@ -16,17 +13,17 @@ void pmem_init() {
 }
 
 void pmem_load_bin(const char *path) {
-    assert(path != NULL);
+    Assert(path, "load path is NULL");
     FILE *fp = fopen(path, "rb");
-    assert(fp);
+    Assert(fp, "cannot open file %s", path);
 
     fseek(fp, 0, SEEK_END);
     npc_img_size = ftell(fp);
-    assert(npc_img_size <= PMEM_SIZE);
+    Assert(npc_img_size <= PMEM_SIZE, "image too large: %ld > PMEM_SIZE(%d)", npc_img_size, PMEM_SIZE);
 
     fseek(fp, 0, SEEK_SET);
     size_t n = fread(npc_pmem, 1, npc_img_size, fp);
-    assert(n == (size_t)npc_img_size);
+    Assert(n == (size_t)npc_img_size, "fread failed: read %zu, expected %ld", n, npc_img_size);
     fclose(fp);
 
     printf("Loaded %ld bytes from %s into pmem [0x%08x, 0x%08lx)\n",

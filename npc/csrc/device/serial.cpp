@@ -1,7 +1,7 @@
-#include <cstdio>
+#include <stdio.h>
+#include <device.h>
 
 extern "C" void npc_serial_putc(unsigned char ch) {
-  std::fputc(ch, stderr);
-  std::fflush(stderr);
+  fputc(ch, stderr);
+  fflush(stderr);
 }
-
