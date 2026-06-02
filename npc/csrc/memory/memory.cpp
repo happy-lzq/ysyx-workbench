@@ -59,14 +59,16 @@ void pmem_write(uint32_t addr, int len, uint32_t data) {
 extern "C" {
 
 int dpi_mem_read(int addr) {
+    uint32_t paddr = (uint32_t)addr;          // ← 关键！禁止符号扩展
+
     // 物理内存
-    if (addr >= PMEM_BASE && addr < PMEM_END) {
-        uint32_t offset = addr - PMEM_BASE;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t offset = paddr - PMEM_BASE;
         return *(uint32_t *)(npc_pmem + offset);
     }
 
     // MMIO 设备读
-    switch (addr) {
+    switch (paddr) {
         case 0x10000000: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
         default: return 0;
@@ -74,9 +76,12 @@ int dpi_mem_read(int addr) {
 }
 
 void dpi_mem_write(int addr, int data, int wmask) {
+    uint32_t paddr = (uint32_t)addr;
+    uint32_t wdata = (uint32_t)data;
+
     // 物理内存
-    if (addr >= PMEM_BASE && addr < PMEM_END) {
-        uint32_t offset = addr - PMEM_BASE;
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t offset = paddr - PMEM_BASE;
         for (int i = 0; i < 4; i++) {
             if (wmask & (1 << i))
                 npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
@@ -85,10 +90,10 @@ void dpi_mem_write(int addr, int data, int wmask) {
     }
 
     // MMIO 设备写
-    switch (addr) {
+    switch (paddr) {
         case 0x10000000:  // UART
             if (wmask & 0x1)
-                npc_serial_putc(data & 0xFF);
+                npc_serial_putc(wdata & 0xFF);
             break;
         // case 0xa0000048: ... // RTC（后续扩展）
         default: break;

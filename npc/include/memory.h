@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define PMEM_BASE 0x80000000UL
-#define PMEM_SIZE (128UL * 1024 * 1024)   // 128MB
+#define PMEM_BASE 0x80000000U
+#define PMEM_SIZE (128U * 1024 * 1024)   // 128MB
 #define PMEM_END  (PMEM_BASE + PMEM_SIZE)
 
 #ifdef __cplusplus
