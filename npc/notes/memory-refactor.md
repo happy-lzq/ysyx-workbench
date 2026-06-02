@@ -1012,23 +1012,48 @@ int dpi_mem_read(int addr) {
 }
 ```
 
-**为什么 `dpi_mem_write` 不需要同样修改？**  
-因为写路径使用 `wmask`（字节使能），它天然编码了"写哪个字节"：
+**为什么 `dpi_mem_write` 也需要同样修改？**  
 
+`mem_wmask` 是相对于**字对齐基址**的字节使能信号——LSU 在生成 wmask 时，假设写入目标是字对齐的 word（与旧 `dmem[word_idx]` 行为一致）。如果 `dpi_mem_write` 使用精确字节偏移，wmask 的 lane 编号和实际字节偏移就会错位。
+
+```
+例: sb a5, 1(s1)  (向地址 0x80000281 写入 0x61)
+
+旧 DMEM:
+  mem_idx   = 0x80000280 >> 2 = 0xA0
+  mem_wmask = 4'b0010  (bit 1 = byte lane 1)
+  dmem[0xA0][15:8] = 0x61                    → 物理地址 0x80000281 ✅
+
+dpi_mem_write（修复前，字节偏移）:
+  offset    = 0x80000281 - 0x80000000 = 0x281
+  wmask bit 1 → npc_pmem[0x281 + 1] = npc_pmem[0x282]  → 写入了 0x80000282 ❌
+
+dpi_mem_write（修复后，字对齐）:
+  word_addr = 0x80000280
+  offset    = 0x280
+  wmask bit 1 → npc_pmem[0x280 + 1] = npc_pmem[0x281]  → 物理地址 0x80000281 ✅
+```
+
+修复后的 `dpi_mem_write`：
 ```cpp
-// dpi_mem_write — 正确（无需修改）
 void dpi_mem_write(int addr, int data, int wmask) {
     uint32_t paddr = (uint32_t)addr;
-    // ...
-    for (int i = 0; i < 4; i++) {
-        if (wmask & (1 << i))                          // wmask 精确指示每字节
-            npc_pmem[offset + i] = (wdata >> (i*8)) & 0xFF;
+    uint32_t wdata = (uint32_t)data;
+
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t word_addr = paddr & ~3U;         // ← 字对齐！
+        uint32_t offset = word_addr - PMEM_BASE;
+        for (int i = 0; i < 4; i++) {
+            if (wmask & (1 << i))
+                npc_pmem[offset + i] = (wdata >> (i * 8)) & 0xFF;
+        }
+        return;
     }
+    // MMIO ...
 }
 ```
 
-旧 DMEM 写路径：`dmem[mem_idx][7:0] <= mem_wdata[7:0]`（`mem_idx` 字对齐，`[7:0]` 选中字节 0）  
-新 C++ 写路径：`npc_pmem[mem_idx*4 + 0] = ...` — 物理上更新同一个字节 ✅
+**核心原则**：旧 DMEM 的所有访问（读和写）都是 word-indexed。`dpi_mem_read` 和 `dpi_mem_write` 必须通过 `paddr & ~3U` 做字对齐，才能与 LSU 的 wmask 语义完全匹配。
 
 #### `dpi_mem_read` 的双重角色与对齐策略：
 
@@ -1038,7 +1063,32 @@ void dpi_mem_write(int addr, int data, int wmask) {
 | `mem_stage.v`：`mem_rdata_raw = dpi_mem_read(mem_addr)` | ALU 输出（任意字节地址） | **是** | 修复后 ✅ |
 | MMIO 读路由 | 设备地址（如 0x10000000） | **否**（精确匹配） | ✅ 不走字对齐分支 |
 
-**教训**：从 Verilog 的 word-indexed 大数组迁移到 C++ 的 byte-indexed 数组时，读路径需要手动做字对齐以匹配 LSU 的行为预期。写路径因为有 `wmask`，字节偏移隐含在 mask 中，天然正确。
+**教训**：从 Verilog 的 word-indexed 大数组迁移到 C++ 的 byte-indexed 数组时，读和写路径都需要手动做字对齐以匹配 LSU 的行为预期。`wmask` 的语义是"字内第几个 byte lane"，不是"从地址偏移几个 byte"。
+
+---
+
+### Bug #5：`dpi_mem_write` 字对齐缺失（Bug #2 的对称问题）
+
+**影响**：非对齐存储指令（`sb`/`sh` 到奇地址）写入错误物理位置，后续 `lb`/`lh` 读到旧值。  
+**表现**：`movsx` 测试失败（`gpr[10] mismatch at pc=0x800000bc`， `a0=0` 而非 `0x61`）。  
+**根因**：与 Bug #2 相同的字对齐问题，但发生在写路径。
+
+#### 数值追踪（以 `movsx` 测试为例）：
+
+```
+测试逻辑:
+  lbu a5, 0(s1)     // 从 0x80000280 加载 byte → a5=0x61
+  sb  a5, 1(s1)     // 存储到 0x80000281
+  lbu a0, 1(s1)     // 从 0x80000281 加载 byte → 期望 a0=0x61
+
+结果:
+  NPC a0 = 0x00      ← sb 写偏了，0x80000281 仍是旧值
+  NEMU a0 = 0x61     ← 正确
+```
+
+修复：在 `dpi_mem_write` 的物理内存分支添加 `uint32_t word_addr = paddr & ~3U;`，与 `dpi_mem_read` 保持一致。
+
+**教训**：`wmask` 的 bit 编号对应的是字对齐 word 内的 byte lane（lane 0 = byte 0, lane 1 = byte 1, ...），而不是从任意地址开始的字节偏移。迁移到 byte-indexed 数组时，必须先将地址字对齐，再将 wmask 的 lane 编号作为字内偏移使用。
 
 ---
 
@@ -1104,7 +1154,8 @@ sim: $(VSRCS) $(CSRCS)
 | Bug # | 类别 | 根因 | 影响范围 | 修复文件 |
 |-------|------|------|---------|---------|
 | #1 | C/C++ 类型系统 | `int`→`unsigned long` 符号扩展 | 全部指令（取指返回 0） | `memory.h`、`memory.cpp` |
-| #2 | 内存寻址模型 | 字节地址 vs 字对齐不匹配 | `lb/lh/lw/sh/sb/sw` 全部 | `memory.cpp`（`dpi_mem_read`） |
+| #2 | 内存寻址模型 | 字节地址 vs 字对齐不匹配（读） | `lb/lh/lw` | `memory.cpp`（`dpi_mem_read`） |
+| #5 | 内存寻址模型 | 字节地址 vs 字对齐不匹配（写） | `sb/sh` 到非对齐地址 | `memory.cpp`（`dpi_mem_write`） |
 | #3 | 构建系统 | Verilator include 路径缺失 | 编译失败 | `Makefile` |
 | #4 | 预处理 | `#ifdef` 配对错误 | 编译失败 | `main.cpp` |
 
