@@ -22,6 +22,7 @@ sim: $(VSRCS) $(CSRCS)
 	verilator --cc --exe --build --trace \
 	--top-module $(TOP) $(VSRCS) $(CSRCS) \
 	-I$(NPC_HOME)/vsrc \
+	-I$(NPC_HOME)/include \
 	-CFLAGS "$(SIM_CFLAGS)" -LDFLAGS "$(LDFLAGS)"
 	@mkdir -p build
 	mv obj_dir/V$(TOP) build/sim

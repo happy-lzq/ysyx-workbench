@@ -1,9 +1,9 @@
 #include <difftest.h>
 #include <dlfcn.h>
 #include <difftest.h>
+#include <memory.h>
 
 extern VerilatedVcdC* tfp;
-long img_size = 0;
 const char* img_file = NULL;
 const char* diff_so_file = NULL;
 DEBUG_FILE_PATH dfp;
@@ -106,6 +106,6 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
 void difftest_init(){
     if (diff_so_file) {
         init_diff_log(img_file);
-        init_difftest(diff_so_file, img_size);
+        init_difftest(diff_so_file, npc_img_size);
     }
 }

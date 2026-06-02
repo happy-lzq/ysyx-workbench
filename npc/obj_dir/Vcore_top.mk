@@ -50,6 +50,7 @@ VM_USER_CLASSES = \
   serial \
   dut \
   main \
+  memory \
   interrupt \
   monitor \
   expr \
@@ -65,6 +66,7 @@ VM_USER_DIR = \
   ../csrc \
   ../csrc/device \
   ../csrc/difftest \
+  ../csrc/memory \
   ../csrc/monitor \
   ../csrc/monitor/sdb \
   ../csrc/monitor/trace \
@@ -87,6 +89,8 @@ serial.o: csrc/device/serial.cpp
 dut.o: csrc/difftest/dut.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 main.o: csrc/main.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+memory.o: csrc/memory/memory.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 interrupt.o: csrc/monitor/interrupt.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<

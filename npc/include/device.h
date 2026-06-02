@@ -3,7 +3,14 @@
 
 #include <stdint.h>
 
-extern "C" void npc_serial_putc(unsigned char ch);
-void mmio_write_handler(uint32_t addr, uint32_t wdata, uint8_t wmask);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void npc_serial_putc(unsigned char ch);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

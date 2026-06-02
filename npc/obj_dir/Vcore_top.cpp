@@ -13,14 +13,9 @@ Vcore_top::Vcore_top(VerilatedContext* _vcontextp__, const char* _vcname__)
     , clk{vlSymsp->TOP.clk}
     , rst{vlSymsp->TOP.rst}
     , halt{vlSymsp->TOP.halt}
-    , dev_req{vlSymsp->TOP.dev_req}
-    , dev_r_w{vlSymsp->TOP.dev_r_w}
-    , dev_wmask{vlSymsp->TOP.dev_wmask}
     , instr{vlSymsp->TOP.instr}
     , halt_pc{vlSymsp->TOP.halt_pc}
     , halt_ret{vlSymsp->TOP.halt_ret}
-    , dev_addr{vlSymsp->TOP.dev_addr}
-    , dev_wdata{vlSymsp->TOP.dev_wdata}
     , __PVT____024unit{vlSymsp->TOP.__PVT____024unit}
     , rootp{&(vlSymsp->TOP)}
 {

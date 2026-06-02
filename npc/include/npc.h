@@ -16,11 +16,10 @@
 #include <verilated_vcd_c.h>
 #include <Vcore_top___024root.h>
 #include <generated/autoconf.h>
+#include <memory.h>
 
 // ==================== 基础常量（由 Kconfig 生成） ====================
 #define RESET_VECTOR CONFIG_RESET_VECTOR
-#define PMEM_SIZE    CONFIG_PMEM_SIZE
-#define PMEM_WORDS   (PMEM_SIZE / 4)
 #define MAX_CYCLE 1000000
 #define INTR_EMPTY ((word_t)-1)
 // ==================== 定义 CSR 地址宏（与 Verilog 保持一致）
@@ -64,7 +63,6 @@ extern VerilatedVcdC* tfp ;
 extern NPC_state npc_s, ref_s;
 extern NPCSIM_State npc_sim_state;
 extern DEBUG_FILE_PATH dfp;
-extern uint8_t npc_pmem[PMEM_SIZE];
 extern int idx;
 extern long img_size;
 extern const char *img_file;
@@ -74,8 +72,6 @@ extern bool wave_enabled;
 extern uint64_t sim_time;
 extern int cycle;
 // ==================== 函数声明 ====================
-uint8_t *guest_to_host(paddr_t paddr);
-void load_bin(Vcore_top *top, const char *path);
 void halt_check();
 void npc_init();
 void npc_state_check();
@@ -118,29 +114,6 @@ static inline uint32_t npc_inst(Vcore_top *top, uint32_t val, int r_w) {
         return top->instr = val;
     else
         return top->instr;
-}
-
-static inline uint32_t npc_imem(Vcore_top *top, int idx, uint32_t val, int r_w) {
-    if (idx < 0 || idx >= PMEM_WORDS) {
-        fprintf(stderr, "imem index out of range: %d\n", idx);
-        assert(0);
-    }
-    if (r_w == WRITE)
-        return top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx] = val;
-        
-    else
-        return top->rootp->core_top__DOT__u_if_stage__DOT__imem[idx];
-}
-static inline uint32_t npc_dmem(Vcore_top *top, int idx, uint32_t val, int r_w) {
-    if (idx < 0 || idx >= PMEM_WORDS) {
-        fprintf(stderr, "dmem index out of range: %d\n", idx);
-        assert(0);
-    }
-    if (r_w == WRITE)
-        return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx] = val;
-        
-    else
-        return top->rootp->core_top__DOT__u_mem_stage__DOT__dmem[idx];
 }
 
 static inline uint32_t npc_csr(Vcore_top *top, uint32_t idx, uint32_t val, int r_w) {

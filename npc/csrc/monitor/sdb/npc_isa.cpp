@@ -1,4 +1,6 @@
 #include <sdb.h>
+#include <memory.h>
+
 // 寄存器名映射
 static const char* regs[] = {
     "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -36,14 +38,9 @@ word_t isa_reg_str2val(const char *s, bool *success) {
 }
 
 word_t vaddr_read(vaddr_t addr, int len) {
-    if (addr >= RESET_VECTOR && addr < RESET_VECTOR + PMEM_SIZE) {
-        uint32_t idx = (addr - RESET_VECTOR) >> 2;
-        return npc_dmem(top, idx, 0, READ);   // 统一读 dmem
-    }
-    return 0;
+    return pmem_read(addr, len);
 }
 
 void vaddr_write(vaddr_t addr, int len, word_t data) {
-    uint32_t idx = (addr - RESET_VECTOR) >> 2;
-    npc_dmem(top, idx, data, WRITE);
+    pmem_write(addr, len, data);
 }

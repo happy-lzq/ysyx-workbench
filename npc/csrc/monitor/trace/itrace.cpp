@@ -1,5 +1,6 @@
 #include <trace.h>
 #include <difftest.h>
+#include <memory.h>
 
 char irbuf [IRING_BUF_SIZE] [128];     // 每行缓冲区
 char logbuf [128];

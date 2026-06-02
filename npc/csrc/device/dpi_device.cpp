@@ -1,16 +1,9 @@
-#include <cstdio>
-#include <sys/time.h>
-#include <dpi_export.h>
-extern "C" {
+// dpi_device.cpp — 设备侧 DPI-C 实现（定时器等）
+// 内存相关的 DPI-C 函数已移至 csrc/memory/memory.cpp
 
-// ========== MMIO 读路由 ==========
-int dpi_mmio_read(int addr) {
-    switch (addr) {
-        case 0x10000000: return 0;      // UART 读（只写设备，返回 0）
-        // case 0xa0000048: return ...; // RTC（后续扩展）
-        default:         return 0;
-    }
-}
+#include <dpi_export.h>
+
+extern "C" {
 
 // ========== 预留：定时器中断 ==========
 // int dpi_timer_irq() { ... }

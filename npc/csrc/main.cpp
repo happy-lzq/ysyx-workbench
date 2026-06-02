@@ -2,31 +2,19 @@
 #include <sdb.h>
 #include <trace.h>
 #include <interrupt.h>
-#include <device.h>
+
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;
 
 int idx =0;
 int cycle = 0;
-uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     uint32_t this_pc = npc_pc(top, 0, READ);
-    uint32_t this_inst = npc_imem(top, (this_pc - RESET_VECTOR) >> 2, 0, READ);
+    uint32_t this_inst = top->instr;
     top->clk = 1; top->eval();
     halt_check();
-    // MMIO 设备写拦截
-    if (top->dev_req && top->dev_r_w) {
-        mmio_write_handler(top->dev_addr,top->dev_wdata,top->dev_wmask);
-    }
-    // printf("\n[cycle %d] pc=0x%08x trap_enter=%d mret=%d trap_target=0x%08x\n",
-    //    cycle,
-    //    npc_pc(top, 0, READ),
-    //    top->rootp->core_top__DOT__trap_enter,
-    //    top->rootp->core_top__DOT__mret,
-    //    top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
-    // isa_reg_display(); 
 
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file) {
