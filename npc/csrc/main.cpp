@@ -20,7 +20,7 @@ void single_cycle(){
 
 
     #ifdef CONFIG_DIFFTEST 
-    if (diff_so_file) {
+    if (diff_so_file && !pmem_mmio_accessed()) {
         difftest_step(top, cycle);
     }
     #endif

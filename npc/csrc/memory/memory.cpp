@@ -5,6 +5,7 @@
 // ==================== 128MB 统一物理内存 ====================
 uint8_t npc_pmem[PMEM_SIZE];
 long npc_img_size = 0;
+static bool mmio_accessed = false;   // difftest 跳过标志
 
 // ==================== C++ 辅助函数 ====================
 
@@ -61,12 +62,13 @@ int dpi_mem_read(int addr) {
 
     // 物理内存 — 字对齐读取（匹配 DMEM 的 word-indexed 行为）
     if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        uint32_t word_addr = paddr & ~3U;         // ← 字对齐！
+        uint32_t word_addr = paddr & ~3U;
         uint32_t offset = word_addr - PMEM_BASE;
         return *(uint32_t *)(npc_pmem + offset);
     }
 
-    // MMIO 设备读 — 精确地址（设备寄存器对齐）
+    // MMIO 设备读
+    mmio_accessed = true;
     switch (paddr) {
         case 0xa00003f8: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
@@ -90,6 +92,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
     }
 
     // MMIO 设备写
+    mmio_accessed = true;
     switch (paddr) {
         case 0xa00003f8:  // UART (NEMU 兼容地址)
             if (wmask & 0x1)
@@ -101,3 +104,10 @@ void dpi_mem_write(int addr, int data, int wmask) {
 }
 
 }  // extern "C"
+
+// ==================== difftest 跳过检测 ====================
+bool pmem_mmio_accessed() {
+    bool v = mmio_accessed;
+    mmio_accessed = false;    // 读取后自动清零，下周期重新检测
+    return v;
+}
