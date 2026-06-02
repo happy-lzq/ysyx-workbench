@@ -16,6 +16,7 @@ Vcore_top::Vcore_top(VerilatedContext* _vcontextp__, const char* _vcname__)
     , instr{vlSymsp->TOP.instr}
     , halt_pc{vlSymsp->TOP.halt_pc}
     , halt_ret{vlSymsp->TOP.halt_ret}
+    , __PVT____024unit{vlSymsp->TOP.__PVT____024unit}
     , rootp{&(vlSymsp->TOP)}
 {
     // Register model with the context

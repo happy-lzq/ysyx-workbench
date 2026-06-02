@@ -18,6 +18,10 @@ static inline void outl(uintptr_t addr, uint32_t data) { *(volatile uint32_t *)a
 #define PTE_U 0x10
 #define PTE_A 0x40
 #define PTE_D 0x80
+// ==================== npc ===========================
+#define NPC_SERIAL_PORT 0x10000000    // NPC 约定 UART 地址
+
+
 
 enum { MODE_U, MODE_S, MODE_M = 3 };
 #define MSTATUS_MXR  (1 << 19)

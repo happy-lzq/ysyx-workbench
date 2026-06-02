@@ -14,11 +14,3 @@
 #include "Vcore_top__Dpi.h"
 #include "Vcore_top.h"
 
-#ifndef VL_DPIDECL_get_mstatus_
-#define VL_DPIDECL_get_mstatus_
-int get_mstatus() {
-    // DPI export at vsrc/csr.v:114:18
-    return Vcore_top::get_mstatus();
-}
-#endif
-

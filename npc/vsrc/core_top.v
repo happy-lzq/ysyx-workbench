@@ -34,6 +34,10 @@ module core_top (
     wire [31:0]            csr_rdata,trap_target,csr_zimm;
     wire [31:0]                                 trap_code;
     wire [31:0]                                     rs_a0;
+    
+    wire [0 :0] dev_req, dev_r_w;
+    wire [31:0] dev_addr, dev_wdata;
+    wire [3 :0] dev_wmask;
 
     assign jump_jalr        = alu_result;
     assign imm_jal          = imm_out;
@@ -140,8 +144,14 @@ mem_stage u_mem_stage (
     .mem_write        (mem_write),
     .mem_addr         (mem_addr),
     .mem_wdata_raw    (mem_wdata_raw),
-    .mem_rdata        (mem_rdata)
+    .mem_rdata        (mem_rdata),
+    .dev_req          (dev_req),
+    .dev_r_w          (dev_r_w),
+    .dev_addr         (dev_addr),
+    .dev_wdata        (dev_wdata),
+    .dev_wmask        (dev_wmask)
 );
+
 wb_stage u_wb_stage (
     .reg_wdata_src    (reg_wdata_src),
     .mem_rdata        (mem_rdata),

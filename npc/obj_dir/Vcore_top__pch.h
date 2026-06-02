@@ -19,6 +19,7 @@
 
 
 #include "verilated.h"
+#include "verilated_dpi.h"
 
 #include "Vcore_top__Syms.h"
 #include "Vcore_top.h"

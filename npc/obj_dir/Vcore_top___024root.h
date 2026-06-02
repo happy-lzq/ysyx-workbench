@@ -6,12 +6,15 @@
 #define VERILATED_VCORE_TOP___024ROOT_H_  // guard
 
 #include "verilated.h"
+class Vcore_top___024unit;
 
 
 class Vcore_top__Syms;
 
 class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedModule {
   public:
+    // CELLS
+    Vcore_top___024unit* __PVT____024unit;
 
     // DESIGN SPECIFIC STATE
     // Anonymous structures to workaround compiler member-count bugs
@@ -45,7 +48,14 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         CData/*6:0*/ core_top__DOT__u_id_stage__DOT__funct7;
         CData/*0:0*/ core_top__DOT__u_id_stage__DOT__u_imm_gen__DOT____VdfgRegularize_hebd20cbd_0_0;
         CData/*3:0*/ core_top__DOT__u_mem_stage__DOT__mem_wmask;
+        CData/*0:0*/ core_top__DOT__u_mem_stage__DOT__in_pmem;
         CData/*7:0*/ core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_0;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_1;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_2;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_3;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_4;
+        CData/*0:0*/ __VdfgRegularize_h495687df_0_5;
         CData/*0:0*/ __VstlFirstIteration;
         CData/*0:0*/ __Vtrigprevexpr___TOP__clk__0;
         CData/*0:0*/ __VactContinue;
@@ -73,15 +83,21 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         IData/*31:0*/ core_top__DOT__u_csr__DOT__csr_mscratch;
         IData/*31:0*/ core_top__DOT__u_if_stage__DOT__pc_next;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src1;
+    };
+    struct {
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src2;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__csr_src;
+        IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__mem_rdata_raw;
         IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__mem_wdata;
+        IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__dev_rdata;
         IData/*31:0*/ __VdfgRegularize_h3c5bdd75_0_0;
+        IData/*31:0*/ __Vfunc_dpi_mmio_read__0__Vfuncout;
+        IData/*31:0*/ __VdfgRegularize_h495687df_0_6;
+        IData/*31:0*/ __VdfgRegularize_h495687df_0_7;
+        IData/*31:0*/ __VdfgRegularize_h495687df_0_8;
         IData/*31:0*/ __VactIterCount;
         QData/*63:0*/ core_top__DOT__u_csr__DOT__mcycle_64;
         VlUnpacked<IData/*31:0*/, 32> core_top__DOT__u_regfile__DOT__rf;
-    };
-    struct {
         VlUnpacked<IData/*31:0*/, 33554432> core_top__DOT__u_if_stage__DOT__imem;
         VlUnpacked<IData/*31:0*/, 33554432> core_top__DOT__u_mem_stage__DOT__dmem;
         VlUnpacked<CData/*0:0*/, 2> __Vm_traceActivity;

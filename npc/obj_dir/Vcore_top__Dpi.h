@@ -15,9 +15,9 @@ extern "C" {
 #endif
 
 
-    // DPI EXPORTS
-    // DPI export at vsrc/csr.v:114:18
-    extern int get_mstatus();
+    // DPI IMPORTS
+    // DPI import at vsrc/dpi_imports.vh:4:29
+    extern int dpi_mmio_read(int addr);
 
 #ifdef __cplusplus
 }
