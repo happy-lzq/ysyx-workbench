@@ -33,6 +33,18 @@
     - [1.6.6 为什么 main 进程永不会被调度回来](#166-为什么-main-进程永不会被调度回来)
     - [1.6.7 ev.cause 和 ev.event 的区别](#167-evcause-和-evevent-的区别)
   - [1.7 最终总结](#17-最终总结)
+- [第 2 章 PA4.2 在 NEMU 中启动 RT-Thread](#第-2-章-pa42-在-nemu-中启动-rt-thread)
+  - [2.1 最终结论](#21-最终结论)
+  - [2.2 当前工程已有基础](#22-当前工程已有基础)
+  - [2.3 RT-Thread 需要 BSP 提供什么](#23-rt-thread-需要-bsp-提供什么)
+  - [2.4 第一轮运行现象与根因定位](#24-第一轮运行现象与根因定位)
+  - [2.5 关键修改一：补齐 RT-Thread 上下文切换](#25-关键修改一补齐-rt-thread-上下文切换)
+  - [2.6 关键修改二：修正中断开关 ABI](#26-关键修改二修正中断开关-abi)
+  - [2.7 关键修改三：修正 AM RISC-V trap frame 大小](#27-关键修改三修正-am-risc-v-trap-frame-大小)
+  - [2.8 关键修改四：让 make run 直接进入 guest](#28-关键修改四让-make-run-直接进入-guest)
+  - [2.9 完整启动链路复盘](#29-完整启动链路复盘)
+  - [2.10 验证方法与结果](#210-验证方法与结果)
+  - [2.11 设计注意事项与剩余非阻塞项](#211-设计注意事项与剩余非阻塞项)
 
 ---
 
@@ -795,3 +807,913 @@ PA4 上下文切换模块最核心的认知可以压缩成下面几句话：
 因此，整个 PA4 模块的本质就是：
 
 > **把 PA3 的异常处理管线（trap.S + __am_irq_handle + Event）扩展为进程调度管线**——通过在 `user_handler` 这一层返回不同的 `Context*`，使得同一个 trap 返回机制既能"返回自己"（不切换），也能"返回他人"（进程切换）。调度策略由软件自定义，但切换的"交通工具"永远是异常/中断机制。
+
+---
+
+## 第 2 章 PA4.2 在 NEMU 中启动 RT-Thread
+
+### 2.1 最终结论
+
+当前 PA4.2 相关主设计已经完成：RT-Thread 可以作为 `am-kernels/rt-thread-am/bsp/abstract-machine` 下的 AM 程序，在 `riscv32-nemu` 上启动，并进入 RT-Thread shell。
+
+最终验证命令：
+
+```bash
+cd am-kernels/rt-thread-am/bsp/abstract-machine
+make ARCH=riscv32-nemu image
+timeout 45s make ARCH=riscv32-nemu run
+```
+
+关键启动输出：
+
+```text
+heap: [0x800ea000 - 0x88000000]
+
+ \ | /
+- RT -     Thread Operating System
+ / | \     5.0.1 build May 29 2026 20:13:30
+ 2006 - 2022 Copyright by RT-Thread team
+[I/utest] utest is initialize success.
+[I/utest] total utest testcase num: (0)
+Hello RISC-V!
+msh />
+```
+
+shell 自动输入测试也可以执行到：
+
+```text
+msh />help
+msh />date
+msh />version
+msh />free
+msh />ps
+msh />pwd
+msh />memtrace
+msh />utest_list
+```
+
+其中 `ps` 能看到：
+
+```text
+thread                   pri  status
+tshell                    20  running
+sys workq                 23  ready
+tidle0                    31  ready
+timer                      4  suspend
+main                      10  close
+```
+
+这说明不是只打印了 banner，而是已经完成了：
+
+1. RT-Thread 内核初始化。
+2. 线程栈构造。
+3. 第一次调度切换。
+4. timer interrupt 触发 tick。
+5. shell 线程运行。
+6. 线程列表、堆信息等内核对象正常工作。
+
+`timeout` 最后的退出码 `124` 是预期行为，因为 RTOS 正常情况下不会主动退出。
+
+### 2.2 当前工程已有基础
+
+PA4.2 不是从零开始写一个 RTOS，而是把三个已经存在的层次接起来：
+
+| 层次 | 目录/文件 | 已有能力 |
+|------|-----------|----------|
+| NEMU 硬件模拟 | `nemu/src/isa/riscv32/*`、`nemu/src/device/*` | CSR、异常、中断、timer、serial、MMIO |
+| AbstractMachine | `abstract-machine/am/src/riscv/nemu/*` | `cte_init()`、`yield()`、`trap.S`、`Context` |
+| RT-Thread AM BSP | `am-kernels/rt-thread-am/bsp/abstract-machine/*` | RT-Thread BSP 框架、串口、入口、配置 |
+
+启动 RT-Thread 的核心不在于重新发明这些层，而是完成它们之间的契约：
+
+```text
+NEMU timer interrupt
+        ↓
+AM trap.S 保存 Context
+        ↓
+AM __am_irq_handle 翻译 Event
+        ↓
+RT-Thread BSP ev_handler 处理 tick / context switch
+        ↓
+RT-Thread scheduler 选择线程
+        ↓
+AM trap.S 恢复新的 Context
+        ↓
+mret 进入 RT-Thread 线程
+```
+
+这里的关键是：RT-Thread 不直接知道 NEMU 的 `mepc/mcause/mstatus`，NEMU 也不直接知道 RT-Thread 的 `struct rt_thread`。中间的共同语言就是 AM 的 `Context *`。
+
+### 2.3 RT-Thread 需要 BSP 提供什么
+
+RT-Thread 的硬件抽象接口定义在：
+
+```text
+am-kernels/rt-thread-am/include/rthw.h
+```
+
+对 PA4.2 最关键的是以下接口：
+
+```c
+rt_uint8_t *rt_hw_stack_init(void *entry, void *parameter,
+                             rt_uint8_t *stack_addr, void *exit);
+
+rt_base_t rt_hw_interrupt_disable(void);
+void rt_hw_interrupt_enable(rt_base_t level);
+
+void rt_hw_context_switch_to(rt_ubase_t to);
+void rt_hw_context_switch(rt_ubase_t from, rt_ubase_t to);
+void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to,
+                                    rt_thread_t from_thread,
+                                    rt_thread_t to_thread);
+```
+
+它们分别对应四件事：
+
+| 接口 | RT-Thread 期望 |
+|------|----------------|
+| `rt_hw_stack_init()` | 为一个从未运行过的线程构造初始栈和初始 CPU 上下文 |
+| `rt_hw_interrupt_disable()` | 关闭全局中断，并返回旧中断状态 |
+| `rt_hw_interrupt_enable(level)` | 按旧状态恢复中断，而不是无条件开中断 |
+| `rt_hw_context_switch_to()` | 启动调度器后切到第一个线程 |
+| `rt_hw_context_switch()` | 在线程态从当前线程切到目标线程 |
+| `rt_hw_context_switch_interrupt()` | 在中断处理中记录延迟切换请求，等中断返回时切换 |
+
+RT-Thread 的调度器会把 `from` 和 `to` 传成线程对象里 `sp` 字段的地址：
+
+```c
+rt_hw_context_switch((rt_ubase_t)&from_thread->sp,
+                     (rt_ubase_t)&to_thread->sp);
+
+rt_hw_context_switch_interrupt((rt_ubase_t)&from_thread->sp,
+                               (rt_ubase_t)&to_thread->sp,
+                               from_thread, to_thread);
+```
+
+因此 BSP 侧要理解：
+
+```text
+from = &from_thread->sp  // 保存当前 Context* 的位置
+to   = &to_thread->sp    // 读取目标 Context* 的位置
+```
+
+### 2.4 第一轮运行现象与根因定位
+
+#### 2.4.1 构建可以通过
+
+最开始先验证 RT-Thread 镜像是否能编译：
+
+```bash
+make ARCH=riscv32-nemu image
+```
+
+构建成功生成：
+
+```text
+build/rtthread-riscv32-nemu.elf
+build/rtthread-riscv32-nemu.bin
+```
+
+说明 C 代码、链接脚本、RT-Thread 配置整体可以静态通过。后续问题集中在运行时。
+
+#### 2.4.2 make run 停在 NEMU monitor
+
+第一次执行：
+
+```bash
+make ARCH=riscv32-nemu run
+```
+
+NEMU 启动后停在：
+
+```text
+Welcome to riscv32-NEMU!
+For help, type "help"
+(nemu)
+```
+
+这不是 RT-Thread 崩溃，而是 NEMU 没有批处理运行。需要 `-b`，否则要手动输入 `c` 才会开始执行 guest。
+
+#### 2.4.3 difftest 与异步 timer interrupt 冲突
+
+打开 batch 后，如果 NEMU 配置里 `CONFIG_DIFFTEST=y`，会出现类似：
+
+```text
+pc is different after executing instruction at pc = 0x80056678,
+right = 0x800147b0, wrong = 0x8005667c
+```
+
+定位：
+
+```text
+0x80056678 = __am_asm_trap
+0x8005667c = __am_asm_trap + 4
+0x800147b0 = rt_interrupt_get_nest 内部返回路径
+```
+
+这个差异发生在 timer interrupt 进入 `mtvec` 的瞬间。NEMU 收到了异步时钟中断，PC 跳到 `__am_asm_trap`；参考模型没有同步注入同一个中断，所以继续执行下一条普通指令。两者自然不一致。
+
+这不是 RT-Thread 设计错误，而是异步外设中断下 difftest 需要额外中断同步机制。PA4.2 启动 RT-Thread 时应关闭 difftest，保留设备：
+
+```text
+CONFIG_DEVICE=y
+CONFIG_HAS_SERIAL=y
+CONFIG_HAS_TIMER=y
+# CONFIG_DIFFTEST is not set
+```
+
+#### 2.4.4 真正的 guest 崩溃：访问 0x64
+
+关闭 difftest 后，早期曾出现：
+
+```text
+address (0x00000064) is out of bound at pc = 0x80012780
+```
+
+反查地址：
+
+```bash
+riscv64-linux-gnu-addr2line \
+  -e build/rtthread-riscv32-nemu.elf \
+  -f -p 0x80012780
+```
+
+得到：
+
+```text
+rt_tick_increase at src/clock.c:110
+```
+
+反汇编关键位置：
+
+```asm
+8001277c: jal ra, rt_thread_self
+80012780: lw  a4,100(a0)
+```
+
+`0x64 = 100`，说明 `a0 == 0`，也就是：
+
+```c
+thread = rt_thread_self();  // 返回 NULL
+--thread->remaining_tick;   // 访问 NULL + 100
+```
+
+为什么 timer tick 会在 `rt_current_thread` 还没有设置时进来？
+
+根因在 BSP 的中断开关 ABI 实现错误。
+
+原来的实现类似：
+
+```c
+void rt_hw_interrupt_enable() {
+  iset(1);
+}
+
+void rt_hw_interrupt_disable() {
+  iset(0);
+}
+```
+
+但 RT-Thread 期望的是：
+
+```c
+level = rt_hw_interrupt_disable();
+...
+rt_hw_interrupt_enable(level);
+```
+
+也就是说 `enable(level)` 必须恢复旧状态。如果旧状态本来是关中断，就不能打开。原实现无条件开中断，导致 RT-Thread 启动期间某些临界区提前打开 MIE，timer interrupt 在调度器尚未启动、`rt_current_thread == NULL` 时进入 `rt_tick_increase()`。
+
+这就是 `0x64` 崩溃的完整因果链：
+
+```text
+rtthread_startup()
+  rt_hw_interrupt_disable()
+    关中断，但没有返回旧状态
+  ...
+  某个 RT-Thread 内部函数：
+    level = rt_hw_interrupt_disable()
+    ...
+    rt_hw_interrupt_enable(level)
+      原 BSP 无条件 iset(1)
+        ↓
+      启动阶段过早打开 MIE
+        ↓
+      NEMU timer interrupt 进入 AM trap
+        ↓
+      ev_handler(EVENT_IRQ_TIMER)
+        ↓
+      rt_tick_increase()
+        ↓
+      rt_thread_self() == NULL
+        ↓
+      访问 NULL + remaining_tick 偏移 0x64
+```
+
+### 2.5 关键修改一：补齐 RT-Thread 上下文切换
+
+修改文件：
+
+```text
+am-kernels/rt-thread-am/bsp/abstract-machine/src/context.c
+```
+
+#### 2.5.1 设计目标
+
+RT-Thread 线程切换需要三类行为：
+
+1. 创建线程时，构造一个初始 `Context`。
+2. 普通线程态切换时，用 `yield()` 主动进入 AM trap。
+3. timer interrupt 中切换时，不再二次 `yield()`，而是在中断返回前切换到目标 `Context`。
+
+#### 2.5.2 全局切换槽
+
+BSP 增加两个全局变量：
+
+```c
+static void  *volatile rt_next_ctx = NULL;
+static void **volatile rt_save_ptr = NULL;
+```
+
+含义：
+
+| 变量 | 含义 |
+|------|------|
+| `rt_next_ctx` | 下一个要恢复的 AM `Context *` |
+| `rt_save_ptr` | 保存当前 `Context *` 的位置，也就是 `&from_thread->sp` |
+
+普通线程切换：
+
+```text
+rt_hw_context_switch(from, to)
+  rt_save_ptr = from
+  rt_next_ctx = *to
+  yield()
+    ↓
+  AM trap.S 保存当前 Context
+    ↓
+  ev_handler(EVENT_YIELD)
+    *rt_save_ptr = 当前 Context
+    return rt_next_ctx
+    ↓
+  trap.S 恢复目标 Context
+```
+
+中断内切换：
+
+```text
+timer interrupt
+  ↓
+ev_handler(EVENT_IRQ_TIMER)
+  rt_interrupt_enter()
+  rt_tick_increase()
+    rt_schedule()
+      rt_hw_context_switch_interrupt(from, to, ...)
+        rt_save_ptr = from
+        rt_next_ctx = *to
+  rt_interrupt_leave()
+  if (rt_next_ctx != NULL)
+    *rt_save_ptr = 当前中断现场 Context
+    return rt_next_ctx
+```
+
+#### 2.5.3 rt_hw_stack_init()
+
+实现思路与 PA4 的 `kcontext()` 一致：线程从未运行过，所以手工伪造一份 AM `Context`，让 trap.S 的恢复流程把它当成“刚被中断过的现场”。
+
+关键字段：
+
+```c
+#define INIT_MSTATUS 0x1888
+
+ctx->mepc    = (uintptr_t)tentry;
+ctx->mstatus = INIT_MSTATUS;
+ctx->gpr[2]  = (uintptr_t)(stack_addr + sizeof(rt_ubase_t));
+ctx->gpr[10] = (uintptr_t)parameter;
+ctx->gpr[1]  = (uintptr_t)texit;
+```
+
+字段解释：
+
+| 字段 | 值 | 作用 |
+|------|----|------|
+| `mepc` | 线程入口函数 | `mret` 后从线程入口开始执行 |
+| `mstatus` | `0x1888` | M-mode，打开 MIE/MPIE |
+| `gpr[2]` | 栈顶 | 恢复线程自己的 `sp` |
+| `gpr[10]` | 线程参数 | RISC-V ABI 中 `a0` 是第一个参数 |
+| `gpr[1]` | `texit` | 线程函数返回时进入退出路径 |
+
+#### 2.5.4 rt_hw_context_switch_to()
+
+启动第一个线程时没有 `from_thread`，只需要加载目标上下文：
+
+```c
+void rt_hw_context_switch_to(rt_ubase_t to) {
+  rt_save_ptr = NULL;
+  rt_next_ctx = *(void **)to;
+  yield();
+}
+```
+
+调用链：
+
+```text
+rt_system_scheduler_start()
+  rt_current_thread = to_thread
+  rt_hw_context_switch_to(&to_thread->sp)
+    yield()
+      EVENT_YIELD
+        return to_thread->sp
+      mret 进入第一个 RT-Thread 线程
+```
+
+#### 2.5.5 rt_hw_context_switch()
+
+线程态普通切换：
+
+```c
+void rt_hw_context_switch(rt_ubase_t from, rt_ubase_t to) {
+  rt_save_ptr = (void **)from;
+  rt_next_ctx = *(void **)to;
+  yield();
+}
+```
+
+这里必须 `yield()`，因为当前线程正在普通 C 代码里运行，还没有 trap frame。只有进入 AM trap.S 后，才能把当前寄存器保存成 `Context`。
+
+#### 2.5.6 rt_hw_context_switch_interrupt()
+
+中断态切换：
+
+```c
+void rt_hw_context_switch_interrupt(rt_ubase_t from, rt_ubase_t to,
+                                    rt_thread_t from_thread,
+                                    rt_thread_t to_thread) {
+  (void)from_thread;
+  (void)to_thread;
+  rt_save_ptr = (void **)from;
+  rt_next_ctx = *(void **)to;
+}
+```
+
+这里不能再次 `yield()`，因为已经在 timer interrupt 的 trap 里。当前中断现场已经由 trap.S 保存好了，只要在 `ev_handler()` 返回时选择另一个 `Context *` 即可。
+
+### 2.6 关键修改二：修正中断开关 ABI
+
+修改文件：
+
+```text
+am-kernels/rt-thread-am/bsp/abstract-machine/src/interrupt.c
+```
+
+最终实现：
+
+```c
+#include <am.h>
+#include <rthw.h>
+
+rt_base_t rt_hw_interrupt_disable(void) {
+  rt_base_t level = ienabled();
+  iset(false);
+  return level;
+}
+
+void rt_hw_interrupt_enable(rt_base_t level) {
+  iset(level != 0);
+}
+```
+
+这个修改是 RT-Thread 能稳定启动的关键。
+
+RT-Thread 内核大量使用这种模式：
+
+```c
+level = rt_hw_interrupt_disable();
+...
+rt_hw_interrupt_enable(level);
+```
+
+这不是简单的“关中断/开中断”，而是“保存现场/恢复现场”。如果进入临界区之前中断就是关闭的，退出时也必须保持关闭。
+
+正确语义：
+
+| 进入前 MIE | `disable()` 返回 | `enable(level)` 后 MIE |
+|------------|------------------|------------------------|
+| 0 | 0 | 0 |
+| 1 | 1 | 1 |
+
+错误实现会把第一行变成：
+
+| 进入前 MIE | 错误 `enable()` 后 MIE |
+|------------|------------------------|
+| 0 | 1 |
+
+这会破坏 RT-Thread 启动阶段的临界区，导致 timer interrupt 提前进来。
+
+### 2.7 关键修改三：修正 AM RISC-V trap frame 大小
+
+修改文件：
+
+```text
+abstract-machine/am/src/riscv/nemu/trap.S
+```
+
+原来：
+
+```asm
+#define CONTEXT_SIZE  ((NR_REGS + 3) * XLEN)
+```
+
+修改为：
+
+```asm
+#define CONTEXT_SIZE  ((NR_REGS + 3 + 1) * XLEN)
+```
+
+原因在于 `abstract-machine/am/include/arch/riscv.h` 中的 `Context` 定义是：
+
+```c
+struct Context {
+  uintptr_t gpr[NR_REGS], mcause, mstatus, mepc;
+  void *pdir;
+};
+```
+
+也就是：
+
+```text
+NR_REGS 个 GPR
++ mcause
++ mstatus
++ mepc
++ pdir
+```
+
+如果 trap.S 只分配 `NR_REGS + 3` 个 XLEN，那么汇编栈帧大小和 C 结构体大小不一致。对 riscv32 来说：
+
+| 项 | 大小 |
+|----|------|
+| 原 trap frame | `(32 + 3) * 4 = 140` |
+| C `Context` | `(32 + 3 + 1) * 4 = 144` |
+
+这个差异有两个风险：
+
+1. C 代码把 `Context *` 当成 144 字节结构体，汇编只按 140 字节移动 `sp`。
+2. `call __am_irq_handle` 时栈不再保持 16 字节对齐，复杂 C 调用路径更容易出隐性问题。
+
+虽然当前 PA4.2 不使用 VME 的 `pdir`，但 `Context` ABI 必须统一。补上 `+1` 后，trap.S 和 C 的结构体布局一致。
+
+### 2.8 关键修改四：让 make run 直接进入 guest
+
+修改文件：
+
+```text
+abstract-machine/scripts/platform/nemu.mk
+```
+
+原来 `-b` 被注释：
+
+```make
+# NEMUFLAGS += -b
+```
+
+修改为：
+
+```make
+NEMUFLAGS += -b
+```
+
+目的：执行
+
+```bash
+make ARCH=riscv32-nemu run
+```
+
+时直接进入 guest，而不是停在 NEMU monitor 等用户输入 `c`。
+
+这不是 RT-Thread 内核功能的一部分，但它是 PA4.2 验证体验的一部分。否则启动脚本会停在：
+
+```text
+(nemu)
+```
+
+看起来像“没有启动 RT-Thread”，实际只是没有继续执行。
+
+### 2.9 完整启动链路复盘
+
+#### 2.9.1 构建阶段
+
+在 RT-Thread BSP 目录执行：
+
+```bash
+make ARCH=riscv32-nemu image
+```
+
+核心构建链路：
+
+```text
+rt-thread-am/bsp/abstract-machine/Makefile
+  ↓
+include $(AM_HOME)/Makefile
+  ↓
+abstract-machine/scripts/riscv32-nemu.mk
+  ↓
+编译 AM:
+  riscv/nemu/start.S
+  riscv/nemu/cte.c
+  riscv/nemu/trap.S
+  platform/nemu/ioe/*
+  ↓
+编译 RT-Thread:
+  src/*.c
+  components/*
+  bsp/abstract-machine/src/*
+  ↓
+链接:
+  rtthread-riscv32-nemu.elf
+  rtthread-riscv32-nemu.bin
+```
+
+#### 2.9.2 NEMU 启动阶段
+
+```text
+NEMU init_monitor()
+  parse_args()
+  init_mem()
+  init_device()
+    init_serial()
+    init_timer()
+  init_isa()
+  load_img()
+  init_sdb()
+  welcome()
+```
+
+设备初始化中，和 RT-Thread 最相关的是：
+
+| 设备 | NEMU 地址 | 用途 |
+|------|-----------|------|
+| serial | `0xa00003f8` | `putch()` 输出 |
+| rtc/timer | `0xa0000048` | AM timer uptime |
+| alarm timer | host alarm | 周期性 `dev_raise_intr()` |
+
+NEMU timer interrupt 的硬件模拟链路：
+
+```text
+host alarm
+  ↓
+timer_intr()
+  ↓
+dev_raise_intr()
+  ↓
+cpu.csr[mip] |= MTIP
+  ↓
+cpu_exec 每条指令后 isa_query_intr()
+  ↓
+mstatus.MIE && mie.MTIE && mip.MTIP
+  ↓
+isa_raise_intr(0x80000007, epc)
+  ↓
+pc = mtvec
+```
+
+#### 2.9.3 AM 初始化阶段
+
+RT-Thread BSP 的 `main()`：
+
+```c
+int main() {
+  ioe_init();
+  __am_cte_init();
+  entry();
+  return 0;
+}
+```
+
+其中：
+
+```text
+ioe_init()
+  初始化 AM 设备抽象表
+
+__am_cte_init()
+  cte_init(ev_handler)
+    csrw mtvec, __am_asm_trap
+    csrs mie, MTIE
+    user_handler = ev_handler
+
+entry()
+  rtthread_startup()
+```
+
+注意：`cte_init()` 只打开 `mie.MTIE`，真正能不能接收中断还取决于 `mstatus.MIE`。RT-Thread 启动期间会通过 `rt_hw_interrupt_disable/enable` 控制 MIE。
+
+#### 2.9.4 RT-Thread 启动阶段
+
+RT-Thread 启动入口：
+
+```text
+entry()
+  ↓
+rtthread_startup()
+  rt_hw_interrupt_disable()
+  rt_hw_board_init()
+    rt_hw_uart_init()
+    rt_system_heap_init()
+    rt_console_set_device("uart")
+    rt_components_board_init()
+  rt_show_version()
+  rt_system_timer_init()
+  rt_system_scheduler_init()
+  rt_application_init()
+    创建 main 线程
+  rt_system_timer_thread_init()
+    创建 timer 线程
+  rt_thread_idle_init()
+    创建 idle 线程
+  rt_system_scheduler_start()
+```
+
+第一次真正进入线程发生在：
+
+```text
+rt_system_scheduler_start()
+  to_thread = highest ready thread
+  rt_current_thread = to_thread
+  rt_hw_context_switch_to(&to_thread->sp)
+    yield()
+      ecall
+        ↓
+      __am_asm_trap
+        ↓
+      __am_irq_handle(EVENT_YIELD)
+        ↓
+      ev_handler()
+        return to_thread->sp
+        ↓
+      trap.S 恢复 main 线程 Context
+        ↓
+      mret 到 main_thread_entry()
+```
+
+#### 2.9.5 timer tick 与抢占
+
+当 NEMU timer interrupt 到来：
+
+```text
+CPU 跳到 mtvec = __am_asm_trap
+  ↓
+trap.S 保存当前线程 Context
+  ↓
+__am_irq_handle()
+  mcause = 0x80000007
+  ev.event = EVENT_IRQ_TIMER
+  ↓
+ev_handler(EVENT_IRQ_TIMER)
+  rt_interrupt_enter()
+  rt_tick_increase()
+    当前线程 remaining_tick--
+    如果时间片耗尽：
+      rt_schedule()
+        rt_hw_context_switch_interrupt(&from->sp, &to->sp, ...)
+          rt_save_ptr = &from->sp
+          rt_next_ctx = to->sp
+  rt_interrupt_leave()
+  if (rt_next_ctx)
+    *rt_save_ptr = 当前 trap Context
+    return rt_next_ctx
+  ↓
+trap.S 恢复目标线程 Context
+  ↓
+mret 到目标线程
+```
+
+这样 RT-Thread 的抢占式调度就接到了 AM/NEMU 的 timer interrupt 上。
+
+### 2.10 验证方法与结果
+
+#### 2.10.1 构建验证
+
+```bash
+make ARCH=riscv32-nemu image
+```
+
+结果：
+
+```text
++ LD -> build/rtthread-riscv32-nemu.elf
++ OBJCOPY -> build/rtthread-riscv32-nemu.bin
+```
+
+#### 2.10.2 直接运行 NEMU 验证
+
+```bash
+timeout 5s ./nemu/build/riscv32-nemu-interpreter \
+  -b \
+  -l /tmp/rtthread-nodiff-log.txt \
+  -e am-kernels/rt-thread-am/bsp/abstract-machine/build/rtthread-riscv32-nemu.elf \
+  -i am-kernels/rt-thread-am/bsp/abstract-machine/build/rtthread-riscv32-nemu.bin
+```
+
+结果：
+
+```text
+RT-Thread Operating System
+Hello RISC-V!
+msh />help
+msh />date
+msh />version
+msh />free
+msh />ps
+...
+```
+
+5 秒内执行约 1.49 亿条 guest 指令，没有 assert/abort。最终由 `timeout` 结束。
+
+#### 2.10.3 make run 端到端验证
+
+```bash
+cd am-kernels/rt-thread-am/bsp/abstract-machine
+timeout 45s make ARCH=riscv32-nemu run
+```
+
+结果：
+
+```text
+/home/.../nemu/build/riscv32-nemu-interpreter ... -b
+RT-Thread Operating System
+Hello RISC-V!
+msh />help
+...
+msh />ps
+...
+msh />utest_list
+```
+
+最终 `timeout` 终止，属于预期。
+
+### 2.11 设计注意事项与剩余非阻塞项
+
+#### 2.11.1 difftest 需要关闭
+
+RT-Thread 启动依赖异步 timer interrupt。当前 NEMU difftest 没有同步注入同一个外部中断到参考模型，因此打开 difftest 会在 timer interrupt 处出现 PC 不一致。
+
+运行 RT-Thread 推荐配置：
+
+```text
+CONFIG_DEVICE=y
+CONFIG_HAS_SERIAL=y
+CONFIG_HAS_TIMER=y
+# CONFIG_DIFFTEST is not set
+```
+
+#### 2.11.2 RTC warning 不影响启动
+
+运行 `date` 时可能看到：
+
+```text
+[W/time] Cannot find a RTC device!
+```
+
+这是 RT-Thread 设备框架里没有注册名为 RTC 的 RT-Thread device。它不影响 NEMU timer interrupt，也不影响 RTOS tick 和线程调度。
+
+换句话说：
+
+| 功能 | 是否已完成 |
+|------|------------|
+| NEMU timer interrupt 驱动 RT-Thread tick | 已完成 |
+| RT-Thread shell `date` 找到 RTC 设备 | 非 PA4.2 必需，当前未完成 |
+
+#### 2.11.3 git_commit 的只读文件系统报错可忽略
+
+运行 `make run` 时可能看到：
+
+```text
+fatal: cannot create .git/index.lock: Read-only file system
+```
+
+这是课程 Makefile 中自动 `git_commit` 辅助逻辑在当前环境里无法写 `.git`。日志中已经被 Makefile 忽略，不影响 NEMU 构建和 RT-Thread 运行。
+
+#### 2.11.4 工作区已有文件不要混淆
+
+当前工作区可能还有与本次 PA4.2 主链路无关的改动，例如：
+
+```text
+nemu/include/trace.h
+am-kernels/rt-thread-am/bsp/abstract-machine/src/libc.c
+```
+
+本次 PA4.2 的核心设计改动集中在：
+
+```text
+am-kernels/rt-thread-am/bsp/abstract-machine/src/context.c
+am-kernels/rt-thread-am/bsp/abstract-machine/src/interrupt.c
+abstract-machine/am/src/riscv/nemu/trap.S
+abstract-machine/scripts/platform/nemu.mk
+```
+
+#### 2.11.5 最终设计一句话总结
+
+PA4.2 的本质是：
+
+> 用 AM 的 `Context *` 把 NEMU 的硬件异常/中断机制和 RT-Thread 的线程调度器接起来。NEMU 只负责产生 trap，AM 只负责保存/恢复 CPU 现场，RT-Thread 只负责决定下一个线程是谁。三层职责清楚后，RT-Thread 就可以像普通 AM 程序一样在 NEMU 上启动并接受 timer 抢占。

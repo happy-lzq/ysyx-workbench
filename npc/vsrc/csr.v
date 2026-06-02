@@ -12,28 +12,44 @@ module csr (
     ,trap_enter
     ,trap_target
 );
-    parameter mstatus = 12'h300;
-    parameter mtvec   = 12'h305;
-    parameter mepc    = 12'h341;
-    parameter mcause  = 12'h342;
-    parameter mcyclel = 12'hB00;
-    parameter mcycleh = 12'hB80;
-    
-    reg [31:0] csr_mstatus;   // 0x300
-    reg [31:0] csr_mtvec;     // 0x305
-    reg [31:0] csr_mepc;      // 0x341
-    reg [31:0] csr_mcause;    // 0x342
+    parameter mstatus   = 12'h300;
+    parameter mtvec     = 12'h305;
+    parameter mepc      = 12'h341;
+    parameter mcause    = 12'h342;
+    parameter mcyclel   = 12'hB00;
+    parameter mcycleh   = 12'hB80;
+    parameter mip       = 12'h344;
+    parameter mie       = 12'h304;
+    parameter mtval     = 12'h343;
+    parameter mscratch  = 12'h340; 
+    // 异常编号
+    parameter IRQ_M_TIMER = 32'h80000007; 
+    parameter IRQ_M_EXT   = 32'h8000000b; 
+
+    reg [31:0] csr_mstatus;    // 机器状态寄存器
+    reg [31:0] csr_mtvec;      // 机器陷阱向量基址
+    reg [31:0] csr_mepc;       // 机器异常PC
+    reg [31:0] csr_mcause;     // 机器异常编号
+    reg [31:0] csr_mip;        // 机器中断挂起
+    reg [31:0] csr_mie ;       // 机器中断使能
+    reg [31:0] csr_mtval  ;    // 机器陷阱值
+    reg [31:0] csr_mscratch ;  // 机器暂存寄存器
+
     reg [63:0] mcycle_64 ;
     input  wire [11:0] csr_addr;
     input  wire [31:0] trap_pc,csr_wdata;
-    input  wire [3 :0] trap_code;
-    input  wire [0: 0] clk,rst,csr_write,csr_read,mret,trap_enter;
+    input  wire [31:0] trap_code;
+    input  wire [0 : 0] clk,rst,csr_write,csr_read,mret,trap_enter;
     output wire [31:0] csr_rdata,trap_target;
 
     assign csr_rdata = csr_read ? ((csr_addr == mstatus) ? csr_mstatus      : 
                                    (csr_addr == mtvec)   ? csr_mtvec        : 
                                    (csr_addr == mepc)    ? csr_mepc         : 
                                    (csr_addr == mcause)  ? csr_mcause       : 
+                                   (csr_addr == mip)     ? csr_mip          :
+                                   (csr_addr == mie)     ? csr_mie          :
+                                   (csr_addr == mtval)   ? csr_mtval        :
+                                   (csr_addr == mscratch)? csr_mscratch     :
                                    (csr_addr == mcyclel) ? mcycle_64[31:0]  :
                                    (csr_addr == mcycleh) ? mcycle_64[63:32] :32'h0 ) : 32'h0;
 
@@ -51,8 +67,15 @@ module csr (
         end else begin
             mcycle_64       <= mcycle_64 + 64'd1           ;     // 每个周期自增
             if (trap_enter) begin
+                
+                case (trap_code)
+                    IRQ_M_TIMER : csr_mip <= {csr_mip[31:8],  1'b0, csr_mip[6:0]};     // clear MTIP (bit 7)
+                    IRQ_M_EXT   : csr_mip <= {csr_mip[31:12], 1'b0, csr_mip[10:0]};    // clear MEIP (bit 11)
+                    default: ;
+                endcase
+
                 csr_mepc    <= trap_pc;
-                csr_mcause  <= {28'b0,trap_code}     ;           // 11=ecall, 3=ebreak
+                csr_mcause  <= trap_code             ;           // 11=ecall, 3=ebreak
                 csr_mstatus <= {csr_mstatus[31:13]   , 
                                 2'b11                ,           // MPP ← 3  M特权级
                                 csr_mstatus[10:8]    ,
@@ -75,6 +98,10 @@ module csr (
                         mtvec   : csr_mtvec        <= csr_wdata;
                         mepc    : csr_mepc         <= csr_wdata;
                         mcause  : csr_mcause       <= csr_wdata;
+                        mip     : csr_mip          <= csr_wdata;
+                        mie     : csr_mie          <= csr_wdata;
+                        mtval   : csr_mtval        <= csr_wdata;
+                        mscratch: csr_mscratch     <= csr_wdata;
                         mcyclel : mcycle_64[31:0]  <= csr_wdata;
                         mcycleh : mcycle_64[63:32] <= csr_wdata;
                         default : ;
@@ -82,4 +109,5 @@ module csr (
             end 
         end
     end
+
 endmodule

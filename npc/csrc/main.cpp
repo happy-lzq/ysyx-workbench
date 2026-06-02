@@ -1,7 +1,9 @@
-
 #include <difftest.h>
 #include <sdb.h>
 #include <trace.h>
+#include <interrupt.h>
+#include <device.h>
+#include <memory.h>
 
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
@@ -9,23 +11,16 @@ NPC_state npc_s, ref_s;
 
 int idx =0;
 int cycle = 0;
-uint8_t npc_pmem[PMEM_SIZE];
 
 void single_cycle(){
     uint32_t this_pc = npc_pc(top, 0, READ);
-    uint32_t this_inst = npc_imem(top, (this_pc - RESET_VECTOR) >> 2, 0, READ);
+    uint32_t this_inst = top->instr;
     top->clk = 1; top->eval();
     halt_check();
-    // printf("\n[cycle %d] pc=0x%08x trap_enter=%d mret=%d trap_target=0x%08x\n",
-    //    cycle,
-    //    npc_pc(top, 0, READ),
-    //    top->rootp->core_top__DOT__trap_enter,
-    //    top->rootp->core_top__DOT__mret,
-    //    top->rootp->core_top__DOT__u_csr__DOT__csr_mtvec);
-    // isa_reg_display(); 
+
 
     #ifdef CONFIG_DIFFTEST 
-    if (diff_so_file) {
+    if (diff_so_file && !pmem_mmio_accessed()) {
         difftest_step(top, cycle);
     }
     #endif
@@ -40,7 +35,7 @@ void single_cycle(){
         itrace_log(this_pc, this_inst);
         
     #endif
-
+    interrupt_check();
     npc_state_check();
     
     if (tfp) tfp->dump(sim_time+=5);

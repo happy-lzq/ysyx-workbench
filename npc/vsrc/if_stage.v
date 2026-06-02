@@ -1,3 +1,5 @@
+`include "dpi_imports.vh"
+
 module if_stage (
     clk
     ,rst
@@ -20,11 +22,10 @@ module if_stage (
     output  wire [31:0]                             pc_plus4,instr;
 
     parameter RESET_VECTOR = 32'h8000_0000;
-    parameter IMEM_SIZE    = 262144       ;  // 1MB / 4B = 262144 words
 
     wire [31:0] pc_next;
-    reg  [31:0] imem [0:IMEM_SIZE - 1];
 
+    // PC 选择逻辑
     assign pc_next = (trap_enter | mret ) ? trap_target           :
                      ((pc_sel == 2'b00 ) ? pc + 32'd4             :
                       (pc_sel == 2'b01 ) ? pc + imm_jal            :
@@ -32,7 +33,9 @@ module if_stage (
                       (pc_sel == 2'b11 ) ? (br_taken ? pc + imm_br : pc + 32'd4) : pc + 32'd4 );
 
     assign pc_plus4 = pc + 32'd4;
-    assign instr    = imem[pc[19:2]];
+
+    // 取指：通过 DPI-C 从 C++ 统一内存读取
+    assign instr = dpi_mem_read(pc);
 
     always @(posedge clk ) begin
         if (rst) 

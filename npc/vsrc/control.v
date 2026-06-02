@@ -45,7 +45,7 @@ module control (
     output wire [31:0] csr_zimm;
   // system output data ctream
     output reg  [0:0]trap_enter,mret;    
-    output reg  [3:0]      trap_code;     // 11=ecall, 3=ebreak
+    output reg  [31:0]      trap_code;     // 11=ecall, 3=ebreak
   
     wire [4 :0] rs1_addr = inst[19:15];
     wire [11:0] funct12  = inst[31:20] ;
@@ -74,7 +74,7 @@ module control (
         // system
         is_ebreak     = 1'b0;
         trap_enter    = 1'b0;
-        trap_code     = 4'b0;
+        trap_code     = 32'b0;
         mret          = 1'b0;
 
         case (opcode)
@@ -85,12 +85,12 @@ module control (
               case (funct12) 
               12'b0000_0000_0001 : begin                  // ebreak
                 // trap_enter = 1'b1;        后续进入trap使用
-                // trap_code  = 4'b1011;          
+                // trap_code  = 32'b1011;          
                 is_ebreak  = 1'b1;                 
               end
               12'b0000_0000_0000 : begin                  // ecall
                 trap_enter = 1'b1;
-                trap_code  = 4'b1011;  
+                trap_code  = 32'd11; 
               end
               12'b0011_0000_0010 : begin                  // mret
                 mret = 1'b1;

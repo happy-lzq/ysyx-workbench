@@ -1,32 +1,11 @@
 #include <sdb.h>
 #include <difftest.h>
 #include <trace.h>
+#include <memory.h>
+
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
 const char *elf_file = NULL;
-
-void load_bin(Vcore_top* top,const char*path){
-    Assert(path,"IMG-BIN-FILE IS FATL!\n");
-    FILE* fp = fopen(path,"rb");
-    if (!fp){
-        fprintf(stderr, "Cannot open %s\n",path);
-        exit(1);
-    }
-    // .bin load in imem 
-
-    __uint8_t buf[4];
-    while (fread(buf,1,4,fp) == 4){
-        Assert((idx + 1) * 4 <= PMEM_SIZE, "image is too large for pmem\n");
-        __uint32_t word = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
-        npc_imem(top,idx,word,WRITE);           // bin load cpu-imem
-        npc_dmem(top,idx,word,WRITE); 
-        memcpy(&npc_pmem[idx * 4], buf, 4);     
-        idx++;
-    }
-    img_size = idx * 4;  // 指令总数=idx 
-    fclose(fp);
-    printf("\nLoaded %d pc_addr to ref_mem and npc_mem form %s\n",idx,path);
-}
 
 int parse_agrs(int argc,char *argv[]){
     const struct option table[] = {
@@ -98,7 +77,8 @@ void assert_fail_msg() {
 
 void monitor_init(int argc, char* argv[]){
     parse_agrs(argc,argv);
-    load_bin(top, img_file);
+    pmem_init();
+    pmem_load_bin(img_file);
     npc_init();
     #ifdef CONFIG_DIFFTEST 
         difftest_init();

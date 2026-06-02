@@ -8,7 +8,8 @@ max_len = int(argv[2])
 placeholder = argv[3]          # 占位符字符串
 mainargs = argv[4]             # 占位符实际参数内容
 
-if len(mainargs) >= max_len:
+mainargs_bytes = str.encode(mainargs)
+if len(mainargs_bytes) >= max_len:
     print("Error: mainargs should not be longer than {0} bytes\n".format(max_len))
     exit(1)
 print("mainargs={0}".format(mainargs))
@@ -20,7 +21,7 @@ if idx == -1:
     print("Error: placeholder not found!\n")
     exit(1)
 fp.seek(idx)
-mainargs_pad = str.encode(mainargs) + ((max_len - len(mainargs)) * str.encode("\0"))
+mainargs_pad = mainargs_bytes + ((max_len - len(mainargs_bytes)) * str.encode("\0"))
 if len(mainargs_pad) != max_len:
     print("Error: len(mainargs_pad) != max_len\n")
     exit(1)

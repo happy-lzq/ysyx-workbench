@@ -25,10 +25,10 @@
 word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   switch (NO) {
     case IRQ_M_TIMER:
-      cpu.csr[CSR_IDX_mip] &= ~(1 << 7);   // clear MTIP
+      cpu.csr[CSR_IDX_mip] &= ~M_TIME_MASK;   // clear MTIP
       break;
     case IRQ_M_EXT:
-      cpu.csr[CSR_IDX_mip] &= ~(1 << 11);  // clear MEIP
+      cpu.csr[CSR_IDX_mip] &= ~M_MEIP_MASK;  // clear MEIP
       break;
     default:
       break;

@@ -32,8 +32,10 @@ module core_top (
     wire [31:0]                         trap_pc,csr_wdata;
     wire [0: 0]csr_imm,csr_write,csr_read,mret,trap_enter;
     wire [31:0]            csr_rdata,trap_target,csr_zimm;
-    wire [3 :0]                                 trap_code;
+    wire [31:0]                                 trap_code;
     wire [31:0]                                     rs_a0;
+    
+
 
     assign jump_jalr        = alu_result;
     assign imm_jal          = imm_out;
@@ -142,6 +144,7 @@ mem_stage u_mem_stage (
     .mem_wdata_raw    (mem_wdata_raw),
     .mem_rdata        (mem_rdata)
 );
+
 wb_stage u_wb_stage (
     .reg_wdata_src    (reg_wdata_src),
     .mem_rdata        (mem_rdata),
