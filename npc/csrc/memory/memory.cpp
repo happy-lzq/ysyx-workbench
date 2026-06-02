@@ -80,9 +80,10 @@ void dpi_mem_write(int addr, int data, int wmask) {
     uint32_t paddr = (uint32_t)addr;
     uint32_t wdata = (uint32_t)data;
 
-    // 物理内存
+    // 物理内存 — 字对齐写入（wmask 相对于字对齐基址）
     if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        uint32_t offset = paddr - PMEM_BASE;
+        uint32_t word_addr = paddr & ~3U;         // ← 字对齐！与 dmem 行为一致
+        uint32_t offset = word_addr - PMEM_BASE;
         for (int i = 0; i < 4; i++) {
             if (wmask & (1 << i))
                 npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
