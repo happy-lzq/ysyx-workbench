@@ -62,14 +62,14 @@ int dpi_mem_read(int addr) {
         uint32_t word_addr = paddr & ~3U;
         uint32_t offset = word_addr - PMEM_BASE;
         return *(uint32_t *)(npc_pmem + offset);
-    }
-
+    } else{
     // MMIO 设备读
     mmio_accessed = true;
     switch (paddr) {
         case 0x10000000: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
         default: return 0;
+        }
     }
 }
 
@@ -86,7 +86,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
                 npc_pmem[offset + i] = (wdata >> (i * 8)) & 0xFF;
         }
         return;
-    }
+    } else {
 
     // MMIO 设备写
     mmio_accessed = true;
@@ -97,6 +97,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
             break;
         // case 0xa0000048: ... // RTC（后续扩展）
         default: break;
+        }
     }
 }
 }
