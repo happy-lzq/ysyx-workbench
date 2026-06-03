@@ -5,6 +5,36 @@
 #include "Vcore_top__pch.h"
 #include "Vcore_top___024root.h"
 
+void Vcore_top___024root___ico_sequent__TOP__0(Vcore_top___024root* vlSelf);
+
+void Vcore_top___024root___eval_ico(Vcore_top___024root* vlSelf) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___eval_ico\n"); );
+    Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    if ((1ULL & vlSelfRef.__VicoTriggered.word(0U))) {
+        Vcore_top___024root___ico_sequent__TOP__0(vlSelf);
+        vlSelfRef.__Vm_traceActivity[1U] = 1U;
+    }
+}
+
+void Vcore_top___024root___eval_triggers__ico(Vcore_top___024root* vlSelf);
+
+bool Vcore_top___024root___eval_phase__ico(Vcore_top___024root* vlSelf) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___eval_phase__ico\n"); );
+    Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Init
+    CData/*0:0*/ __VicoExecute;
+    // Body
+    Vcore_top___024root___eval_triggers__ico(vlSelf);
+    __VicoExecute = vlSelfRef.__VicoTriggered.any();
+    if (__VicoExecute) {
+        Vcore_top___024root___eval_ico(vlSelf);
+    }
+    return (__VicoExecute);
+}
+
 void Vcore_top___024root___eval_act(Vcore_top___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___eval_act\n"); );
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
@@ -20,7 +50,7 @@ void Vcore_top___024root___eval_nba(Vcore_top___024root* vlSelf) {
     // Body
     if ((1ULL & vlSelfRef.__VnbaTriggered.word(0U))) {
         Vcore_top___024root___nba_sequent__TOP__0(vlSelf);
-        vlSelfRef.__Vm_traceActivity[1U] = 1U;
+        vlSelfRef.__Vm_traceActivity[2U] = 1U;
     }
 }
 
@@ -60,6 +90,9 @@ bool Vcore_top___024root___eval_phase__nba(Vcore_top___024root* vlSelf) {
 }
 
 #ifdef VL_DEBUG
+VL_ATTR_COLD void Vcore_top___024root___dump_triggers__ico(Vcore_top___024root* vlSelf);
+#endif  // VL_DEBUG
+#ifdef VL_DEBUG
 VL_ATTR_COLD void Vcore_top___024root___dump_triggers__nba(Vcore_top___024root* vlSelf);
 #endif  // VL_DEBUG
 #ifdef VL_DEBUG
@@ -71,9 +104,28 @@ void Vcore_top___024root___eval(Vcore_top___024root* vlSelf) {
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Init
+    IData/*31:0*/ __VicoIterCount;
+    CData/*0:0*/ __VicoContinue;
     IData/*31:0*/ __VnbaIterCount;
     CData/*0:0*/ __VnbaContinue;
     // Body
+    __VicoIterCount = 0U;
+    vlSelfRef.__VicoFirstIteration = 1U;
+    __VicoContinue = 1U;
+    while (__VicoContinue) {
+        if (VL_UNLIKELY(((0x64U < __VicoIterCount)))) {
+#ifdef VL_DEBUG
+            Vcore_top___024root___dump_triggers__ico(vlSelf);
+#endif
+            VL_FATAL_MT("vsrc/core_top.v", 1, "", "Input combinational region did not converge.");
+        }
+        __VicoIterCount = ((IData)(1U) + __VicoIterCount);
+        __VicoContinue = 0U;
+        if (Vcore_top___024root___eval_phase__ico(vlSelf)) {
+            __VicoContinue = 1U;
+        }
+        vlSelfRef.__VicoFirstIteration = 0U;
+    }
     __VnbaIterCount = 0U;
     __VnbaContinue = 1U;
     while (__VnbaContinue) {
@@ -117,5 +169,7 @@ void Vcore_top___024root___eval_debug_assertions(Vcore_top___024root* vlSelf) {
         Verilated::overWidthError("clk");}
     if (VL_UNLIKELY(((vlSelfRef.rst & 0xfeU)))) {
         Verilated::overWidthError("rst");}
+    if (VL_UNLIKELY(((vlSelfRef.intr_valid & 0xfeU)))) {
+        Verilated::overWidthError("intr_valid");}
 }
 #endif  // VL_DEBUG

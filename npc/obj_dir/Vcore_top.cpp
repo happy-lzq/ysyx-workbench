@@ -12,7 +12,9 @@ Vcore_top::Vcore_top(VerilatedContext* _vcontextp__, const char* _vcname__)
     , vlSymsp{new Vcore_top__Syms(contextp(), _vcname__, this)}
     , clk{vlSymsp->TOP.clk}
     , rst{vlSymsp->TOP.rst}
+    , intr_valid{vlSymsp->TOP.intr_valid}
     , halt{vlSymsp->TOP.halt}
+    , intr_cause{vlSymsp->TOP.intr_cause}
     , instr{vlSymsp->TOP.instr}
     , halt_pc{vlSymsp->TOP.halt_pc}
     , halt_ret{vlSymsp->TOP.halt_ret}

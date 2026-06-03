@@ -104,6 +104,21 @@ VL_ATTR_COLD bool Vcore_top___024root___eval_phase__stl(Vcore_top___024root* vlS
 }
 
 #ifdef VL_DEBUG
+VL_ATTR_COLD void Vcore_top___024root___dump_triggers__ico(Vcore_top___024root* vlSelf) {
+    VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___dump_triggers__ico\n"); );
+    Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
+    auto& vlSelfRef = std::ref(*vlSelf).get();
+    // Body
+    if ((1U & (~ vlSelfRef.__VicoTriggered.any()))) {
+        VL_DBG_MSGF("         No triggers active\n");
+    }
+    if ((1ULL & vlSelfRef.__VicoTriggered.word(0U))) {
+        VL_DBG_MSGF("         'ico' region trigger index 0 is active: Internal 'ico' trigger - first iteration\n");
+    }
+}
+#endif  // VL_DEBUG
+
+#ifdef VL_DEBUG
 VL_ATTR_COLD void Vcore_top___024root___dump_triggers__act(Vcore_top___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___dump_triggers__act\n"); );
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
@@ -140,6 +155,7 @@ VL_ATTR_COLD void Vcore_top___024root____Vm_traceActivitySetAll(Vcore_top___024r
     // Body
     vlSelfRef.__Vm_traceActivity[0U] = 1U;
     vlSelfRef.__Vm_traceActivity[1U] = 1U;
+    vlSelfRef.__Vm_traceActivity[2U] = 1U;
 }
 
 VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSelf) {
@@ -150,6 +166,8 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     const uint64_t __VscopeHash = VL_MURMUR64_HASH(vlSelf->name());
     vlSelf->clk = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 16707436170211756652ull);
     vlSelf->rst = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 18209466448985614591ull);
+    vlSelf->intr_valid = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 1681865997535961857ull);
+    vlSelf->intr_cause = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 3650657833608137395ull);
     vlSelf->instr = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 682939282188807998ull);
     vlSelf->halt = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 11049222807502041558ull);
     vlSelf->halt_pc = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 14212054205702290404ull);
@@ -181,6 +199,13 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->core_top__DOT__trap_enter = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 15524177137300609526ull);
     vlSelf->core_top__DOT__csr_rdata = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 8226085165328711824ull);
     vlSelf->core_top__DOT__trap_code = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 15203590872551550305ull);
+    vlSelf->core_top__DOT__mem_read_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 8297144378822671483ull);
+    vlSelf->core_top__DOT__mem_write_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 12187160477008618145ull);
+    vlSelf->core_top__DOT__csr_write_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 9284174536828141446ull);
+    vlSelf->core_top__DOT__mret_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 2560372605273635114ull);
+    vlSelf->core_top__DOT__trap_enter_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 7661296632301334316ull);
+    vlSelf->core_top__DOT__is_ebreak_eff = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 10443977718903165234ull);
+    vlSelf->core_top__DOT__trap_code_eff = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 12875468007954151934ull);
     for (int __Vi0 = 0; __Vi0 < 32; ++__Vi0) {
         vlSelf->core_top__DOT__u_regfile__DOT__rf[__Vi0] = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 1373196643498699064ull);
     }
@@ -207,7 +232,7 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->__VdfgRegularize_h495687df_0_7 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 13274218766982498660ull);
     vlSelf->__VdfgRegularize_h495687df_0_8 = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 14821175674958249185ull);
     vlSelf->__Vtrigprevexpr___TOP__clk__0 = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 9526919608049418986ull);
-    for (int __Vi0 = 0; __Vi0 < 2; ++__Vi0) {
+    for (int __Vi0 = 0; __Vi0 < 3; ++__Vi0) {
         vlSelf->__Vm_traceActivity[__Vi0] = 0;
     }
 }

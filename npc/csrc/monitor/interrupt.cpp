@@ -57,15 +57,16 @@ word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
 }
 
 void interrupt_check(){
+    top->intr_valid = 0;
+    top->intr_cause = 0;
+
     if (npc_sim_state.state != NPC_RUNNING) return;
 
     timer_tick();
 
     word_t trap_cause = isa_query_intr();
     if (trap_cause != INTR_EMPTY){
-        word_t mepc = npc_pc(top,0,READ);                  // 当前周期已提交后的下一条指令
-        word_t trap_pc = isa_raise_intr(trap_cause,mepc);  // 保存CSR，返回mtvec
-        npc_pc(top,trap_pc,WRITE);                         // 重定向: 下周期跳转中断处理
+        top->intr_valid = 1;
+        top->intr_cause = trap_cause;
     }
 }
-
