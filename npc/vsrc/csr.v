@@ -63,6 +63,10 @@ module csr (
             csr_mtvec       <= 32'h8000_0000;
             csr_mepc        <= 32'h0;
             csr_mcause      <= 32'h0;
+            csr_mip         <= 32'h0;
+            csr_mie         <= 32'h0;
+            csr_mtval       <= 32'h0;
+            csr_mscratch    <= 32'h0;
             mcycle_64       <= 64'b0;
         end else begin
             mcycle_64       <= mcycle_64 + 64'd1           ;     // 每个周期自增

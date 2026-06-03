@@ -23,6 +23,14 @@ word_t isa_query_intr(){
     return INTR_EMPTY;
 }
 
+static void timer_tick() {
+    const int timer_interval_cycles = 100000;
+    if (cycle > 0 && cycle % timer_interval_cycles == 0) {
+        word_t mip = npc_csr(top, CSR_MIP, 0, READ);
+        npc_csr(top, CSR_MIP, mip | M_TIME_MASK, WRITE);
+    }
+}
+
 word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
     switch (trap_cause){
         case IRQ_M_TIMER:{
@@ -49,14 +57,16 @@ word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
 }
 
 void interrupt_check(){
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
+
     if (npc_sim_state.state != NPC_RUNNING) return;
+
+    timer_tick();
 
     word_t trap_cause = isa_query_intr();
     if (trap_cause != INTR_EMPTY){
-        word_t next_pc = npc_npc(top,0,READ);               // 下一条本该执行的指令 = mepc
-        next_pc        = isa_raise_intr(trap_cause,next_pc);  // 保存CSR，返回mtvec
-        npc_npc(top,next_pc,WRITE);                      // 重定向: 下周期跳转中断处理
+        top->interrupt_valid = 1;
+        top->interrupt_cause = trap_cause;
     }
 }
-
-

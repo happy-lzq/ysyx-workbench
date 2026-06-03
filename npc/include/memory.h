@@ -6,13 +6,14 @@
 #define PMEM_BASE 0x80000000U
 #define PMEM_SIZE (128U * 1024 * 1024)   // 128MB
 #define PMEM_END  (PMEM_BASE + PMEM_SIZE)
-
+#define NPC_SERIAL_PORT  0xa00003f8
+#define NPC_RTC_ADDR     0xa0000048
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // DPI-C: Verilog 侧调用的统一内存读写
-int  dpi_mem_read(int addr);
+int  dpi_mem_read(int addr, int is_load);
 void dpi_mem_write(int addr, int data, int wmask);
 
 #ifdef __cplusplus

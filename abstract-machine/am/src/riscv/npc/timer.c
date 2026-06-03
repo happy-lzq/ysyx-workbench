@@ -1,10 +1,20 @@
 #include <am.h>
+#include <riscv/riscv.h>
+
+static uint64_t init_time = 0;
+
+static uint64_t read_rtc() {
+  uint32_t hi = inl(NPC_RTC_ADDR + 4);
+  uint32_t lo = inl(NPC_RTC_ADDR + 0);
+  return ((uint64_t)hi << 32) | lo;
+}
 
 void __am_timer_init() {
+  init_time = read_rtc();
 }
 
 void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime) {
-  uptime->us = 0;
+  uptime->us = read_rtc() - init_time;
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc) {

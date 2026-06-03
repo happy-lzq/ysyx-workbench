@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 // 统一内存读写（DPI-C，由 memory.cpp 实现）
-int  dpi_mem_read(int addr);
+int  dpi_mem_read(int addr, int is_load);
 void dpi_mem_write(int addr, int data, int wmask);
 
 // 预留

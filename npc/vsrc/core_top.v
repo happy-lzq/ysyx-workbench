@@ -1,12 +1,15 @@
 module core_top (
     clk
     ,rst
+    ,interrupt_valid
+    ,interrupt_cause
     ,instr
     ,halt
     ,halt_pc
     ,halt_ret
 );
-    input  wire [0 :0]                            clk,rst;
+    input  wire [0 :0]                 clk,rst,interrupt_valid;
+    input  wire [31:0]                         interrupt_cause;
     output wire [0 :0]                               halt;
     output wire [31:0]             instr,halt_pc,halt_ret;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
@@ -15,7 +18,7 @@ module core_top (
     wire [1 :0]                                    pc_sel;
     wire [31:0]                  jump_jalr,imm_jal,imm_br;
     wire [31:0]                                        pc;
-    wire [31:0]                             pc_plus4,inst;
+    wire [31:0]                                  pc_plus4;
     wire [4 :0]                                    alu_op;
     wire [0 :0]                       is_ebreak,alu_src_a;
     wire [1 :0]                                 alu_src_b;
@@ -34,6 +37,8 @@ module core_top (
     wire [31:0]            csr_rdata,trap_target,csr_zimm;
     wire [31:0]                                 trap_code;
     wire [31:0]                                     rs_a0;
+    wire [0 :0] mem_read_eff,mem_write_eff,reg_write_eff,csr_write_eff,mret_eff,trap_enter_eff,is_ebreak_eff;
+    wire [31:0] trap_code_eff;
     
 
 
@@ -43,6 +48,14 @@ module core_top (
     assign mem_addr         = alu_result;
     assign mem_wdata_raw    = rs2_rdata;    
     assign trap_pc          = pc;
+    assign mem_read_eff     = interrupt_valid ? 1'b0 : mem_read;
+    assign mem_write_eff    = interrupt_valid ? 1'b0 : mem_write;
+    assign reg_write_eff    = interrupt_valid ? 1'b0 : reg_write;
+    assign csr_write_eff    = interrupt_valid ? 1'b0 : csr_write;
+    assign mret_eff         = interrupt_valid ? 1'b0 : mret;
+    assign trap_enter_eff   = trap_enter      | interrupt_valid;
+    assign trap_code_eff    = interrupt_valid ? interrupt_cause : trap_code;
+    assign is_ebreak_eff    = interrupt_valid ? 1'b0 : is_ebreak;
 
 regfile u_regfile (
     .clk          (clk),
@@ -50,7 +63,7 @@ regfile u_regfile (
     .rs2_addr     (rs2_addr),
     .rd_addr      (rd_addr),
     .rd_wdata     (rd_wdata),
-    .reg_write    (reg_write),
+    .reg_write    (reg_write_eff),
     .rs1_rdata    (rs1_rdata),
     .rs2_rdata    (rs2_rdata),
     .rs_a0        (rs_a0)
@@ -60,23 +73,23 @@ csr u_csr (
     .clk            (clk),
     .rst            (rst),
     .csr_addr       (csr_addr),
-    .csr_write      (csr_write),
+    .csr_write      (csr_write_eff),
     .csr_wdata      (csr_wdata),
     .csr_read       (csr_read),
     .csr_rdata      (csr_rdata),
-    .mret           (mret),
+    .mret           (mret_eff),
     .trap_pc        (trap_pc),
-    .trap_code      (trap_code),
-    .trap_enter     (trap_enter),
+    .trap_code      (trap_code_eff),
+    .trap_enter     (trap_enter_eff),
     .trap_target    (trap_target)
 );
 
 if_stage u_if_stage (
     .clk            (clk),
     .rst            (rst),
-    .trap_enter     (trap_enter),
+    .trap_enter     (trap_enter_eff),
     .trap_target    (trap_target),
-    .mret           (mret),
+    .mret           (mret_eff),
     .pc_sel         (pc_sel),
     .br_taken       (br_taken),
     .jump_jalr      (jump_jalr),
@@ -92,8 +105,6 @@ id_stage u_id_stage (
     .rs1_addr         (rs1_addr),
     .rs2_addr         (rs2_addr),
     .rd_addr          (rd_addr),
-    .rs1_rdata        (rs1_rdata),
-    .rs2_rdata        (rs2_rdata),
     .alu_op           (alu_op),
     .alu_src_a        (alu_src_a),
     .alu_src_b        (alu_src_b),
@@ -105,7 +116,6 @@ id_stage u_id_stage (
     .reg_wdata_src    (reg_wdata_src),
     .pc_sel           (pc_sel),
     .imm_out          (imm_out),
-    .inst             (inst),
     .csr_op           (csr_op),
     .csr_read         (csr_read),
     .csr_write        (csr_write),
@@ -138,8 +148,8 @@ ex_stage u_ex_stage (
 mem_stage u_mem_stage (
     .clk              (clk),
     .lsu_type         (lsu_type),
-    .mem_read         (mem_read),
-    .mem_write        (mem_write),
+    .mem_read         (mem_read_eff),
+    .mem_write        (mem_write_eff),
     .mem_addr         (mem_addr),
     .mem_wdata_raw    (mem_wdata_raw),
     .mem_rdata        (mem_rdata)
@@ -157,7 +167,7 @@ wb_stage u_wb_stage (
 halt u_halt (
     .clk          (clk),
     .rst          (rst),
-    .is_ebreak    (is_ebreak),
+    .is_ebreak    (is_ebreak_eff),
     .pc           (pc),
     .rs_a0        (rs_a0),
     .halt_reg     (halt),

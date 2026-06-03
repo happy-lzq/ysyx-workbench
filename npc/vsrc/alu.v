@@ -4,7 +4,8 @@ module alu (
     ,alu_op
     ,result
 );
-    input wire [31:0] src1,src2;
+    input wire [31:0] src1;
+    input wire [31:0] src2;
     input wire [4 :0] alu_op;
     output reg [31:0] result;
 

@@ -13,12 +13,15 @@ int idx =0;
 int cycle = 0;
 
 void single_cycle(){
+    interrupt_check();
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
+
     top->clk = 1; top->eval();
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
     halt_check();
-
-
+    
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file && !pmem_mmio_accessed()) {
         difftest_step(top, cycle);
@@ -35,7 +38,6 @@ void single_cycle(){
         itrace_log(this_pc, this_inst);
         
     #endif
-    interrupt_check();
     npc_state_check();
     
     if (tfp) tfp->dump(sim_time+=5);

@@ -3,8 +3,6 @@ module id_stage (
     ,rs1_addr
     ,rs2_addr
     ,rd_addr
-    ,rs1_rdata
-    ,rs2_rdata
     ,alu_op
     ,alu_src_a
     ,alu_src_b
@@ -16,7 +14,6 @@ module id_stage (
     ,reg_wdata_src
     ,pc_sel
     ,imm_out
-    ,inst
     ,csr_op
     ,csr_read
     ,csr_write
@@ -29,20 +26,28 @@ module id_stage (
     ,is_ebreak
 );
     input  wire [31:0] instr;
-    input  wire [31:0] rs1_rdata,rs2_rdata;
     output wire [4 :0] alu_op;
     output wire [0 :0] alu_src_a;
     output wire [1 :0] alu_src_b;
     output wire [2 :0] br_type;
-    output wire [0 :0] mem_read,mem_write,reg_write,is_ebreak;
+    output wire [0 :0] mem_read;
+    output wire [0 :0] mem_write;
+    output wire [0 :0] reg_write;
+    output wire [0 :0] is_ebreak;
     output wire [2 :0] lsu_type;
     output wire [1 :0] reg_wdata_src;
     output wire [1 :0] pc_sel;
-    output wire [31:0] imm_out,inst;
-    output wire [4 :0] rd_addr,rs1_addr,rs2_addr;
+    output wire [31:0] imm_out;
+    output wire [4 :0] rd_addr;
+    output wire [4 :0] rs1_addr;
+    output wire [4 :0] rs2_addr;
     // csr
-    output wire [1 :0]  csr_op;
-    output wire [0 :0] csr_read,csr_write,csr_imm,mret,trap_enter;
+    output wire [1 :0] csr_op;
+    output wire [0 :0] csr_read;
+    output wire [0 :0] csr_write;
+    output wire [0 :0] csr_imm;
+    output wire [0 :0] mret;
+    output wire [0 :0] trap_enter;
     output wire [11:0] csr_addr;
     output wire [31:0] csr_zimm;
     output wire [31:0] trap_code; 
@@ -53,14 +58,13 @@ module id_stage (
     assign rs1_addr = instr[19:15];
     assign rs2_addr = instr[24:20];
     assign rd_addr  = instr[11:7];
-    assign inst = instr;
-
+    
 imm_gen u_imm_gen (
     .instr      (instr),
     .imm_out    (imm_out)
 );
 control u_control (
-    .inst             (inst),
+    .inst             (instr),
     .opcode           (opcode),
     .funct3           (funct3),
     .funct7           (funct7),

@@ -56,6 +56,8 @@ void npc_state_check() {
 
 void npc_init(){
     // 复位
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
     top->clk = 0; top->rst = 1; top->eval();
     if (tfp) tfp->dump(sim_time+=5);
     top->clk = 1; top->rst = 1; top->eval();                  // 上升沿，rst=1复位 初始化

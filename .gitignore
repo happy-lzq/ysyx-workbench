@@ -31,3 +31,4 @@ nvboard/RTL_prj/*/*_obj/
 # 排除fceux-am
 /fceux-am
 /am-kernels
+build/

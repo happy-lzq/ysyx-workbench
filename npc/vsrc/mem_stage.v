@@ -1,4 +1,5 @@
 `include "dpi_imports.vh"
+
 module mem_stage (
     clk
     ,lsu_type
@@ -17,8 +18,8 @@ module mem_stage (
     wire [3 :0] mem_wmask; 
     wire [31:0] mem_rdata_raw, mem_wdata;
 
-    // 读：组合逻辑内通过 DPI-C 从 C++ 统一内存读取
-    assign mem_rdata_raw = dpi_mem_read(mem_addr);
+    // 读：组合逻辑内通过 DPI-C 从 C++ 统一内存读取；mem_read 门控 MMIO 副作用
+    assign mem_rdata_raw = dpi_mem_read(mem_addr, {31'b0, mem_read});
 
     // 写：时序逻辑内通过 DPI-C 写入 C++ 统一内存
     always @(posedge clk) begin
