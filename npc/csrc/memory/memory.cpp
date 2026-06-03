@@ -1,11 +1,16 @@
 
 #include <memory.h>
 #include <device.h>
+#include <chrono>
 
 // ==================== 128MB 统一物理内存 ====================
 uint8_t npc_pmem[PMEM_SIZE];
 long npc_img_size = 0;
 static bool mmio_accessed = false;   // difftest 跳过标志
+
+static constexpr uint32_t NPC_SERIAL_PORT = 0xa00003f8;
+static constexpr uint32_t NPC_RTC_ADDR = 0xa0000048;
+static uint64_t rtc_latched_us = 0;
 
 // ==================== C++ 辅助函数 ====================
 
@@ -62,6 +67,11 @@ void pmem_write(uint32_t addr, int len, uint32_t data) {
         npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
 }
 
+static uint64_t host_time_us() {
+    using namespace std::chrono;
+    return duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
 // ==================== DPI-C: 统一内存读写 ====================
 
 extern "C" {
@@ -81,8 +91,14 @@ int dpi_mem_read(int addr, int is_load) {
     // MMIO 设备读
     mmio_accessed = true;
     switch (paddr) {
-        case 0xa00003f8: return 0;           // UART 只写设备
-        // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
+        case NPC_SERIAL_PORT:
+            return 0;           // UART 只写设备
+        case NPC_RTC_ADDR + 4:
+            rtc_latched_us = host_time_us();
+            return (int)(rtc_latched_us >> 32);
+        case NPC_RTC_ADDR:
+            if (rtc_latched_us == 0) rtc_latched_us = host_time_us();
+            return (int)(rtc_latched_us & 0xffffffffu);
         default: return 0;
     }
 }
@@ -105,11 +121,10 @@ void dpi_mem_write(int addr, int data, int wmask) {
     // MMIO 设备写
     mmio_accessed = true;
     switch (paddr) {
-        case 0xa00003f8:  // UART (NEMU 兼容地址)
+        case NPC_SERIAL_PORT:  // UART (NEMU 兼容地址)
             if (wmask & 0x1)
                 npc_serial_putc(wdata & 0xFF);
             break;
-        // case 0xa0000048: ... // RTC（后续扩展）
         default: break;
     }
 }

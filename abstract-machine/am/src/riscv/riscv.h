@@ -20,6 +20,7 @@ static inline void outl(uintptr_t addr, uint32_t data) { *(volatile uint32_t *)a
 #define PTE_D 0x80
 // ==================== npc ===========================
 #define NPC_SERIAL_PORT 0xa00003f8    // NEMU 兼容 UART 地址
+#define NPC_RTC_ADDR    0xa0000048    // NEMU 兼容 RTC 地址
 
 
 
