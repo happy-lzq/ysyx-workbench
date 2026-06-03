@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 // DPI-C: Verilog 侧调用的统一内存读写
-int  dpi_mem_read(int addr);
+int  dpi_mem_read(int addr, int is_load);
 void dpi_mem_write(int addr, int data, int wmask);
 
 #ifdef __cplusplus

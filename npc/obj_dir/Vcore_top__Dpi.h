@@ -16,9 +16,9 @@ extern "C" {
 
 
     // DPI IMPORTS
-    // DPI import at /home/luo/ysyx/ysyx-workbench/npc/vsrc/../include/dpi_imports.vh:6:30
-    extern int dpi_mem_read(int addr);
-    // DPI import at /home/luo/ysyx/ysyx-workbench/npc/vsrc/../include/dpi_imports.vh:7:30
+    // DPI import at /home/luo/ysyx/ysyx-workbench/npc/vsrc/dpi_imports.vh:6:30
+    extern int dpi_mem_read(int addr, int is_load);
+    // DPI import at /home/luo/ysyx/ysyx-workbench/npc/vsrc/dpi_imports.vh:7:30
     extern void dpi_mem_write(int addr, int data, int wmask);
 
 #ifdef __cplusplus

@@ -23,17 +23,16 @@ VL_ATTR_COLD void Vcore_top___024root___eval_triggers__stl(Vcore_top___024root* 
 #endif
 }
 
-void Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(IData/*31:0*/ addr, IData/*31:0*/ &dpi_mem_read__Vfuncrtn);
+void Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(IData/*31:0*/ addr, IData/*31:0*/ is_load, IData/*31:0*/ &dpi_mem_read__Vfuncrtn);
 
 VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root* vlSelf) {
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vcore_top___024root___stl_sequent__TOP__0\n"); );
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Body
-    Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(vlSelfRef.core_top__DOT__pc, vlSelfRef.__Vfunc_dpi_mem_read__0__Vfuncout);
+    Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(vlSelfRef.core_top__DOT__pc, 0U, vlSelfRef.__Vfunc_dpi_mem_read__0__Vfuncout);
     vlSelfRef.instr = vlSelfRef.__Vfunc_dpi_mem_read__0__Vfuncout;
     vlSelfRef.core_top__DOT__mem_write = 0U;
-    vlSelfRef.core_top__DOT__mem_read = 0U;
     vlSelfRef.core_top__DOT__csr_write = 0U;
     vlSelfRef.core_top__DOT__reg_wdata_src = 0U;
     vlSelfRef.core_top__DOT__reg_write = 0U;
@@ -46,6 +45,7 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
     vlSelfRef.core_top__DOT__br_type = 0U;
     vlSelfRef.core_top__DOT__trap_enter = 0U;
     vlSelfRef.core_top__DOT__mret = 0U;
+    vlSelfRef.core_top__DOT__mem_read = 0U;
     vlSelfRef.core_top__DOT__csr_read = 0U;
     vlSelfRef.core_top__DOT__alu_op = 0U;
     vlSelfRef.core_top__DOT__alu_src_b = 0U;
@@ -785,9 +785,6 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                        : 
                                                       (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
                                                        - vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))))));
-    Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(vlSelfRef.core_top__DOT__jump_jalr, vlSelfRef.__Vfunc_dpi_mem_read__1__Vfuncout);
-    vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_rdata_raw 
-        = vlSelfRef.__Vfunc_dpi_mem_read__1__Vfuncout;
     vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next 
         = (((IData)(vlSelfRef.core_top__DOT__mret) 
             | (IData)(vlSelfRef.core_top__DOT__trap_enter))
@@ -841,6 +838,9 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                                   + vlSelfRef.core_top__DOT__pc))
                                            : ((IData)(4U) 
                                               + vlSelfRef.core_top__DOT__pc))))));
+    Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(vlSelfRef.core_top__DOT__jump_jalr, (IData)(vlSelfRef.core_top__DOT__mem_read), vlSelfRef.__Vfunc_dpi_mem_read__1__Vfuncout);
+    vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_rdata_raw 
+        = vlSelfRef.__Vfunc_dpi_mem_read__1__Vfuncout;
     vlSelfRef.core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected 
         = (0xffU & ((0U == (3U & vlSelfRef.core_top__DOT__jump_jalr))
                      ? vlSelfRef.core_top__DOT__u_mem_stage__DOT__mem_rdata_raw

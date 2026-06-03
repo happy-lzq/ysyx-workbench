@@ -1,4 +1,5 @@
-`include "../include/dpi_imports.vh"
+`include "dpi_imports.vh"
+
 module if_stage (
     clk
     ,rst
@@ -33,8 +34,8 @@ module if_stage (
 
     assign pc_plus4 = pc + 32'd4;
 
-    // 取指：通过 DPI-C 从 C++ 统一内存读取
-    assign instr = dpi_mem_read(pc);
+    // 取指：通过 DPI-C 从 C++ 统一内存读取；不作为 data load 触发 MMIO skip
+    assign instr = dpi_mem_read(pc, 32'b0);
 
     always @(posedge clk ) begin
         if (rst) 

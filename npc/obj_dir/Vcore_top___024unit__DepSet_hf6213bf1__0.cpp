@@ -6,15 +6,17 @@
 #include "Vcore_top__Syms.h"
 #include "Vcore_top___024unit.h"
 
-extern "C" int dpi_mem_read(int addr);
+extern "C" int dpi_mem_read(int addr, int is_load);
 
-VL_INLINE_OPT void Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(IData/*31:0*/ addr, IData/*31:0*/ &dpi_mem_read__Vfuncrtn) {
+VL_INLINE_OPT void Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit(IData/*31:0*/ addr, IData/*31:0*/ is_load, IData/*31:0*/ &dpi_mem_read__Vfuncrtn) {
     VL_DEBUG_IF(VL_DBG_MSGF("+        Vcore_top___024unit____Vdpiimwrap_dpi_mem_read_TOP____024unit\n"); );
     // Body
     int addr__Vcvt;
     addr__Vcvt = addr;
+    int is_load__Vcvt;
+    is_load__Vcvt = is_load;
     int dpi_mem_read__Vfuncrtn__Vcvt;
-    dpi_mem_read__Vfuncrtn__Vcvt = dpi_mem_read(addr__Vcvt);
+    dpi_mem_read__Vfuncrtn__Vcvt = dpi_mem_read(addr__Vcvt, is_load__Vcvt);
     dpi_mem_read__Vfuncrtn = dpi_mem_read__Vfuncrtn__Vcvt;
 }
 
