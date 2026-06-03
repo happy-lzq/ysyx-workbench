@@ -12,7 +12,7 @@ static bool mmio_accessed = false;   // difftest 跳过标志
 void pmem_init() {
     memset(npc_pmem, 0, PMEM_SIZE);
 }
-
+// ==================== .bin load pmem ================
 void pmem_load_bin(const char *path) {
     Assert(path, "load path is NULL");
     FILE *fp = fopen(path, "rb");
@@ -31,13 +31,10 @@ void pmem_load_bin(const char *path) {
            npc_img_size, path, PMEM_BASE, PMEM_BASE + npc_img_size);
 }
 
-long pmem_img_size() {
-    return npc_img_size;
-}
 
 uint32_t pmem_read(uint32_t addr, int len) {
     uint32_t offset = addr - PMEM_BASE;
-    if (offset >= PMEM_SIZE) return 0;
+    Assert(offset < PMEM_SIZE,"current addr over PMEM_SIZE !");
 
     uint32_t val = 0;
     for (int i = 0; i < len; i++)
@@ -47,7 +44,7 @@ uint32_t pmem_read(uint32_t addr, int len) {
 
 void pmem_write(uint32_t addr, int len, uint32_t data) {
     uint32_t offset = addr - PMEM_BASE;
-    if (offset >= PMEM_SIZE) return;
+    Assert(offset < PMEM_SIZE,"current addr over PMEM_SIZE !");
 
     for (int i = 0; i < len; i++)
         npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
@@ -70,7 +67,7 @@ int dpi_mem_read(int addr) {
     // MMIO 设备读
     mmio_accessed = true;
     switch (paddr) {
-        case 0xa00003f8: return 0;           // UART 只写设备
+        case 0x10000000: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
         default: return 0;
     }
@@ -94,7 +91,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
     // MMIO 设备写
     mmio_accessed = true;
     switch (paddr) {
-        case 0xa00003f8:  // UART (NEMU 兼容地址)
+        case 0x10000000:  // UART (NEMU 兼容地址)
             if (wmask & 0x1)
                 npc_serial_putc(wdata & 0xFF);
             break;
@@ -102,9 +99,9 @@ void dpi_mem_write(int addr, int data, int wmask) {
         default: break;
     }
 }
+}
 
-}  // extern "C"
-
+// extern "C"
 // ==================== difftest 跳过检测 ====================
 bool pmem_mmio_accessed() {
     bool v = mmio_accessed;

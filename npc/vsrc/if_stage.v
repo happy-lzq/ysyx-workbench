@@ -1,5 +1,4 @@
-`include "dpi_imports.vh"
-
+`include "../include/dpi_imports.vh"
 module if_stage (
     clk
     ,rst

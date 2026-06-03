@@ -1,4 +1,4 @@
-`include "dpi_imports.vh"
+`include "../include/dpi_imports.vh"
 module mem_stage (
     clk
     ,lsu_type
