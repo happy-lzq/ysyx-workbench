@@ -87,6 +87,6 @@ void monitor_init(int argc, char* argv[]){
         init_disasm();
         itarce_log_file(img_file);
     #endif
-    init_sdb();  
-
+    init_sdb();
+    pmem_mmio_accessed();  // 清除 npc_init 期间产生的 MMIO 标志残留
 }
