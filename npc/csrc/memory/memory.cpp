@@ -66,7 +66,7 @@ int dpi_mem_read(int addr) {
     // MMIO 设备读
     mmio_accessed = true;
     switch (paddr) {
-        case 0x10000000: return 0;           // UART 只写设备
+        case 0x00003f8: return 0;           // UART 只写设备
         // case 0xa0000048: return rtc_lo(); // RTC（后续扩展）
         default: return 0;
         }
@@ -91,7 +91,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
     // MMIO 设备写
     mmio_accessed = true;
     switch (paddr) {
-        case 0x10000000:  // UART (NEMU 兼容地址)
+        case 0x00003f8:  // UART (NEMU 兼容地址)
             if (wmask & 0x1)
                 npc_serial_putc(wdata & 0xFF);
             break;
