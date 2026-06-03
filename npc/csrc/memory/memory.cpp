@@ -7,9 +7,6 @@
 uint8_t npc_pmem[PMEM_SIZE];
 long npc_img_size = 0;
 static bool mmio_accessed = false;   // difftest 跳过标志
-
-static constexpr uint32_t NPC_SERIAL_PORT = 0xa00003f8;
-static constexpr uint32_t NPC_RTC_ADDR = 0xa0000048;
 static uint64_t rtc_latched_us = 0;
 
 // ==================== C++ 辅助函数 ====================
@@ -43,10 +40,6 @@ void pmem_load_bin(const char *path) {
 
     printf("Loaded %ld bytes from %s into pmem [0x%08x, 0x%08x)\n",
            npc_img_size, path, PMEM_BASE, PMEM_BASE + (uint32_t)npc_img_size);
-}
-
-long pmem_img_size() {
-    return npc_img_size;
 }
 
 uint32_t pmem_read(uint32_t addr, int len) {

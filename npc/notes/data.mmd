@@ -1,165 +1,237 @@
 ---
-title: NPC 单周期 RV32I — 架构化数据通路
+title: NPC 单周期 RV32I — 模块化数据通路
 ---
 flowchart LR
     %% 读图方法：
-    %% 1. 粗主线是普通指令数据流：PC -> IF -> ID/RF -> EX -> MEM -> WB -> RF。
-    %% 2. 上方是状态单元：PC、RegFile、CSR；下方是仿真外设边界。
-    %% 3. 右侧控制面只做仲裁和门控，不承载主数据。
-    %% 4. interrupt_valid/interrupt_cause 不是重写数据通路，而是外部中断请求输入。
+    %% 1. core_top 是 RTL 大模块，内部按 IF/ID/EX/MEM/WB 五级模块化组织。
+    %% 2. regfile、csr、halt 是 core_top 内的共享/旁路状态模块。
+    %% 3. C++/DPI-C 是 core_top 外部环境，通过函数调用和 top-level 中断输入通信。
+    %% 4. *_eff 不是新的执行级，而是 core_top 内的有效控制仲裁层。
 
-    classDef state fill:#fff7e6,stroke:#d88c00,color:#222,stroke-width:1px;
-    classDef datapath fill:#eef7ff,stroke:#2f78c6,color:#111,stroke-width:1px;
-    classDef control fill:#f3f0ff,stroke:#7353c6,color:#111,stroke-width:1px;
-    classDef external fill:#f5f5f5,stroke:#666,color:#111,stroke-width:1px;
-    classDef hazard fill:#fff0f0,stroke:#c64545,color:#111,stroke-width:1px;
+    classDef rtl fill:#eef7ff,stroke:#2f78c6,color:#111,stroke-width:1px;
+    classDef state fill:#fff7e6,stroke:#d88c00,color:#111,stroke-width:1px;
+    classDef ctrl fill:#f3f0ff,stroke:#7353c6,color:#111,stroke-width:1px;
+    classDef ext fill:#f5f5f5,stroke:#666,color:#111,stroke-width:1px;
+    classDef irq fill:#fff0f0,stroke:#c64545,color:#111,stroke-width:1px;
 
-    subgraph STATE["状态单元"]
+    %% 模块框颜色：浅色背景用于区分模块边界，节点颜色用于区分信号类型。
+    style CPP fill:#f6f6f6,stroke:#666,stroke-width:2px
+    style RTL fill:#ffffff,stroke:#222,stroke-width:2px
+    style GATE fill:#ffecec,stroke:#c64545,stroke-width:2px
+    style IFM fill:#e8f4ff,stroke:#2f78c6,stroke-width:2px
+    style IDM fill:#eaf8ef,stroke:#2f8f52,stroke-width:2px
+    style RFM fill:#fff7e6,stroke:#d88c00,stroke-width:2px
+    style EXM fill:#f1edff,stroke:#7353c6,stroke-width:2px
+    style MEMM fill:#e9fbfb,stroke:#168b8b,stroke-width:2px
+    style WBM fill:#fff0f7,stroke:#c6538c,stroke-width:2px
+    style CSRM fill:#fff4df,stroke:#a87500,stroke-width:2px
+    style HALTM fill:#f0f0f0,stroke:#555,stroke-width:2px
+
+    subgraph CPP["C++ 仿真环境 / DPI-C 边界"]
         direction TB
-        PC["PC 寄存器
-pc"]:::state
-        RF["RegFile
-x0-x31
-rs1/rs2 read
-rd write"]:::state
-        CSR["CSR 文件
-mstatus/mtvec/mepc/mcause
-mip/mie/mtval/mscratch
-mcycle"]:::state
-    end
-
-    subgraph CORE["单周期核心数据面"]
-        direction LR
-        IF["IF
-dpi_mem_read(pc, is_load=0)
-取 instr
-生成 pc_plus4"]:::datapath
-        ID["ID
-字段切片
-imm_gen
-control 原始控制"]:::datapath
-        EX["EX
-ALU
-Branch Compare
-CSR Write Data"]:::datapath
-        MEM["MEM
-addr = alu_result
-LSU 对齐/扩展
-生成 wdata/wmask"]:::datapath
-        WB["WB
-写回选择
-ALU / MEM / PC+4 / CSR"]:::datapath
-    end
-
-    subgraph PCFLOW["下一条 PC 选择"]
-        direction TB
-        PCSEL["pc_next MUX
-1. trap/mret
-2. jal/jalr
-3. branch
-4. pc+4"]:::datapath
-        TRAPTARGET["trap_target
-trap: mtvec
-mret: mepc"]:::datapath
-    end
-
-    subgraph CTRLPLANE["控制面"]
-        direction TB
-        RAWCTRL["原始控制信号
-mem_read/mem_write
-reg_write/csr_write
-mret/trap_enter/is_ebreak
-trap_code"]:::control
-        IRQIN["外部中断请求
-interrupt_valid
-interrupt_cause"]:::hazard
-        EFFCTRL["有效控制仲裁
-*_eff
-中断来时 kill 当前指令副作用"]:::hazard
-        TRAPCTRL["trap 控制
-trap_enter_eff
-trap_code_eff"]:::hazard
-    end
-
-    subgraph EXTERNAL["C++ 仿真外设边界"]
-        direction TB
-        DPI["DPI-C 统一内存接口
-dpi_mem_read(addr, is_load)
-dpi_mem_write(addr, data, wmask)"]:::external
+        MAIN["main.cpp
+single_cycle()
+驱动 clk/eval"]:::ext
+        INTCHECK["interrupt.cpp
+timer_tick()
+isa_query_intr()
+生成 interrupt_valid/cause"]:::ext
+        MEMCPP["memory.cpp
+dpi_mem_read()
+dpi_mem_write()"]:::ext
         PMEM["PMEM
-0x80000000 起"]:::external
-        MMIO["MMIO
+0x80000000 起"]:::ext
+        MMIO["MMIO 外设
 UART 0xa00003f8
-RTC  0xa0000048/0xa000004c"]:::external
-        DEVIRQ["C++ timer/device model
-设置 mip
-产生 interrupt_valid/cause"]:::external
+RTC  0xa0000048/0xa000004c"]:::ext
+        SERIAL["serial.cpp
+npc_serial_putc()"]:::ext
     end
 
-    subgraph EXIT["退出观察"]
-        HALT["halt
-ebreak + a0
-受 is_ebreak_eff 门控"]:::control
+    subgraph RTL["RTL: core_top"]
+        direction LR
+
+        subgraph GATE["有效控制仲裁层"]
+            direction TB
+            IRQPORT["top-level 输入
+interrupt_valid
+interrupt_cause"]:::irq
+            RAWCTRL["ID 原始控制
+mem/reg/csr/mret
+trap/ebreak"]:::ctrl
+            EFF["*_eff 有效控制
+中断来时 kill 当前指令副作用"]:::irq
+            TRAPCTRL["trap_enter_eff
+trap_code_eff"]:::irq
+        end
+
+        subgraph IFM["IF: if_stage"]
+            direction TB
+            PCREG["PC 寄存器
+pc"]:::state
+            FETCH["取指
+dpi_mem_read(pc, is_load=0)
+instr"]:::rtl
+            PCADD["pc_plus4
+pc + 4"]:::rtl
+            PCMUX["pc_next MUX
+trap/mret 优先
+jal/jalr/branch/+4"]:::rtl
+        end
+
+        subgraph IDM["ID: id_stage"]
+            direction TB
+            FIELD["指令字段切片
+opcode/funct3/funct7
+rs1/rs2/rd/csr_addr"]:::rtl
+            IMM["imm_gen
+imm_out"]:::rtl
+            CONTROL["control.v
+生成原始控制信号"]:::ctrl
+        end
+
+        subgraph RFM["regfile"]
+            direction TB
+            RFR["读端口
+rs1_rdata
+rs2_rdata"]:::state
+            RFW["写端口
+rf[rd] <= rd_wdata
+reg_write_eff 门控"]:::state
+            RSA0["rs_a0"]:::state
+        end
+
+        subgraph EXM["EX: ex_stage"]
+            direction TB
+            SRCMUX["ALU 源选择
+src1 = rs1/pc
+src2 = rs2/imm/4"]:::rtl
+            ALU["alu.v
+alu_result"]:::rtl
+            BR["br_cond.v
+br_taken"]:::rtl
+            CSRWD["CSR 写数据生成
+csrrw/csrrs/csrrc"]:::rtl
+        end
+
+        subgraph MEMM["MEM: mem_stage"]
+            direction TB
+            MEMRD["数据读
+dpi_mem_read(mem_addr, mem_read_eff)
+mem_rdata_raw"]:::rtl
+            LSU["lsu.v
+load 扩展
+store wdata/wmask"]:::rtl
+            MEMWR["数据写
+dpi_mem_write(mem_addr, mem_wdata, mem_wmask)
+mem_write_eff 门控"]:::rtl
+        end
+
+        subgraph WBM["WB: wb_stage"]
+            direction TB
+            WBMUX["写回 MUX
+ALU / MEM / PC+4 / CSR
+rd_wdata"]:::rtl
+        end
+
+        subgraph CSRM["csr"]
+            direction TB
+            CSRREG["CSR 寄存器
+mstatus/mtvec/mepc/mcause
+mip/mie/mtval/mscratch/mcycle"]:::state
+            CSRRD["csr_rdata"]:::state
+            TRAPTARGET["trap_target
+trap: mtvec
+mret: mepc"]:::state
+        end
+
+        subgraph HALTM["halt"]
+            direction TB
+            HALT["ebreak 检测
+halt/halt_pc/halt_ret
+is_ebreak_eff 门控"]:::ctrl
+        end
     end
 
-    %% 普通指令主数据流
-    PC -->|"pc"| IF
-    IF -->|"instr"| ID
-    ID -->|"rs1_addr/rs2_addr"| RF
-    RF -->|"rs1_rdata/rs2_rdata"| EX
-    ID -->|"imm_out"| EX
-    EX -->|"alu_result
-branch result
-csr_wdata"| MEM
-    MEM -->|"mem_rdata"| WB
-    EX -->|"alu_result"| WB
-    IF -->|"pc_plus4"| WB
-    CSR -->|"csr_rdata"| EX
-    CSR -->|"csr_rdata"| WB
-    WB -->|"rd_wdata"| RF
+    %% C++ 与 RTL 的通信边界
+    MAIN -->|"clk/rst/eval"| RTL
+    INTCHECK -->|"interrupt_valid
+interrupt_cause"| IRQPORT
+    FETCH -.->|"DPI-C fetch"| MEMCPP
+    MEMRD -.->|"DPI-C load"| MEMCPP
+    MEMWR -.->|"DPI-C store"| MEMCPP
+    MEMCPP --> PMEM
+    MEMCPP --> MMIO
+    MMIO --> SERIAL
 
-    %% 访存边界：核心只发地址/数据/掩码，具体 PMEM/MMIO 在 C++ 侧分发
-    IF -.->|"fetch read"| DPI
-    MEM -.->|"load/store"| DPI
-    DPI -.-> PMEM
-    DPI -.-> MMIO
+    %% IF -> ID
+    PCREG -->|"pc"| FETCH
+    PCREG -->|"pc"| PCADD
+    FETCH -->|"instr"| FIELD
+    FIELD --> CONTROL
+    FIELD --> IMM
+    CONTROL --> RAWCTRL
 
-    %% PC 重定向流
-    IF -->|"pc_plus4"| PCSEL
-    ID -->|"imm_jal/imm_br"| PCSEL
-    EX -->|"jalr target
-br_taken"| PCSEL
-    CSR --> TRAPTARGET
-    TRAPTARGET --> PCSEL
-    PCSEL -->|"pc_next"| PC
+    %% ID -> RegFile/CSR/EX
+    FIELD -->|"rs1_addr
+rs2_addr"| RFR
+    FIELD -->|"rd_addr"| RFW
+    FIELD -->|"csr_addr"| CSRREG
+    IMM -->|"imm_out"| SRCMUX
+    IMM -->|"imm_jal
+imm_br"| PCMUX
 
-    %% CSR/trap 数据流
-    ID -->|"csr_addr
-csr_read/csr_write"| CSR
-    EX -->|"csr_wdata"| CSR
-    PC -->|"trap_pc = pc"| CSR
+    %% RegFile -> EX/MEM/HALT
+    RFR -->|"rs1_rdata
+rs2_rdata"| SRCMUX
+    RFR -->|"rs1_rdata
+rs2_rdata"| BR
+    RFR -->|"rs2_rdata"| LSU
+    RSA0 -->|"a0"| HALT
 
-    %% 控制面：原始控制先经过有效仲裁，再送到状态更新点
-    ID --> RAWCTRL
-    RAWCTRL --> EFFCTRL
-    IRQIN --> EFFCTRL
-    IRQIN --> TRAPCTRL
+    %% EX -> MEM/WB/IF/CSR
+    SRCMUX --> ALU
+    ALU -->|"alu_result"| MEMRD
+    ALU -->|"alu_result"| MEMWR
+    ALU -->|"alu_result"| WBMUX
+    ALU -->|"jump_jalr"| PCMUX
+    BR -->|"br_taken"| PCMUX
+    CSRRD -->|"csr_rdata"| CSRWD
+    CSRWD -->|"csr_wdata"| CSRREG
+
+    %% MEM -> WB
+    MEMRD -->|"mem_rdata_raw"| LSU
+    LSU -->|"mem_rdata"| WBMUX
+    LSU -->|"mem_wdata
+mem_wmask"| MEMWR
+
+    %% WB -> RegFile
+    PCADD -->|"pc_plus4"| WBMUX
+    CSRRD -->|"csr_rdata"| WBMUX
+    WBMUX -->|"rd_wdata"| RFW
+
+    %% CSR / trap / PC 重定向
+    PCREG -->|"trap_pc = pc"| CSRREG
+    CSRREG --> CSRRD
+    CSRREG --> TRAPTARGET
+    TRAPTARGET -->|"trap_target"| PCMUX
+    PCADD -->|"pc_plus4"| PCMUX
+    PCMUX -->|"pc_next"| PCREG
+
+    %% 有效控制仲裁输出到真正有副作用的模块
+    IRQPORT --> EFF
+    IRQPORT --> TRAPCTRL
+    RAWCTRL --> EFF
     RAWCTRL --> TRAPCTRL
-
-    EFFCTRL -->|"reg_write_eff"| RF
-    EFFCTRL -->|"mem_read_eff
-mem_write_eff"| MEM
-    EFFCTRL -->|"csr_write_eff
-mret_eff"| CSR
-    EFFCTRL -->|"mret_eff"| PCSEL
-    EFFCTRL -->|"is_ebreak_eff"| HALT
+    EFF -->|"reg_write_eff"| RFW
+    EFF -->|"mem_read_eff"| MEMRD
+    EFF -->|"mem_read_eff
+mem_write_eff"| LSU
+    EFF -->|"mem_write_eff"| MEMWR
+    EFF -->|"csr_write_eff
+mret_eff"| CSRREG
+    EFF -->|"mret_eff"| PCMUX
+    EFF -->|"is_ebreak_eff"| HALT
     TRAPCTRL -->|"trap_enter_eff
-trap_code_eff"| CSR
-    TRAPCTRL -->|"trap_enter_eff"| PCSEL
-
-    %% 外部中断请求来源
-    DEVIRQ -.-> IRQIN
-
-    %% halt 只观察，不参与主数据流
-    RF -->|"rs_a0"| HALT
-    PC -->|"halt_pc"| HALT
+trap_code_eff"| CSRREG
+    TRAPCTRL -->|"trap_enter_eff"| PCMUX
