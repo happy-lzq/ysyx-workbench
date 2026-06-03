@@ -43,7 +43,7 @@ void pmem_load_bin(const char *path) {
 }
 
 uint32_t pmem_read(uint32_t addr, int len) {
-    Assert(!pmem_access_ok(addr,len),"ADDR(%s) IS ERROR!",addr);
+    Assert(pmem_access_ok(addr,len),"ADDR(0x%08x) IS ERROR!",addr);
 
     uint32_t offset = addr - PMEM_BASE;
     uint32_t val = 0;
@@ -53,7 +53,7 @@ uint32_t pmem_read(uint32_t addr, int len) {
 }
 
 void pmem_write(uint32_t addr, int len, uint32_t data) {
-    Assert(!pmem_access_ok(addr,len),"ADDR(%s) IS ERROR!",addr);
+    Assert(pmem_access_ok(addr,len),"ADDR(0x%08x) IS ERROR!",addr);
 
     uint32_t offset = addr - PMEM_BASE;
     for (int i = 0; i < len; i++)
