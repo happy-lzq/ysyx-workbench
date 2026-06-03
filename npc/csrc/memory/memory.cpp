@@ -43,7 +43,7 @@ void pmem_load_bin(const char *path) {
 }
 
 uint32_t pmem_read(uint32_t addr, int len) {
-    if (!pmem_access_ok(addr, len)) return 0;
+    Assert(!pmem_access_ok(addr,len),"ADDR(%s) IS ERROR!",addr);
 
     uint32_t offset = addr - PMEM_BASE;
     uint32_t val = 0;
@@ -53,7 +53,7 @@ uint32_t pmem_read(uint32_t addr, int len) {
 }
 
 void pmem_write(uint32_t addr, int len, uint32_t data) {
-    if (!pmem_access_ok(addr, len)) return;
+    Assert(!pmem_access_ok(addr,len),"ADDR(%s) IS ERROR!",addr);
 
     uint32_t offset = addr - PMEM_BASE;
     for (int i = 0; i < len; i++)
@@ -74,7 +74,7 @@ int dpi_mem_read(int addr, int is_load) {
 
     // 物理内存 — 字对齐读取（匹配 DMEM 的 word-indexed 行为）
     if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        uint32_t word_addr = paddr & ~3U;
+        uint32_t word_addr = paddr & ~3U;  // ~向下对齐4字节边界，
         return (int)pmem_read(word_addr, 4);
     }
 

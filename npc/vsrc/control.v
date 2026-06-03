@@ -34,18 +34,24 @@ module control (
     output reg  [0 :0] alu_src_a;
     output reg  [1 :0] alu_src_b;
     output reg  [2 :0] br_type;
-    output reg  [0 :0] mem_read,mem_write,reg_write;
+    output reg  [0 :0] mem_read;
+    output reg  [0 :0] mem_write;
+    output reg  [0 :0] reg_write;
     output reg  [2 :0] lsu_type;
     output reg  [1 :0] reg_wdata_src;
     output reg  [1 :0] pc_sel;
   // CSR output data stream
-    output reg  [0 :0] csr_read,csr_write,csr_imm,is_ebreak;
+    output reg  [0 :0] csr_read;
+    output reg  [0 :0] csr_write;
+    output reg  [0 :0] csr_imm;
+    output reg  [0 :0] is_ebreak;
     output reg  [1 :0] csr_op;
     output wire [11:0] csr_addr;
     output wire [31:0] csr_zimm;
   // system output data ctream
-    output reg  [0:0]trap_enter,mret;    
-    output reg  [31:0]      trap_code;     // 11=ecall, 3=ebreak
+    output reg  [0 :0] trap_enter;
+    output reg  [0 :0] mret;    
+    output reg  [31:0] trap_code;     // 11=ecall, 3=ebreak
   
     wire [4 :0] rs1_addr = inst[19:15];
     wire [11:0] funct12  = inst[31:20] ;

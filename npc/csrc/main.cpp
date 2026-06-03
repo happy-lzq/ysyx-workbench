@@ -16,12 +16,12 @@ void single_cycle(){
     interrupt_check();
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
+
     top->clk = 1; top->eval();
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
     halt_check();
-
-
+    
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file && !pmem_mmio_accessed()) {
         difftest_step(top, cycle);

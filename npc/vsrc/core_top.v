@@ -18,7 +18,7 @@ module core_top (
     wire [1 :0]                                    pc_sel;
     wire [31:0]                  jump_jalr,imm_jal,imm_br;
     wire [31:0]                                        pc;
-    wire [31:0]                             pc_plus4,inst;
+    wire [31:0]                                  pc_plus4;
     wire [4 :0]                                    alu_op;
     wire [0 :0]                       is_ebreak,alu_src_a;
     wire [1 :0]                                 alu_src_b;
@@ -105,8 +105,6 @@ id_stage u_id_stage (
     .rs1_addr         (rs1_addr),
     .rs2_addr         (rs2_addr),
     .rd_addr          (rd_addr),
-    .rs1_rdata        (rs1_rdata),
-    .rs2_rdata        (rs2_rdata),
     .alu_op           (alu_op),
     .alu_src_a        (alu_src_a),
     .alu_src_b        (alu_src_b),
@@ -118,7 +116,6 @@ id_stage u_id_stage (
     .reg_wdata_src    (reg_wdata_src),
     .pc_sel           (pc_sel),
     .imm_out          (imm_out),
-    .inst             (inst),
     .csr_op           (csr_op),
     .csr_read         (csr_read),
     .csr_write        (csr_write),
