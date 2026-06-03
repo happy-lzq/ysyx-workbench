@@ -17,8 +17,8 @@ void single_cycle(){
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
     top->clk = 1; top->eval();
-    top->intr_valid = 0;
-    top->intr_cause = 0;
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
     halt_check();
 
 

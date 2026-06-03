@@ -21,7 +21,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
     struct {
         VL_IN8(clk,0,0);
         VL_IN8(rst,0,0);
-        VL_IN8(intr_valid,0,0);
+        VL_IN8(interrupt_valid,0,0);
         VL_OUT8(halt,0,0);
         CData/*0:0*/ core_top__DOT__mem_read;
         CData/*0:0*/ core_top__DOT__mem_write;
@@ -53,7 +53,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         CData/*0:0*/ __Vtrigprevexpr___TOP__clk__0;
         CData/*0:0*/ __VactContinue;
         SData/*15:0*/ core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected;
-        VL_IN(intr_cause,31,0);
+        VL_IN(interrupt_cause,31,0);
         VL_OUT(instr,31,0);
         VL_OUT(halt_pc,31,0);
         VL_OUT(halt_ret,31,0);

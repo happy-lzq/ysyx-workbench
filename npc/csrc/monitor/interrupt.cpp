@@ -57,8 +57,8 @@ word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
 }
 
 void interrupt_check(){
-    top->intr_valid = 0;
-    top->intr_cause = 0;
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
 
     if (npc_sim_state.state != NPC_RUNNING) return;
 
@@ -66,7 +66,7 @@ void interrupt_check(){
 
     word_t trap_cause = isa_query_intr();
     if (trap_cause != INTR_EMPTY){
-        top->intr_valid = 1;
-        top->intr_cause = trap_cause;
+        top->interrupt_valid = 1;
+        top->interrupt_cause = trap_cause;
     }
 }

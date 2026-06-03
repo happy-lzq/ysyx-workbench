@@ -340,8 +340,8 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
     }
     bufp->chgBit(oldp+113,(vlSelfRef.clk));
     bufp->chgBit(oldp+114,(vlSelfRef.rst));
-    bufp->chgBit(oldp+115,(vlSelfRef.intr_valid));
-    bufp->chgIData(oldp+116,(vlSelfRef.intr_cause),32);
+    bufp->chgBit(oldp+115,(vlSelfRef.interrupt_valid));
+    bufp->chgIData(oldp+116,(vlSelfRef.interrupt_cause),32);
     bufp->chgBit(oldp+117,(vlSelfRef.halt));
     bufp->chgIData(oldp+118,(vlSelfRef.instr),32);
     bufp->chgIData(oldp+119,(vlSelfRef.halt_pc),32);
@@ -355,7 +355,7 @@ void Vcore_top___024root__trace_chg_0_sub_0(Vcore_top___024root* vlSelf, Verilat
     bufp->chgSData(oldp+124,((vlSelfRef.instr >> 0x14U)),12);
     bufp->chgIData(oldp+125,((0x1fU & (vlSelfRef.instr 
                                        >> 0xfU))),32);
-    bufp->chgBit(oldp+126,(((~ (IData)(vlSelfRef.intr_valid)) 
+    bufp->chgBit(oldp+126,(((~ (IData)(vlSelfRef.interrupt_valid)) 
                             & (IData)(vlSelfRef.core_top__DOT__reg_write))));
     bufp->chgCData(oldp+127,((0x7fU & vlSelfRef.instr)),7);
     bufp->chgCData(oldp+128,((7U & (vlSelfRef.instr 

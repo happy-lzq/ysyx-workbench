@@ -1,15 +1,15 @@
 module core_top (
     clk
     ,rst
-    ,intr_valid
-    ,intr_cause
+    ,interrupt_valid
+    ,interrupt_cause
     ,instr
     ,halt
     ,halt_pc
     ,halt_ret
 );
-    input  wire [0 :0]                 clk,rst,intr_valid;
-    input  wire [31:0]                         intr_cause;
+    input  wire [0 :0]                 clk,rst,interrupt_valid;
+    input  wire [31:0]                         interrupt_cause;
     output wire [0 :0]                               halt;
     output wire [31:0]             instr,halt_pc,halt_ret;
     wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
@@ -48,14 +48,14 @@ module core_top (
     assign mem_addr         = alu_result;
     assign mem_wdata_raw    = rs2_rdata;    
     assign trap_pc          = pc;
-    assign mem_read_eff     = intr_valid ? 1'b0 : mem_read;
-    assign mem_write_eff    = intr_valid ? 1'b0 : mem_write;
-    assign reg_write_eff    = intr_valid ? 1'b0 : reg_write;
-    assign csr_write_eff    = intr_valid ? 1'b0 : csr_write;
-    assign mret_eff         = intr_valid ? 1'b0 : mret;
-    assign trap_enter_eff   = trap_enter | intr_valid;
-    assign trap_code_eff    = intr_valid ? intr_cause : trap_code;
-    assign is_ebreak_eff    = intr_valid ? 1'b0 : is_ebreak;
+    assign mem_read_eff     = interrupt_valid ? 1'b0 : mem_read;
+    assign mem_write_eff    = interrupt_valid ? 1'b0 : mem_write;
+    assign reg_write_eff    = interrupt_valid ? 1'b0 : reg_write;
+    assign csr_write_eff    = interrupt_valid ? 1'b0 : csr_write;
+    assign mret_eff         = interrupt_valid ? 1'b0 : mret;
+    assign trap_enter_eff   = trap_enter      | interrupt_valid;
+    assign trap_code_eff    = interrupt_valid ? interrupt_cause : trap_code;
+    assign is_ebreak_eff    = interrupt_valid ? 1'b0 : is_ebreak;
 
 regfile u_regfile (
     .clk          (clk),

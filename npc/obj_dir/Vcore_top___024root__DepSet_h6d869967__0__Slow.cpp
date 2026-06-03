@@ -157,7 +157,7 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
                                           [(0x1fU & 
                                             (vlSelfRef.instr 
                                              >> 0xfU))]);
-    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__mem_write));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -286,7 +286,7 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
             }
         }
     }
-    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__csr_write));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -318,7 +318,7 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
             }
         }
     }
-    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__is_ebreak));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -377,8 +377,8 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
             }
         }
     }
-    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.intr_valid)
-                                               ? vlSelfRef.intr_cause
+    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.interrupt_valid)
+                                               ? vlSelfRef.interrupt_cause
                                                : vlSelfRef.core_top__DOT__trap_code);
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -481,7 +481,7 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
         }
     }
     vlSelfRef.core_top__DOT__trap_enter_eff = ((IData)(vlSelfRef.core_top__DOT__trap_enter) 
-                                               | (IData)(vlSelfRef.intr_valid));
+                                               | (IData)(vlSelfRef.interrupt_valid));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
             if ((0x10U & vlSelfRef.instr)) {
@@ -524,9 +524,9 @@ VL_ATTR_COLD void Vcore_top___024root___stl_sequent__TOP__0(Vcore_top___024root*
             }
         }
     }
-    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                          & (IData)(vlSelfRef.core_top__DOT__mret));
-    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                              & (IData)(vlSelfRef.core_top__DOT__mem_read));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {

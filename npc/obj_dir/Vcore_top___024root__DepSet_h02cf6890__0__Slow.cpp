@@ -166,8 +166,8 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     const uint64_t __VscopeHash = VL_MURMUR64_HASH(vlSelf->name());
     vlSelf->clk = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 16707436170211756652ull);
     vlSelf->rst = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 18209466448985614591ull);
-    vlSelf->intr_valid = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 1681865997535961857ull);
-    vlSelf->intr_cause = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 3650657833608137395ull);
+    vlSelf->interrupt_valid = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 1262091638152272883ull);
+    vlSelf->interrupt_cause = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 3405400386439088526ull);
     vlSelf->instr = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 682939282188807998ull);
     vlSelf->halt = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 11049222807502041558ull);
     vlSelf->halt_pc = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 14212054205702290404ull);

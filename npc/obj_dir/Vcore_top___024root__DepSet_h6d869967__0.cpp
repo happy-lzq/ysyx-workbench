@@ -30,20 +30,20 @@ VL_INLINE_OPT void Vcore_top___024root___ico_sequent__TOP__0(Vcore_top___024root
     Vcore_top__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Body
-    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__mem_write));
-    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__csr_write));
-    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__is_ebreak));
-    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.intr_valid)
-                                               ? vlSelfRef.intr_cause
+    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.interrupt_valid)
+                                               ? vlSelfRef.interrupt_cause
                                                : vlSelfRef.core_top__DOT__trap_code);
-    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                          & (IData)(vlSelfRef.core_top__DOT__mret));
     vlSelfRef.core_top__DOT__trap_enter_eff = ((IData)(vlSelfRef.core_top__DOT__trap_enter) 
-                                               | (IData)(vlSelfRef.intr_valid));
-    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+                                               | (IData)(vlSelfRef.interrupt_valid));
+    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                              & (IData)(vlSelfRef.core_top__DOT__mem_read));
     vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next 
         = (((IData)(vlSelfRef.core_top__DOT__mret_eff) 
@@ -209,7 +209,7 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
     __Vdly__core_top__DOT__u_csr__DOT__mcycle_64 = vlSelfRef.core_top__DOT__u_csr__DOT__mcycle_64;
     __Vdly__core_top__DOT__u_csr__DOT__csr_mip = vlSelfRef.core_top__DOT__u_csr__DOT__csr_mip;
     __VdlySet__core_top__DOT__u_regfile__DOT__rf__v0 = 0U;
-    if ((((~ (IData)(vlSelfRef.intr_valid)) & (IData)(vlSelfRef.core_top__DOT__reg_write)) 
+    if ((((~ (IData)(vlSelfRef.interrupt_valid)) & (IData)(vlSelfRef.core_top__DOT__reg_write)) 
          & (0U != (0x1fU & (vlSelfRef.instr >> 7U))))) {
         __VdlyVal__core_top__DOT__u_regfile__DOT__rf__v0 
             = ((0U == (IData)(vlSelfRef.core_top__DOT__reg_wdata_src))
@@ -613,7 +613,7 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
                                           [(0x1fU & 
                                             (vlSelfRef.instr 
                                              >> 0xfU))]);
-    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mem_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__mem_write));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -742,7 +742,7 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             }
         }
     }
-    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__csr_write_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__csr_write));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -774,7 +774,7 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             }
         }
     }
-    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__is_ebreak_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                               & (IData)(vlSelfRef.core_top__DOT__is_ebreak));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -833,8 +833,8 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             }
         }
     }
-    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.intr_valid)
-                                               ? vlSelfRef.intr_cause
+    vlSelfRef.core_top__DOT__trap_code_eff = ((IData)(vlSelfRef.interrupt_valid)
+                                               ? vlSelfRef.interrupt_cause
                                                : vlSelfRef.core_top__DOT__trap_code);
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -937,7 +937,7 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
         }
     }
     vlSelfRef.core_top__DOT__trap_enter_eff = ((IData)(vlSelfRef.core_top__DOT__trap_enter) 
-                                               | (IData)(vlSelfRef.intr_valid));
+                                               | (IData)(vlSelfRef.interrupt_valid));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {
             if ((0x10U & vlSelfRef.instr)) {
@@ -980,9 +980,9 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             }
         }
     }
-    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mret_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                          & (IData)(vlSelfRef.core_top__DOT__mret));
-    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.intr_valid)) 
+    vlSelfRef.core_top__DOT__mem_read_eff = ((~ (IData)(vlSelfRef.interrupt_valid)) 
                                              & (IData)(vlSelfRef.core_top__DOT__mem_read));
     if ((0x40U & vlSelfRef.instr)) {
         if ((0x20U & vlSelfRef.instr)) {

@@ -169,7 +169,7 @@ void Vcore_top___024root___eval_debug_assertions(Vcore_top___024root* vlSelf) {
         Verilated::overWidthError("clk");}
     if (VL_UNLIKELY(((vlSelfRef.rst & 0xfeU)))) {
         Verilated::overWidthError("rst");}
-    if (VL_UNLIKELY(((vlSelfRef.intr_valid & 0xfeU)))) {
-        Verilated::overWidthError("intr_valid");}
+    if (VL_UNLIKELY(((vlSelfRef.interrupt_valid & 0xfeU)))) {
+        Verilated::overWidthError("interrupt_valid");}
 }
 #endif  // VL_DEBUG

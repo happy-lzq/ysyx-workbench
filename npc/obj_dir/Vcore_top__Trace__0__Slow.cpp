@@ -14,8 +14,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->pushPrefix("$rootio", VerilatedTracePrefixType::SCOPE_MODULE);
     tracep->declBus(c+114,0,"clk",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+115,0,"rst",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
-    tracep->declBus(c+116,0,"intr_valid",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
-    tracep->declBus(c+117,0,"intr_cause",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+116,0,"interrupt_valid",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
+    tracep->declBus(c+117,0,"interrupt_cause",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+118,0,"halt",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+119,0,"instr",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+120,0,"halt_pc",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
@@ -24,8 +24,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_init_sub__TOP__0(Vcore_top___024roo
     tracep->pushPrefix("core_top", VerilatedTracePrefixType::SCOPE_MODULE);
     tracep->declBus(c+114,0,"clk",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+115,0,"rst",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
-    tracep->declBus(c+116,0,"intr_valid",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
-    tracep->declBus(c+117,0,"intr_cause",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
+    tracep->declBus(c+116,0,"interrupt_valid",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
+    tracep->declBus(c+117,0,"interrupt_cause",-1, VerilatedTraceSigDirection::INPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+118,0,"halt",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 0,0);
     tracep->declBus(c+119,0,"instr",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
     tracep->declBus(c+120,0,"halt_pc",-1, VerilatedTraceSigDirection::OUTPUT, VerilatedTraceSigKind::WIRE, VerilatedTraceSigType::LOGIC, false,-1, 31,0);
@@ -714,8 +714,8 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullIData(oldp+113,(vlSelfRef.core_top__DOT__u_regfile__DOT__rf[31]),32);
     bufp->fullBit(oldp+114,(vlSelfRef.clk));
     bufp->fullBit(oldp+115,(vlSelfRef.rst));
-    bufp->fullBit(oldp+116,(vlSelfRef.intr_valid));
-    bufp->fullIData(oldp+117,(vlSelfRef.intr_cause),32);
+    bufp->fullBit(oldp+116,(vlSelfRef.interrupt_valid));
+    bufp->fullIData(oldp+117,(vlSelfRef.interrupt_cause),32);
     bufp->fullBit(oldp+118,(vlSelfRef.halt));
     bufp->fullIData(oldp+119,(vlSelfRef.instr),32);
     bufp->fullIData(oldp+120,(vlSelfRef.halt_pc),32);
@@ -729,7 +729,7 @@ VL_ATTR_COLD void Vcore_top___024root__trace_full_0_sub_0(Vcore_top___024root* v
     bufp->fullSData(oldp+125,((vlSelfRef.instr >> 0x14U)),12);
     bufp->fullIData(oldp+126,((0x1fU & (vlSelfRef.instr 
                                         >> 0xfU))),32);
-    bufp->fullBit(oldp+127,(((~ (IData)(vlSelfRef.intr_valid)) 
+    bufp->fullBit(oldp+127,(((~ (IData)(vlSelfRef.interrupt_valid)) 
                              & (IData)(vlSelfRef.core_top__DOT__reg_write))));
     bufp->fullCData(oldp+128,((0x7fU & vlSelfRef.instr)),7);
     bufp->fullCData(oldp+129,((7U & (vlSelfRef.instr 
