@@ -16,11 +16,7 @@ void single_cycle(){
     interrupt_check();
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
-    //中断检查
-    if (top->interrupt_valid){
-        ref_difftest_raise_intr(top->interrupt_cause);
-    }
-    
+
     top->clk = 1; top->eval();
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
