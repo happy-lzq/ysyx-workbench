@@ -115,6 +115,7 @@ static int cmd_c(char *args) {
   // cmd_q 退出程序的命令处理函数
 static int cmd_q(char *args) {
   npc_sim_state.state = NPC_QUIT;
+  printf("\n perfect-quit \n");
   return -1;
 }
 
