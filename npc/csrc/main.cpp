@@ -16,7 +16,11 @@ void single_cycle(){
     interrupt_check();
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
-
+    //中断检查
+    if (top->interrupt_valid){
+        ref_difftest_raise_intr(top->interrupt_cause);
+    }
+    
     top->clk = 1; top->eval();
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
@@ -24,9 +28,8 @@ void single_cycle(){
     
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file){
+        // 外设检查
         if (pmem_mmio_accessed()){   
-            // interrupt device load/store
-            // 传递npc当前pc+gpr，防止nemu丢数据
             npc_state_data(top);
             ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
         } else{
