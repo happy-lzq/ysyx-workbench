@@ -27,6 +27,7 @@ void single_cycle(){
         if (pmem_mmio_accessed()){   
             // interrupt device load/store
             // 传递npc当前pc+gpr，防止nemu丢数据
+            npc_state_data(top);
             ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
         } else{
         difftest_step(top, cycle);

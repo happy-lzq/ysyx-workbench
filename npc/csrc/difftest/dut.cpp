@@ -41,15 +41,14 @@ void init_difftest(const char* so_path,long img_size){
 	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
 }
 
-void difftest_step(Vcore_top* top, int idx) {
-    ref_difftest_exec(1);
-    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+void npc_state_data(Vcore_top* top){
     npc_s.pc = npc_pc(top, 0, READ);
     for (int i = 0; i < 32; i++) {
         npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
     }
-    diff_log_write(&npc_s, &ref_s, idx);
+}
 
+void difftest_compare(){
     // PC 对比
     if (npc_s.pc != ref_s.pc) {
         npc_sim_state.state    = NPC_ABORT;
@@ -66,7 +65,13 @@ void difftest_step(Vcore_top* top, int idx) {
             return;
         }
     }
-
+}
+void difftest_step(Vcore_top* top, int idx) {
+    ref_difftest_exec(1);
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    npc_state_data(top);
+    diff_log_write(&npc_s, &ref_s, idx);
+    difftest_compare();
 }
 
 void init_diff_log(const char *path){

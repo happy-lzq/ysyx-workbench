@@ -19,4 +19,6 @@ void difftest_step(Vcore_top *top,int idx);
 void difftest_init();
 void init_diff_log(const char *img_path);
 void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle);
+void npc_state_data(Vcore_top* top);
+void difftest_compare();
 #endif
