@@ -12,7 +12,6 @@ extern void (*ref_difftest_regcpy)(void *, bool);
 extern void (*ref_difftest_exec)(uint64_t);
 extern void (*ref_difftest_raise_intr)(uint64_t);
 extern void (*ref_difftest_init)(int);
-
 // ==================== difftest API ====================
 void init_difftest(const char *so_path, long img_size);
 void difftest_step(Vcore_top *top,int idx);

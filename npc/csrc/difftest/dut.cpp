@@ -8,12 +8,31 @@ const char* img_file = NULL;
 const char* diff_so_file = NULL;
 DEBUG_FILE_PATH dfp;
 FILE *diff_fp = NULL;
-
+// bool difftest_gpr = false;
+// bool difftest_csr = false;
+// bool difftest_pc  = false;
 void (*ref_difftest_memcpy)(paddr_t, void*, size_t, bool) = NULL;
 void (*ref_difftest_regcpy)(void*, bool) = NULL;
 void (*ref_difftest_exec)(uint64_t) = NULL;
 void (*ref_difftest_raise_intr)(uint64_t) = NULL;
 void (*ref_difftest_init)(int) = NULL;
+
+
+void npc_state_data(Vcore_top* top){
+    npc_s.pc = npc_pc(top, 0, READ);
+    for (int i = 0; i < 32; i++) {
+        npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
+    }
+    // 新增：读取 CSR
+    npc_s.csr[0] = npc_csr(top, CSR_MSTATUS,   0, READ);
+    npc_s.csr[1] = npc_csr(top, CSR_MIP,       0, READ);
+    npc_s.csr[2] = npc_csr(top, CSR_MIE,       0, READ);
+    npc_s.csr[3] = npc_csr(top, CSR_MCAUSE,    0, READ);
+    npc_s.csr[4] = npc_csr(top, CSR_MTVEC,     0, READ);
+    npc_s.csr[5] = npc_csr(top, CSR_MTVAL,     0, READ);
+    npc_s.csr[6] = npc_csr(top, CSR_MEPC,      0, READ);
+    npc_s.csr[7] = npc_csr(top, CSR_MSCRATCH,  0, READ);
+}
 
 void init_difftest(const char* so_path,long img_size){
 	// get nemu-functs-API
@@ -34,27 +53,8 @@ void init_difftest(const char* so_path,long img_size){
 	// read npc-imem to ref
 	ref_difftest_memcpy(RESET_VECTOR, npc_pmem, img_size, DIFFTEST_TO_REF);
 	// read npc-gpr+pc to ref
-	for (int i = 0; i < 32; i++){
-	 npc_s.gpr[i] = npc_gpr(top,i,0,READ);
-	}
-	npc_s.pc     = npc_pc(top,0,READ);
+    npc_state_data(top);
 	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
-}
-
-void npc_state_data(Vcore_top* top){
-    npc_s.pc = npc_pc(top, 0, READ);
-    for (int i = 0; i < 32; i++) {
-        npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
-    }
-    // 新增：读取 CSR
-    npc_s.csr[0] = npc_csr(top, CSR_MSTATUS,   0, READ);
-    npc_s.csr[1] = npc_csr(top, CSR_MIP,       0, READ);
-    npc_s.csr[2] = npc_csr(top, CSR_MIE,       0, READ);
-    npc_s.csr[3] = npc_csr(top, CSR_MCAUSE,    0, READ);
-    npc_s.csr[4] = npc_csr(top, CSR_MTVEC,     0, READ);
-    npc_s.csr[5] = npc_csr(top, CSR_MTVAL,     0, READ);
-    npc_s.csr[6] = npc_csr(top, CSR_MEPC,      0, READ);
-    npc_s.csr[7] = npc_csr(top, CSR_MSCRATCH,  0, READ);
 }
 
 void difftest_compare(){
@@ -74,12 +74,12 @@ void difftest_compare(){
             return;
         }
     }
-    // 新增：CSR 对比
+    // CSR 对比
     for (int i = 0; i < 8; i++) {
         if (npc_s.csr[i] != ref_s.csr[i]) {
             npc_sim_state.state    = NPC_ABORT;
             npc_sim_state.halt_pc  = npc_s.pc;
-            npc_sim_state.halt_ret = 32+i;  // CSR[i]
+            npc_sim_state.halt_ret = 32 + i;  // CSR[i] → 32..39
             return;
         }
     }
