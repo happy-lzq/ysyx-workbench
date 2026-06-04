@@ -79,7 +79,7 @@ void difftest_compare(){
         if (npc_s.csr[i] != ref_s.csr[i]) {
             npc_sim_state.state    = NPC_ABORT;
             npc_sim_state.halt_pc  = npc_s.pc;
-            npc_sim_state.halt_ret = 100 + i;  // 用 100+ 区分 CSR 错误
+            npc_sim_state.halt_ret = i;
             return;
         }
     }
