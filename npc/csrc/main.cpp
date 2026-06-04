@@ -23,10 +23,13 @@ void single_cycle(){
     halt_check();
     
     #ifdef CONFIG_DIFFTEST 
-    if (diff_so_file) {
-        ref_difftest_exec(1);
-        if (!pmem_mmio_accessed()){
-            difftest_step(top, cycle);
+    if (diff_so_file){
+        if (pmem_mmio_accessed()){   
+            // interrupt device load/store
+            // 传递npc当前pc+gpr，防止nemu丢数据
+            ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
+        } else{
+        difftest_step(top, cycle);
         }
     }
     #endif

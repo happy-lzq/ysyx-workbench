@@ -41,13 +41,8 @@ void init_difftest(const char* so_path,long img_size){
 	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
 }
 
-
-
-
-
-
-
 void difftest_step(Vcore_top* top, int idx) {
+    ref_difftest_exec(1);
     ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
     npc_s.pc = npc_pc(top, 0, READ);
     for (int i = 0; i < 32; i++) {
