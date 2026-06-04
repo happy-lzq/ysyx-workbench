@@ -50,6 +50,7 @@ typedef struct {
 typedef struct {
     uint32_t gpr[32];
     uint32_t pc;
+    uint32_t csr[8];   // ← 新增，顺序需与 NEMU isa-def.h 的 enum 一致
 } NPC_state;
 
 typedef struct {

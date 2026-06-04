@@ -17,14 +17,22 @@ void single_cycle(){
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
 
+    bool has_interrupt = top->interrupt_valid;  // 保存中断状态，eval 后会清零
+
     top->clk = 1; top->eval();
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
     halt_check();
     
     #ifdef CONFIG_DIFFTEST 
-    if (diff_so_file && !pmem_mmio_accessed()) {
-        difftest_step(top, cycle);
+    if (diff_so_file){
+        // MMIO 访问或中断触发周期：NEMU 无法正确执行，直接同步 NPC 状态
+        if (pmem_mmio_accessed() || has_interrupt){   
+            npc_state_data(top);
+            ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
+        } else{
+            difftest_step(top, cycle);
+        }
     }
     #endif
     

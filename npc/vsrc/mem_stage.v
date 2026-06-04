@@ -9,7 +9,9 @@ module mem_stage (
     ,mem_wdata_raw
     ,mem_rdata
 );
-    input   wire [0 :0] clk,mem_read,mem_write;
+    input   wire [0 :0] clk;
+    input   wire [0 :0] mem_read;
+    input   wire [0 :0 ]mem_write;
     input   wire [2 :0] lsu_type;
     input   wire [31:0] mem_addr;        
     input   wire [31:0] mem_wdata_raw; 
