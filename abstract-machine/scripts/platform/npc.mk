@@ -36,7 +36,6 @@ vcd: insert-arg
 	$(MAKE) -C $(NPC_HOME) vcd ARGS="$(NPCFLAGS)"
 
 gdb: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NPCFLAGS)"
+	$(MAKE) -C $(NPC_HOME) gdb ARGS="$(NPCFLAGS)"
 
 .PHONY: insert-arg vcd
-

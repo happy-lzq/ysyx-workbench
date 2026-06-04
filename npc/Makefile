@@ -8,7 +8,7 @@ VSRCS=$(shell find vsrc/ -name "*.v")
 CSRCS=$(shell find csrc/ -name "*.cpp")
 TOP=core_top
 WAVE_FILE=build/wave.vcd
-SIM_CFLAGS = -g -o0 \
+SIM_CFLAGS = -g -O0 \
 			 -I$(NPC_HOME)/csrc \
 			 -I$(NPC_HOME)/include \
 			 -I$(NPC_HOME)/obj_dir \
@@ -41,6 +41,8 @@ vcd: sim
 
 clean:
 	rm -rf build obj_dir
+
+.PHONY: sim run gdb vcd clean
 
 include ../Makefile
 
