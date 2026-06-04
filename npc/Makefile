@@ -8,7 +8,8 @@ VSRCS=$(shell find vsrc/ -name "*.v")
 CSRCS=$(shell find csrc/ -name "*.cpp")
 TOP=core_top
 WAVE_FILE=build/wave.vcd
-SIM_CFLAGS = -I$(NPC_HOME)/csrc \
+SIM_CFLAGS = -g -o0 \
+			 -I$(NPC_HOME)/csrc \
 			 -I$(NPC_HOME)/include \
 			 -I$(NPC_HOME)/obj_dir \
 			 -I$(NPC_HOME)/include/generated \
@@ -30,6 +31,9 @@ sim: $(VSRCS) $(CSRCS)
 
 run: sim
 	./build/sim $(ARGS)
+	
+gdb: sim
+	gdb --args ./build/sim $(ARGS)
 
 vcd: sim
 	./build/sim $(ARGS) -w
