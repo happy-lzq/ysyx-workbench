@@ -23,8 +23,11 @@ void single_cycle(){
     halt_check();
     
     #ifdef CONFIG_DIFFTEST 
-    if (diff_so_file && !pmem_mmio_accessed()) {
-        difftest_step(top, cycle);
+    if (diff_so_file) {
+        ref_difftest_exec(1);
+        if (!pmem_mmio_accessed()){
+            difftest_step(top, cycle);
+        }
     }
     #endif
     
