@@ -49,7 +49,7 @@ void npc_state_check() {
             Log("ABORT: PC mismatch at pc=0x%08x", npc_sim_state.halt_pc);
         else if (npc_sim_state.halt_ret < 0)
             Log("ABORT: CSR[%d] mismatch at pc=0x%08x",
-                -(npc_sim_state.halt_ret + 2), npc_sim_state.halt_pc);
+                -(npc_sim_state.halt_ret), npc_sim_state.halt_pc);
         else
             Log("ABORT: GPR[%d] mismatch at pc=0x%08x",
                 npc_sim_state.halt_ret, npc_sim_state.halt_pc);
