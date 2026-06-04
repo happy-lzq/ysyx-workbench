@@ -79,7 +79,7 @@ void difftest_compare(){
         if (npc_s.csr[i] != ref_s.csr[i]) {
             npc_sim_state.state    = NPC_ABORT;
             npc_sim_state.halt_pc  = npc_s.pc;
-            npc_sim_state.halt_ret = -(i+2);  // CSR[i]：-1 ~ -8
+            npc_sim_state.halt_ret = 32+i;  // CSR[i]
             return;
         }
     }
