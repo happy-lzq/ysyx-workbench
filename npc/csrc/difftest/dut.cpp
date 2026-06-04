@@ -46,6 +46,15 @@ void npc_state_data(Vcore_top* top){
     for (int i = 0; i < 32; i++) {
         npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
     }
+    // 新增：读取 CSR
+    npc_s.csr[0] = npc_csr(top, CSR_MSTATUS,   0, READ);
+    npc_s.csr[1] = npc_csr(top, CSR_MIP,       0, READ);
+    npc_s.csr[2] = npc_csr(top, CSR_MIE,       0, READ);
+    npc_s.csr[3] = npc_csr(top, CSR_MCAUSE,    0, READ);
+    npc_s.csr[4] = npc_csr(top, CSR_MTVEC,     0, READ);
+    npc_s.csr[5] = npc_csr(top, CSR_MTVAL,     0, READ);
+    npc_s.csr[6] = npc_csr(top, CSR_MEPC,      0, READ);
+    npc_s.csr[7] = npc_csr(top, CSR_MSCRATCH,  0, READ);
 }
 
 void difftest_compare(){
@@ -54,14 +63,23 @@ void difftest_compare(){
         npc_sim_state.state    = NPC_ABORT;
         npc_sim_state.halt_pc  = npc_s.pc;
         npc_sim_state.halt_ret = -1;
-        return;     // ← 不再 panic，让主循环退出
+        return;
     }
     // GPR 对比
     for (int i = 0; i < 32; i++) {
         if (npc_s.gpr[i] != ref_s.gpr[i]) {
             npc_sim_state.state    = NPC_ABORT;
             npc_sim_state.halt_pc  = npc_s.pc;
-            npc_sim_state.halt_ret = i;  // ← 用 halt_ret 传失败寄存器号
+            npc_sim_state.halt_ret = i;
+            return;
+        }
+    }
+    // 新增：CSR 对比
+    for (int i = 0; i < 8; i++) {
+        if (npc_s.csr[i] != ref_s.csr[i]) {
+            npc_sim_state.state    = NPC_ABORT;
+            npc_sim_state.halt_pc  = npc_s.pc;
+            npc_sim_state.halt_ret = 100 + i;  // 用 100+ 区分 CSR 错误
             return;
         }
     }

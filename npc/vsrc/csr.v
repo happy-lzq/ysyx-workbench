@@ -12,6 +12,19 @@ module csr (
     ,trap_enter
     ,trap_target
 );
+    input  wire [0 :0] clk;
+    input  wire [0 :0] rst;
+    input  wire [0 :0] csr_write;
+    input  wire [0 :0] csr_read;
+    input  wire [0 :0] mret;
+    input  wire [0 :0] trap_enter;
+    input  wire [11:0] csr_addr;
+    input  wire [31:0] trap_pc;
+    input  wire [31:0] csr_wdata;
+    input  wire [31:0] trap_code;
+    output wire [31:0] csr_rdata;
+    output wire [31:0] trap_target;
+
     parameter mstatus   = 12'h300;
     parameter mtvec     = 12'h305;
     parameter mepc      = 12'h341;
@@ -34,13 +47,7 @@ module csr (
     reg [31:0] csr_mie ;       // 机器中断使能
     reg [31:0] csr_mtval  ;    // 机器陷阱值
     reg [31:0] csr_mscratch ;  // 机器暂存寄存器
-
     reg [63:0] mcycle_64 ;
-    input  wire [11:0] csr_addr;
-    input  wire [31:0] trap_pc,csr_wdata;
-    input  wire [31:0] trap_code;
-    input  wire [0 : 0] clk,rst,csr_write,csr_read,mret,trap_enter;
-    output wire [31:0] csr_rdata,trap_target;
 
     assign csr_rdata = csr_read ? ((csr_addr == mstatus) ? csr_mstatus      : 
                                    (csr_addr == mtvec)   ? csr_mtvec        : 
