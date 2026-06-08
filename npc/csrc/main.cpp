@@ -10,12 +10,21 @@ VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;
 int idx =0;
 int cycle = 0;
-uint32_t this_pc = 0;
+uint32_t npc_cur_pc = 0;
+uint32_t ref_cur_pc = 0;
+uint32_t this_inst  = 0;
+
+
+void current_pc_inst(){
+    npc_cur_pc = npc_pc(top, 0, READ);
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    ref_cur_pc = ref_s.pc;
+    uint32_t this_inst = top->instr;
+}
+
 void single_cycle(){
     interrupt_check();
-    this_pc   = npc_pc(top, 0, READ);
-    uint32_t this_inst = top->instr;
-
+    current_pc_inst();
     bool has_interrupt = top->interrupt_valid;  // 保存中断状态，eval 后会清零
 
     top->clk = 1; top->eval();
@@ -42,7 +51,7 @@ void single_cycle(){
     #endif
 
     #ifdef CONFIG_ITRACE
-        itrace_log(this_pc, this_inst);
+        itrace_log(npc_cur_pc, this_inst);
         
     #endif
     npc_state_check();

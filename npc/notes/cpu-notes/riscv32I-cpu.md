@@ -2084,7 +2084,7 @@ import "DPI-C" function void dpi_mem_write(input int addr, input int data, input
 ```
 single_cycle() 每周期：
   1. interrupt_check()       — 检查并注入中断
-  2. 保存 this_pc, this_inst
+  2. 保存 npc_cur_pc, this_inst
   3. top->clk=1, eval()      — 上升沿：PC 更新，regfile 写，mem 写
   4. top->interrupt_valid=0   — 清除中断脉冲
   5. halt_check()             — 检测 ebreak

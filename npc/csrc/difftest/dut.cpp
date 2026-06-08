@@ -59,9 +59,9 @@ void init_difftest(const char* so_path,long img_size){
 
 void difftest_compare(){
     // PC 对比
-    if (npc_s.pc != ref_s.pc) {
+    if (npc_cur_pc != ref_cur_pc) {
         npc_sim_state.state    = NPC_ABORT;
-        npc_sim_state.halt_pc  = this_pc;
+        npc_sim_state.halt_pc  = npc_cur_pc;
         npc_sim_state.halt_ret = -1;
         return;
     }
@@ -69,7 +69,7 @@ void difftest_compare(){
     for (int i = 0; i < 32; i++) {
         if (npc_s.gpr[i] != ref_s.gpr[i]) {
             npc_sim_state.state    = NPC_ABORT;
-            npc_sim_state.halt_pc  = this_pc;
+            npc_sim_state.halt_pc  = npc_cur_pc;
             npc_sim_state.halt_ret = i;
             return;
         }
@@ -78,7 +78,7 @@ void difftest_compare(){
     for (int i = 0; i < 8; i++) {
         if (npc_s.csr[i] != ref_s.csr[i]) {
             npc_sim_state.state    = NPC_ABORT;
-            npc_sim_state.halt_pc  = this_pc;
+            npc_sim_state.halt_pc  = npc_cur_pc;
             npc_sim_state.halt_ret = 32 + i;  // CSR[i] → 32..39
             return;
         }
@@ -102,11 +102,11 @@ void init_diff_log(const char *path){
 void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
     if (!diff_fp) return;
 
-    bool pc_ok = (npc->pc == ref->pc);
+    bool pc_ok = (npc_cur_pc == ref_cur_pc);
 
     fprintf(diff_fp, "--- cycle %d ---\n", cycle);
     fprintf(diff_fp, "  PC:  NPC=0x%08x  REF=0x%08x  %s\n",
-            npc->pc, ref->pc,
+            npc_cur_pc, ref_cur_pc,
             pc_ok ? "[✔]" : "[✘]");
 
     // 4列 × 8行 寄存器网格: NPC/REF 格式，匹配 [✔]，不匹配 [✘]
