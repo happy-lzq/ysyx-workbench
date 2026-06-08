@@ -23,16 +23,12 @@ word_t isa_query_intr(){
     return INTR_EMPTY;
 }
 
-bool timer_sync_needed = false;  // difftest 同步标志：定时器刚触发但未进中断
-
-static bool timer_tick() {
+static void timer_tick() {
     const int timer_interval_cycles = 100000;
     if (cycle > 0 && cycle % timer_interval_cycles == 0) {
         word_t mip = npc_csr(top, CSR_MIP, 0, READ);
         npc_csr(top, CSR_MIP, mip | M_TIME_MASK, WRITE);
-        return true;   // 定时器触发，需通知 difftest 同步
     }
-    return false;
 }
 
 word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
@@ -63,20 +59,14 @@ word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc){
 void interrupt_check(){
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
-    timer_sync_needed = false;
 
     if (npc_sim_state.state != NPC_RUNNING) return;
-
-    bool timer_fired = timer_tick();
-
+    #ifdef CONFIG_HAS_TIMER
+    timer_tick();
+    #endif
     word_t trap_cause = isa_query_intr();
     if (trap_cause != INTR_EMPTY){
         top->interrupt_valid = 1;
         top->interrupt_cause = trap_cause;
-    }
-
-    // 定时器刚触发但中断未使能：标记 difftest 需要同步（防止 mip 不匹配）
-    if (timer_fired && !top->interrupt_valid) {
-        timer_sync_needed = true;
     }
 }
