@@ -74,16 +74,16 @@ void difftest_compare(){
             return;
         }
     }
-    
+
     // CSR 对比
-    // for (int i = 0; i < 8; i++) {
-    //     if (npc_s.csr[i] != ref_s.csr[i]) {
-    //         npc_sim_state.state    = NPC_ABORT;
-    //         npc_sim_state.halt_pc  = npc_s.pc;
-    //         npc_sim_state.halt_ret = 32 + i;  // CSR[i] → 32..39
-    //         return;
-    //     }
-    // }
+    for (int i = 0; i < 8; i++) {
+        if (npc_s.csr[i] != ref_s.csr[i]) {
+            npc_sim_state.state    = NPC_ABORT;
+            npc_sim_state.halt_pc  = npc_s.pc;
+            npc_sim_state.halt_ret = 32 + i;  // CSR[i] → 32..39
+            return;
+        }
+    }
 }
 void difftest_step(Vcore_top* top, int idx, uint32_t npc_exec_pc) {
     // ① 获取 NEMU 执行前的 PC
