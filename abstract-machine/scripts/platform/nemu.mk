@@ -15,7 +15,7 @@ LDFLAGS   += --gc-sections -e _start
 
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt      
 NEMUFLAGS += -e $(IMAGE).elf -i $(IMAGE).bin
-NEMUFLAGS += -b
+# NEMUFLAGS += -b
  # 增加 -b 选择nemu平台的批处理模式
 
 # python脚本处理insert-arg 
