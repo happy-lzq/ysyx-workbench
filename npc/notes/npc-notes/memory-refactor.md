@@ -1394,79 +1394,210 @@ case 0x20000004: timer_set_ctrl(data); break; // 定时器控制寄存器
 
 ---
 
-## 八、Difftest 与 MMIO 访问的协调机制
+## 八、Difftest、MMIO 与中断的 skip-ref 协调机制
 
 ### 8.1 问题背景
 
-NPC 使用 NEMU 作为 difftest 参考模型。Difftest 的工作方式是**每条指令在两个模拟器中同时执行，然后比较寄存器状态**：
+NPC 使用 NEMU shared object 作为 difftest 参考模型。普通指令的理想流程是：
 
-```
-程序:  sb UART_ADDR, 'H'
-        │                │
-        ▼                ▼
-      NPC              NEMU (REF)
-        │                │
-   dpi_mem_write     paddr_write
-   路由到 UART        不认识 UART 地址
-   → 终端输出 ✅       → out_of_bound → crash ❌
+```text
+NPC 执行 1 条指令
+NEMU/REF 执行 1 条同样的指令
+比较两边提交后的 PC、GPR、CSR
 ```
 
-NEMU 的 difftest REF 构建目标（Shared Object）默认**不包含任何外设支持**——它只需要 CPU 核心来逐指令对比寄存器。当被测程序访问外设地址时（如 `putch` 写串口），REF 侧因不识别该地址而崩溃。
+但 MMIO 和中断不是普通确定性指令流。
 
-### 8.2 设计思路
+MMIO 的问题是：NEMU 作为 REF 时通常只打开 CPU 和 PMEM，不一定打开 NPC 侧的外设地址。若让 NEMU 执行访问外设的指令，例如读取 RTC：
 
-NPC 中 Difftest 代码在 `single_cycle()` 的以下位置：
+```asm
+lw a3, 0x4c(a5)   # a5 = 0xa0000000, address = 0xa000004c
+```
+
+NEMU 会访问 PMEM 之外的地址并报错：
+
+```text
+address = 0xa000004c is out of bound of pmem [0x80000000, 0x87ffffff]
+```
+
+即使 NEMU 打开外设，RTC、键盘、串口等设备也可能产生和 NPC 不同的值或副作用，继续比较会得到无意义的 mismatch。
+
+中断的问题是：NPC 的时钟中断由 testbench/RTL 在某一拍额外注入，NEMU 不会在同一拍自然产生同一个异步事件。例如 cycle 100000 时：
+
+```text
+NPC: 触发 MTIP，进入 trap，PC -> mtvec = 0x80001718
+REF: 不知道中断发生，正常执行原 PC 的下一条指令，PC -> 0x800010bc
+```
+
+因此，MMIO 和中断周期不能让 REF 普通 `exec(1)` 后比较。正确语义是：
+
+```text
+本拍 NPC 真实执行
+REF 不执行这条不可比较事件
+采集 NPC 执行后的完整架构状态
+把 NPC 状态同步到 REF
+本拍不比较
+下一拍从同步后的状态恢复普通 difftest
+```
+
+这就是当前 NPC 的 skip-ref 设计。
+
+### 8.2 总体策略
+
+当前 difftest 分成两条路径：
+
+```text
+普通路径:
+  ref_difftest_exec(1)
+  ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT)
+  npc_state_data(top)
+  diff_log_write(...)
+  difftest_compare()
+
+skip-ref 路径:
+  npc_state_data(top)
+  ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF)
+  本拍不 ref_exec、不 compare、不写普通 diff-log
+```
+
+其中 skip-ref 路径由两个条件触发：
 
 ```cpp
-void single_cycle() {
-    top->clk = 1; top->eval();    // ① RTL 执行指令（DPI-C 函数在此被调用）
-    halt_check();
+pmem_mmio_accessed() || has_interrupt
+```
 
-    #ifdef CONFIG_DIFFTEST
-    if (diff_so_file) {
-        difftest_step(top, cycle); // ② NEMU 执行同一条指令并比较
+含义如下：
+
+| 条件 | 来源 | 为什么要 skip REF |
+|:---|:---|:---|
+| `pmem_mmio_accessed()` | `dpi_mem_read/write` 访问 PMEM 外设备地址 | REF 可能没有设备，或者设备结果不可比 |
+| `has_interrupt` | `interrupt_check()` 设置 `top->interrupt_valid` | REF 不知道 NPC 当前拍发生异步中断 |
+
+### 8.3 完整架构状态：PC + GPR + CSR
+
+由于中断和 `mret` 会依赖 CSR，仅同步 GPR 和 PC 不够。当前 `NPC_state` 包含：
+
+```cpp
+typedef struct {
+    uint32_t gpr[32];
+    uint32_t pc;
+    uint32_t csr[8];
+} NPC_state;
+```
+
+CSR 顺序必须和 NEMU `riscv32_CPU_state` 中的 CSR enum 保持一致：
+
+```text
+csr[0] = mstatus
+csr[1] = mip
+csr[2] = mie
+csr[3] = mcause
+csr[4] = mtvec
+csr[5] = mtval
+csr[6] = mepc
+csr[7] = mscratch
+```
+
+采集 NPC 状态统一由 `npc_state_data()` 完成：
+
+```cpp
+void npc_state_data(Vcore_top* top) {
+    npc_s.pc = npc_pc(top, 0, READ);
+    for (int i = 0; i < 32; i++) {
+        npc_s.gpr[i] = npc_gpr(top, i, 0, READ);
     }
-    #endif
-    // ...
+
+    npc_s.csr[0] = npc_csr(top, CSR_MSTATUS,  0, READ);
+    npc_s.csr[1] = npc_csr(top, CSR_MIP,      0, READ);
+    npc_s.csr[2] = npc_csr(top, CSR_MIE,      0, READ);
+    npc_s.csr[3] = npc_csr(top, CSR_MCAUSE,   0, READ);
+    npc_s.csr[4] = npc_csr(top, CSR_MTVEC,    0, READ);
+    npc_s.csr[5] = npc_csr(top, CSR_MTVAL,    0, READ);
+    npc_s.csr[6] = npc_csr(top, CSR_MEPC,     0, READ);
+    npc_s.csr[7] = npc_csr(top, CSR_MSCRATCH, 0, READ);
 }
 ```
 
-在执行①的过程中，如果指令访问了外设地址，`dpi_mem_read` 或 `dpi_mem_write` 会进入 MMIO 分支。此时设置一个标志位，在②之前检查该标志位，若为 true 则跳过本次 difftest 对比。
-
-### 8.3 实现
-
-#### 标志位（memory.cpp）
+初始化 REF 时也必须使用这个函数，而不是只手写同步 GPR/PC：
 
 ```cpp
-static bool mmio_accessed = false;   // difftest 跳过标志
+ref_difftest_memcpy(RESET_VECTOR, npc_pmem, img_size, DIFFTEST_TO_REF);
+npc_state_data(top);
+ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
+```
 
-extern "C" {
+否则 NEMU 的 CSR 会被旧值或未初始化值污染，第一拍就可能因为 `mstatus/mtvec` mismatch 失败。
 
-int dpi_mem_read(int addr) {
+### 8.4 MMIO 标志产生与读取即清零
+
+`memory.cpp` 中维护一个周期级标志：
+
+```cpp
+static bool mmio_accessed = false;
+```
+
+读路径：
+
+```cpp
+int dpi_mem_read(int addr, int is_load) {
     uint32_t paddr = (uint32_t)addr;
-    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        // 物理内存读 — 正常
-        return *(uint32_t *)(npc_pmem + offset);
-    }
-    // MMIO 读 — 设置标志
-    mmio_accessed = true;
-    switch (paddr) { ... }
-}
 
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        uint32_t word_addr = paddr & ~3U;
+        return (int)pmem_read(word_addr, 4);
+    }
+
+    if (!is_load) return 0;
+
+    mmio_accessed = true;
+    switch (paddr) {
+        case NPC_SERIAL_PORT:
+            return 0;
+        case NPC_RTC_ADDR + 4:
+            rtc_latched_us = host_time_us();
+            return (int)(rtc_latched_us >> 32);
+        case NPC_RTC_ADDR:
+            if (rtc_latched_us == 0) rtc_latched_us = host_time_us();
+            return (int)(rtc_latched_us & 0xffffffffu);
+        default:
+            return 0;
+    }
+}
+```
+
+这里 `is_load` 很重要：取指和非 load 组合路径也可能调用 `dpi_mem_read()`，但只有真正的数据 load 访问 PMEM 外地址时，才认为发生了 MMIO 读并触发 skip-ref。
+
+写路径：
+
+```cpp
 void dpi_mem_write(int addr, int data, int wmask) {
     uint32_t paddr = (uint32_t)addr;
+    uint32_t wdata = (uint32_t)data;
+
     if (paddr >= PMEM_BASE && paddr < PMEM_END) {
-        // 物理内存写 — 正常
+        uint32_t word_addr = paddr & ~3U;
+        uint32_t offset = word_addr - PMEM_BASE;
+        for (int i = 0; i < 4; i++) {
+            if (wmask & (1 << i))
+                npc_pmem[offset + i] = (wdata >> (i * 8)) & 0xff;
+        }
         return;
     }
-    // MMIO 写 — 设置标志
+
     mmio_accessed = true;
-    switch (paddr) { ... }
+    switch (paddr) {
+        case NPC_SERIAL_PORT:
+            if (wmask & 0x1) npc_serial_putc(wdata & 0xff);
+            break;
+        default:
+            break;
+    }
 }
+```
 
-}  // extern "C"
+主循环通过 `pmem_mmio_accessed()` 取走这个标志：
 
-// 读取并自动清零（准备好下个周期重新检测）
+```cpp
 bool pmem_mmio_accessed() {
     bool v = mmio_accessed;
     mmio_accessed = false;
@@ -1474,41 +1605,192 @@ bool pmem_mmio_accessed() {
 }
 ```
 
-#### Difftest 守卫（main.cpp）
+这个函数是“读取即清零”语义：本拍只应该调用一次，用完后下周期重新检测。
+
+### 8.5 中断标志保存
+
+中断路径不经过 `dpi_mem_read/write`，因此不能依赖 `pmem_mmio_accessed()`。
+
+当前中断由 `interrupt_check()` 在每拍上升沿前产生：
 
 ```cpp
-    #ifdef CONFIG_DIFFTEST
-    if (diff_so_file && !pmem_mmio_accessed()) {   // ← 加 !pmem_mmio_accessed()
+void interrupt_check() {
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
+
+    if (npc_sim_state.state != NPC_RUNNING) return;
+
+    timer_tick();
+
+    word_t trap_cause = isa_query_intr();
+    if (trap_cause != INTR_EMPTY) {
+        top->interrupt_valid = 1;
+        top->interrupt_cause = trap_cause;
+    }
+}
+```
+
+`single_cycle()` 必须在 `eval()` 前保存这个信息：
+
+```cpp
+interrupt_check();
+uint32_t this_pc = npc_pc(top, 0, READ);
+uint32_t this_inst = top->instr;
+
+bool has_interrupt = top->interrupt_valid;
+
+top->clk = 1;
+top->eval();
+top->interrupt_valid = 0;
+top->interrupt_cause = 0;
+```
+
+保存 `has_interrupt` 的原因是：`eval()` 后 testbench 会立即清掉 `top->interrupt_valid/top->interrupt_cause`，若不提前记录，difftest 阶段就不知道本拍是否刚进入 trap。
+
+### 8.6 主循环 difftest 决策
+
+当前 `single_cycle()` 中的核心逻辑是：
+
+```cpp
+#ifdef CONFIG_DIFFTEST
+if (diff_so_file) {
+    if (pmem_mmio_accessed() || has_interrupt) {
+        npc_state_data(top);
+        ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
+    } else {
         difftest_step(top, cycle);
     }
-    #endif
+}
+#endif
 ```
 
-### 8.4 完整时序
+含义：
 
+| 当前周期类型 | NPC 行为 | REF 行为 | 是否比较 |
+|:---|:---|:---|:---|
+| 普通指令 | RTL 正常提交 | `ref_difftest_exec(1)` | 比较 PC/GPR/CSR |
+| MMIO load/store | RTL 访问设备并提交 | 不执行，直接接收 NPC 状态 | 不比较 |
+| 中断进入 trap | RTL 更新 PC/CSR 到 trap 状态 | 不执行，直接接收 NPC 状态 | 不比较 |
+
+注意：skip-ref 周期不是“什么都不做”，而是“跳过比较和 REF 执行，但同步 REF 状态”。如果只跳过 `difftest_step()` 而不 `regcpy(..., DIFFTEST_TO_REF)`，连续 MMIO 或中断后 REF 的 PC 会停在旧位置，下一拍恢复比较时必然错位。
+
+### 8.7 普通 difftest 执行路径
+
+普通周期调用 `difftest_step()`：
+
+```cpp
+void difftest_step(Vcore_top* top, int idx) {
+    ref_difftest_exec(1);
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    npc_state_data(top);
+    diff_log_write(&npc_s, &ref_s, idx);
+    difftest_compare();
+}
 ```
-普通指令周期（无 MMIO）:
-  eval() → dpi_mem_read/write 全在 PMEM 内 → mmio_accessed = false
-  pmem_mmio_accessed() 返回 false → difftest_step() 正常执行 ✅
 
-MMIO 指令周期（如 sb UART_ADDR）:
-  eval() → dpi_mem_write → paddr 在 PMEM 外 → mmio_accessed = true
-  pmem_mmio_accessed() 返回 true → 跳过 difftest_step()
-  NEMU 不执行此指令 → 不崩 ✅
+顺序不能随意调换：
+
+1. `ref_difftest_exec(1)`：让 NEMU 从上一次同步点执行一条普通指令。
+2. `ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT)`：把 NEMU 的 PC/GPR/CSR 读到 `ref_s`。
+3. `npc_state_data(top)`：采集 NPC 当前拍提交后的 PC/GPR/CSR。
+4. `diff_log_write()`：写普通比较日志。
+5. `difftest_compare()`：比较 PC、GPR、CSR。
+
+比较顺序是 PC、GPR、CSR：
+
+```cpp
+if (npc_s.pc != ref_s.pc) {
+    npc_sim_state.state = NPC_ABORT;
+    npc_sim_state.halt_pc = npc_s.pc;
+    npc_sim_state.halt_ret = -1;
+    return;
+}
+
+for (int i = 0; i < 32; i++) {
+    if (npc_s.gpr[i] != ref_s.gpr[i]) {
+        npc_sim_state.state = NPC_ABORT;
+        npc_sim_state.halt_pc = npc_s.pc;
+        npc_sim_state.halt_ret = i;
+        return;
+    }
+}
+
+for (int i = 0; i < 8; i++) {
+    if (npc_s.csr[i] != ref_s.csr[i]) {
+        npc_sim_state.state = NPC_ABORT;
+        npc_sim_state.halt_pc = npc_s.pc;
+        npc_sim_state.halt_ret = 32 + i;
+        return;
+    }
+}
 ```
 
-### 8.5 对比 NEMU 的 `difftest_skip_ref`
+其中 `halt_ret = 32 + i` 用来把 CSR mismatch 和 GPR mismatch 区分开。
 
-| 维度 | NEMU | NPC |
+### 8.8 当前时序示例
+
+普通指令周期：
+
+```text
+interrupt_check()
+  has_interrupt = 0
+eval()
+  只访问 PMEM
+pmem_mmio_accessed() -> false
+difftest_step()
+  REF exec 1
+  采集 REF/NPC
+  比较 PC/GPR/CSR
+```
+
+RTC MMIO 读周期：
+
+```text
+eval()
+  dpi_mem_read(0xa000004c, is_load=1)
+  mmio_accessed = true
+pmem_mmio_accessed() -> true，并清零
+npc_state_data()
+ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF)
+本拍 REF 不 exec，不 compare
+```
+
+时钟中断周期：
+
+```text
+interrupt_check()
+  timer_tick() 置 mip.MTIP
+  isa_query_intr() 返回 IRQ_M_TIMER
+  top->interrupt_valid = 1
+has_interrupt = true
+eval()
+  RTL 进入 trap
+  PC -> mtvec
+  CSR 更新 mepc/mcause/mstatus/mip
+pmem_mmio_accessed() 可能为 false
+has_interrupt 为 true
+npc_state_data()
+ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF)
+本拍 REF 不 exec，不 compare
+```
+
+### 8.9 与 NEMU `difftest_skip_ref()` 的关系
+
+| 维度 | NEMU 自身作为 DUT 时 | NPC 当前设计 |
 |:---|:---|:---|
-| 触发方式 | 软件调用 `difftest_skip_ref()` | DPI-C 函数自动设置标志 |
-| 检测时机 | 指令执行前（hostcall 中） | 指令执行后（`eval()` 返回后） |
-| 标志管理 | `static bool is_skip_ref` 手动管理 | `pmem_mmio_accessed()` 读取即清零 |
-| 适用场景 | NEMU 宿主调用（如 `set_nemu_state`） | MMIO 地址检测（任何非 PMEM 访问） |
+| 触发来源 | NEMU 内部设备/hostcall 调用 `difftest_skip_ref()` | NPC testbench 检测 MMIO 或中断 |
+| REF 是否执行 | 不执行当前不可比较行为 | 不执行当前不可比较行为 |
+| 同步动作 | 把 DUT `cpu` 拷贝到 REF | 把 `npc_s` 拷贝到 NEMU REF |
+| 状态范围 | 由 NEMU `CPU_state` 决定 | PC + GPR + CSR |
+| 关键点 | skip 后必须同步 REF | skip 后必须同步 REF |
 
-### 8.6 设计优势
+两者本质一致：skip 不是“不比较就结束”，而是“不让 REF 执行不可比较行为，并把 REF 拉到 DUT 提交后的状态”。
 
-1. **零侵入** — RTL 代码完全不知道 difftest 的存在，MMIO 地址检测对 CPU 透明
-2. **自动检测** — 不需要手动判断"这条指令是不是访存"，地址范围判断天然区分 PMEM vs MMIO
-3. **读取即清零** — `pmem_mmio_accessed()` 返回后标志归零，下个周期重新检测，无状态泄漏
-4. **通用** — 后续添加任何新外设（RTC、Timer），只要地址在 PMEM 范围外，自动跳过 difftest
+### 8.10 约束与注意事项
+
+1. `pmem_mmio_accessed()` 是读取即清零，本拍只应调用一次。若调试代码提前调用它，主循环会看不到 MMIO。
+2. `has_interrupt` 必须在清 `top->interrupt_valid` 前保存，否则 difftest 阶段无法判断中断拍。
+3. `NPC_state::csr[]` 的顺序必须和 NEMU 的 `riscv32_CPU_state` 一致，否则 `regcpy` 后 CSR 会错位。
+4. NEMU 侧 `DIFFTEST_REG_SIZE` 必须覆盖完整 RISC-V CPU 状态。如果只覆盖 `gpr + pc`，中断后的 `mepc/mcause/mstatus` 无法同步。
+5. skip-ref 周期当前不写普通 `diff-log`，因此 diff-log 中可能出现 cycle 编号跳跃。这表示该周期被 MMIO 或中断同步跳过，不代表仿真漏执行。
+6. 若后续希望分析 skip-ref 事件，可新增单独的 skip log，记录 `cycle/pc/cause/mmio`，不要复用普通 compare log。

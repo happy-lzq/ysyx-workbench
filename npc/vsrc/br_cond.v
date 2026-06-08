@@ -5,8 +5,9 @@ module br_cond (
     ,br_taken
 );
     input wire [2:0] br_type;
-    input wire [31:0] rs1_data,rs2_data;
-    output reg br_taken;
+    input wire [31:0] rs1_data;
+    input wire [31:0] rs2_data;
+    output reg [0: 0] br_taken;
 
     always @(*) begin
         case (br_type)

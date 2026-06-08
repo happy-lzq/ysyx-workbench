@@ -1182,30 +1182,39 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
                 } else if ((2U & vlSelfRef.instr)) {
                     if ((1U & vlSelfRef.instr)) {
                         vlSelfRef.core_top__DOT__alu_op 
-                            = ((0x4000U & vlSelfRef.instr)
-                                ? ((0x2000U & vlSelfRef.instr)
-                                    ? ((0x1000U & vlSelfRef.instr)
-                                        ? 7U : 6U) : 
-                                   ((0x1000U & vlSelfRef.instr)
-                                     ? ((0x40000000U 
-                                         & vlSelfRef.instr)
-                                         ? 9U : 8U)
-                                     : 5U)) : ((0x2000U 
+                            = ((1U == (vlSelfRef.instr 
+                                       >> 0x19U)) ? 
+                               ((0x4000U & vlSelfRef.instr)
+                                 ? ((0x2000U & vlSelfRef.instr)
+                                     ? ((0x1000U & vlSelfRef.instr)
+                                         ? 0x17U : 0x16U)
+                                     : ((0x1000U & vlSelfRef.instr)
+                                         ? 0x15U : 0x14U))
+                                 : ((0x2000U & vlSelfRef.instr)
+                                     ? ((0x1000U & vlSelfRef.instr)
+                                         ? 0x13U : 0x12U)
+                                     : ((0x1000U & vlSelfRef.instr)
+                                         ? 0x11U : 0x10U)))
+                                : ((0x4000U & vlSelfRef.instr)
+                                    ? ((0x2000U & vlSelfRef.instr)
+                                        ? ((0x1000U 
+                                            & vlSelfRef.instr)
+                                            ? 7U : 6U)
+                                        : ((0x1000U 
+                                            & vlSelfRef.instr)
+                                            ? ((0x40000000U 
                                                 & vlSelfRef.instr)
-                                                ? (
-                                                   (0x1000U 
-                                                    & vlSelfRef.instr)
-                                                    ? 4U
-                                                    : 3U)
-                                                : (
-                                                   (0x1000U 
-                                                    & vlSelfRef.instr)
-                                                    ? 2U
-                                                    : 
-                                                   ((0x40000000U 
-                                                     & vlSelfRef.instr)
-                                                     ? 0U
-                                                     : 1U))));
+                                                ? 9U
+                                                : 8U)
+                                            : 5U)) : 
+                                   ((0x2000U & vlSelfRef.instr)
+                                     ? ((0x1000U & vlSelfRef.instr)
+                                         ? 4U : 3U)
+                                     : ((0x1000U & vlSelfRef.instr)
+                                         ? 2U : ((0x40000000U 
+                                                  & vlSelfRef.instr)
+                                                  ? 0U
+                                                  : 1U)))));
                     }
                 }
             }
@@ -1325,83 +1334,109 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
            ((1U == (IData)(vlSelfRef.core_top__DOT__alu_src_b))
              ? vlSelfRef.core_top__DOT__imm_jal : 4U));
     vlSelfRef.core_top__DOT__jump_jalr = ((0x10U & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                           ? 0U : (
-                                                   (8U 
+                                           ? ((8U & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                               ? 0U
+                                               : ((4U 
+                                                   & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                   ? 
+                                                  ((2U 
                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
                                                     ? 
-                                                   ((4U 
+                                                   ((0U 
+                                                     == vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                     ? vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1
+                                                     : 
+                                                    VL_MODDIV_III(32, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))
+                                                    : 
+                                                   ((0U 
+                                                     == vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                     ? 0xffffffffU
+                                                     : 
+                                                    VL_DIV_III(32, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))
+                                                   : 
+                                                  ((2U 
+                                                    & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                    ? 0U
+                                                    : 
+                                                   ((1U 
                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
                                                      ? 0U
                                                      : 
-                                                    ((2U 
-                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                      ? 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 0U
-                                                       : vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                      : 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 
-                                                      VL_SHIFTRS_III(32,32,5, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, 
-                                                                     (0x1fU 
-                                                                      & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))
-                                                       : 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       >> 
-                                                       (0x1fU 
-                                                        & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))))
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     * vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))))
+                                           : ((8U & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                               ? ((4U 
+                                                   & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                   ? 0U
+                                                   : 
+                                                  ((2U 
+                                                    & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                    ? 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? 0U
+                                                     : vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
                                                     : 
-                                                   ((4U 
+                                                   ((1U 
                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
                                                      ? 
-                                                    ((2U 
-                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                      ? 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                       : 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       | vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))
-                                                      : 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       ^ vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                       : 
-                                                      ((vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                        < vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                        ? 1U
-                                                        : 0U)))
+                                                    VL_SHIFTRS_III(32,32,5, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, 
+                                                                   (0x1fU 
+                                                                    & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))
                                                      : 
-                                                    ((2U 
-                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                      ? 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 
-                                                      (VL_LTS_III(32, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                        ? 1U
-                                                        : 0U)
-                                                       : 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       << 
-                                                       (0x1fU 
-                                                        & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))
-                                                      : 
-                                                     ((1U 
-                                                       & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                       ? 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       + vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
-                                                       : 
-                                                      (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                       - vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))))));
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     >> 
+                                                     (0x1fU 
+                                                      & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))))
+                                               : ((4U 
+                                                   & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                   ? 
+                                                  ((2U 
+                                                    & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                    ? 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                     : 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     | vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))
+                                                    : 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     ^ vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                     : 
+                                                    ((vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                      < vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                      ? 1U
+                                                      : 0U)))
+                                                   : 
+                                                  ((2U 
+                                                    & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                    ? 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? 
+                                                    (VL_LTS_III(32, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1, vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                      ? 1U
+                                                      : 0U)
+                                                     : 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     << 
+                                                     (0x1fU 
+                                                      & vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))
+                                                    : 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     + vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)
+                                                     : 
+                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                                     - vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))))));
     vlSelfRef.core_top__DOT__u_if_stage__DOT__pc_next 
         = (((IData)(vlSelfRef.core_top__DOT__mret_eff) 
             | (IData)(vlSelfRef.core_top__DOT__trap_enter_eff))

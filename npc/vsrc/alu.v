@@ -23,17 +23,15 @@ module alu (
             5'b0_1001 :  result = $signed(src1) >>> src2[4:0];                      // SRA  算术右移 有符号
             5'b0_1010 :  result = src2;                                             // LUI  高位立即数
 
-        /*  乘除扩展
-            5'b1_0000 :  MUL
-            5'b1_0001 :  MULH
-            5'b1_0010 :  MULHSU
-            5'b1_0011 :  MULHU
-            5'b1_0100 :  DIV
-            5'b1_0101 :  DIVU
-            5'b1_0110 :  REM
-            5'b1_0111 :  REMU
-        */
-
+            5'b1_0000 : result = src1 * src2;                                           // MUL
+            5'b1_0001 : result = (($signed(src1) * $signed(src2)) >> 32);               // MULH
+            5'b1_0010 : result = (($signed(src1) * src2) >> 32);                        // MULHSU
+            5'b1_0011 : result = ((src1 * src2) >> 32);                                 // MULHU
+            5'b1_0100 : result = (src2 == 0) ? ~32'd0 : $signed(src1) / $signed(src2);  // DIV
+            5'b1_0101 : result = (src2 == 0) ? ~32'd0 : src1 / src2;                    // DIVU
+            5'b1_0110 : result = (src2 == 0) ? src1 : $signed(src1) % $signed(src2);    // REM
+            5'b1_0111 : result = (src2 == 0) ? src1 : src1 % src2;                      // REMU
+        
             default:    result = 32'd0;
         endcase
     end 

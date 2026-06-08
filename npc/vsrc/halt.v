@@ -10,10 +10,14 @@ module halt (
 );
     parameter RESET_VECTOR = 32'h8000_0000;
     parameter RESET_x10    = 32'b0;
-    input  wire [0 :0] clk,rst,is_ebreak;
-    input  wire [31:0] pc,rs_a0;
+    input  wire [0 :0] clk;
+    input  wire [0 :0] rst;
+    input  wire [0 :0] is_ebreak;
+    input  wire [31:0] pc;
+    input  wire [31:0] rs_a0;
     output reg  [0 :0] halt_reg;
-    output reg  [31:0] halt_pc,halt_ret;
+    output reg  [31:0] halt_pc;
+    output reg  [31:0] halt_ret;
 
     always @(posedge clk) begin
         if (rst) begin

@@ -1,12 +1,12 @@
 module ex_stage (
-    rs1_rdata          
+    pc 
+    ,rs1_rdata          
     ,rs2_rdata         
     ,br_type           
     ,imm_out           
     ,alu_op            
     ,alu_src_a         
-    ,alu_src_b         
-    ,pc                
+    ,alu_src_b                        
     ,csr_op
     ,csr_imm
     ,csr_zimm
@@ -16,16 +16,17 @@ module ex_stage (
     ,csr_wdata          
 
 );
-
+    input  wire [31:0] pc;
     input  wire [4 :0] alu_op;
     input  wire [0 :0] alu_src_a;
     input  wire [1 :0] alu_src_b;
     input  wire [2 :0] br_type;
-    input  wire [31:0] pc    ;
     input  wire [31:0] imm_out;
-    input  wire [31:0] rs1_rdata,rs2_rdata;
+    input  wire [31:0] rs1_rdata;
+    input  wire [31:0] rs2_rdata;
     input  wire [1 :0] csr_op;
-    input  wire [31:0] csr_rdata,csr_zimm;
+    input  wire [31:0] csr_rdata;
+    input  wire [31:0] csr_zimm;
     input  wire [0 :0] csr_imm;
 
     output wire [31:0] alu_result;
@@ -34,6 +35,7 @@ module ex_stage (
     wire        [31:0] src1,src2;
     
     assign src1 = (alu_src_a == 1'b0 ) ? rs1_rdata : pc;
+    
     assign src2 = (alu_src_b == 2'b00) ? rs2_rdata :
                   (alu_src_b == 2'b01) ? imm_out  : 32'd4;
     wire [31:0] csr_src = csr_imm ? rs1_rdata : csr_zimm;

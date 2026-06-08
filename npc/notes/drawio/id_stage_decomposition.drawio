@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-06-05T00:00:00.000Z" agent="GitHub Copilot" version="21.0.0">
+  <diagram name="id_stage 模块分解" id="id_stage_decomp">
+    <mxGraphModel dx="1200" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="0" arrows="0" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!--  PIDE  顶层（25 端口：1 入 + 24 出）  640×700                    -->
+        <!--  含 opcode/funct3/funct7 提取 + rs1/rs2/rd 提取（内联组合逻辑）  -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="pide_body" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="230" y="35" width="640" height="710" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_title_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6C8EBF;strokeColor=none;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="232" y="37" width="636" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_title" value="&lt;font color=&quot;#ffffff&quot; size=&quot;5&quot;&gt;&lt;b&gt;PIDE&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=0;" vertex="1" parent="1">
+          <mxGeometry x="232" y="37" width="636" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- PIDE 左输入（1 个） -->
+        <mxCell id="pide_in" value="◀  &lt;b&gt;instr&lt;/b&gt;[31:0]" style="text;html=1;align=right;verticalAlign=middle;fontSize=11;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="110" y="310" width="115" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- PIDE 右输出（24 个，17px 间距） -->
+        <mxCell id="pide_o01" value="&lt;b&gt;rs1_addr&lt;/b&gt;[4:0]  ▶"      style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="110" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o02" value="&lt;b&gt;rs2_addr&lt;/b&gt;[4:0]  ▶"      style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="127" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o03" value="&lt;b&gt;rd_addr&lt;/b&gt;[4:0]  ▶"       style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="144" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o04" value="&lt;b&gt;imm_out&lt;/b&gt;[31:0]  ▶"      style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="161" width="135" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o05" value="&lt;b&gt;alu_op&lt;/b&gt;[4:0]  ▶"        style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="183" width="120" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o06" value="&lt;b&gt;alu_src_a&lt;/b&gt;  ▶"          style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="200" width="105" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o07" value="&lt;b&gt;alu_src_b&lt;/b&gt;[1:0]  ▶"     style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="217" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o08" value="&lt;b&gt;br_type&lt;/b&gt;[2:0]  ▶"       style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="239" width="120" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o09" value="&lt;b&gt;mem_read&lt;/b&gt;  ▶"            style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="256" width="105" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o10" value="&lt;b&gt;mem_write&lt;/b&gt;  ▶"           style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="273" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o11" value="&lt;b&gt;lsu_type&lt;/b&gt;[2:0]  ▶"       style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="295" width="120" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o12" value="&lt;b&gt;reg_write&lt;/b&gt;  ▶"           style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="312" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o13" value="&lt;b&gt;reg_wdata_src&lt;/b&gt;[1:0]  ▶"  style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="329" width="145" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o14" value="&lt;b&gt;pc_sel&lt;/b&gt;[1:0]  ▶"         style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="351" width="115" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o15" value="&lt;b&gt;csr_op&lt;/b&gt;[1:0]  ▶"         style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="373" width="115" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o16" value="&lt;b&gt;csr_read&lt;/b&gt;  ▶"            style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="390" width="105" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o17" value="&lt;b&gt;csr_write&lt;/b&gt;  ▶"           style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="407" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o18" value="&lt;b&gt;csr_addr&lt;/b&gt;[11:0]  ▶"      style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="429" width="125" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o19" value="&lt;b&gt;csr_zimm&lt;/b&gt;[31:0]  ▶"      style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="446" width="135" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o20" value="&lt;b&gt;csr_imm&lt;/b&gt;  ▶"             style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="463" width="100" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o21" value="&lt;b&gt;mret&lt;/b&gt;  ▶"                style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="485" width="80" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o22" value="&lt;b&gt;trap_enter&lt;/b&gt;  ▶"          style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="502" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o23" value="&lt;b&gt;trap_code&lt;/b&gt;[31:0]  ▶"     style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="524" width="135" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="pide_o24" value="&lt;b&gt;is_ebreak&lt;/b&gt;  ▶"           style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="880" y="541" width="105" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!--  imm_gen  纯组合（2 端口：1 入 + 1 出）  最小 220×130            -->
+        <!--  imm_out = f(instr)                                            -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="imm_body" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="260" y="185" width="220" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="imm_title_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#82B366;strokeColor=none;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="262" y="187" width="216" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="imm_title" value="&lt;font color=&quot;#ffffff&quot;&gt;&lt;b&gt;imm_gen&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="262" y="187" width="216" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="imm_in" value="◀  instr[31:0]" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="268" y="232" width="90" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="imm_out" value="imm_out[31:0]  ▶" style="text;html=1;align=right;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="340" y="282" width="135" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!--  control  纯组合（24 端口：4 入 + 20 出）  最大 340×540          -->
+        <!--  全部控制信号译码                                                -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="ctrl_body" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=2;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="510" y="70" width="340" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_title_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D6B656;strokeColor=none;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="512" y="72" width="336" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_title" value="&lt;font color=&quot;#ffffff&quot;&gt;&lt;b&gt;control&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="512" y="72" width="336" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- control 左输入（4 个） -->
+        <mxCell id="ctrl_i1" value="◀  inst[31:0]"        style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="518" y="112" width="95" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_i2" value="◀  opcode[6:0]"        style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="518" y="142" width="105" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_i3" value="◀  funct3[2:0]"        style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="518" y="172" width="95" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_i4" value="◀  funct7[6:0]"        style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="518" y="202" width="95" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- control 右输出（20 个，18px 间距） -->
+        <mxCell id="ctrl_o01" value="alu_op[4:0]  ▶"        style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="710" y="115" width="135" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o02" value="alu_src_a  ▶"          style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="735" y="133" width="110" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o03" value="alu_src_b[1:0]  ▶"     style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="720" y="151" width="125" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o04" value="br_type[2:0]  ▶"       style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="725" y="169" width="120" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o05" value="mem_read  ▶"           style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="745" y="187" width="100" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o06" value="mem_write  ▶"          style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="740" y="205" width="105" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o07" value="lsu_type[2:0]  ▶"      style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="725" y="223" width="120" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o08" value="reg_write  ▶"          style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="740" y="241" width="105" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o09" value="reg_wdata_src[1:0]  ▶" style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="705" y="259" width="140" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o10" value="pc_sel[1:0]  ▶"        style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="730" y="277" width="115" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o11" value="csr_op[1:0]  ▶"        style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="730" y="300" width="115" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o12" value="csr_read  ▶"           style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="740" y="318" width="105" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o13" value="csr_write  ▶"          style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="735" y="336" width="110" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o14" value="csr_addr[11:0]  ▶"     style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="720" y="359" width="125" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o15" value="csr_zimm[31:0]  ▶"     style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="710" y="377" width="135" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o16" value="csr_imm  ▶"            style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="745" y="395" width="100" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o17" value="mret  ▶"               style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="765" y="418" width="80" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o18" value="trap_enter  ▶"         style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="735" y="436" width="110" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o19" value="trap_code[31:0]  ▶"    style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="710" y="459" width="135" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_o20" value="is_ebreak  ▶"          style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="740" y="477" width="105" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!--  左栏：端口统计 &amp; 图例                                        -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <mxCell id="note_pide" value="&lt;b&gt;PIDE&lt;/b&gt;（顶层）&#xa;├ 输入: 1&#xa;├ 输出: 24&#xa;└ 合计: &lt;b&gt;25&lt;/b&gt; 端口&#xa;框架: 640×710&#xa;含字段提取（内联组合）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#6C8EBF;fontSize=10;align=left;spacingLeft=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="22" y="45" width="175" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note_ctrl" value="&lt;b&gt;control&lt;/b&gt;（组合）&#xa;├ 输入: 4&#xa;├ 输出: 20&#xa;└ 合计: &lt;b&gt;24&lt;/b&gt; 端口&#xa;框架: 340×540 &lt;b&gt;(最大)&lt;/b&gt;&#xa;全部控制信号译码" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9E6;strokeColor=#D6B656;fontSize=10;align=left;spacingLeft=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="22" y="175" width="175" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note_imm" value="&lt;b&gt;imm_gen&lt;/b&gt;（组合）&#xa;├ 输入: 1&#xa;├ 输出: 1&#xa;└ 合计: &lt;b&gt;2&lt;/b&gt; 端口&#xa;框架: 220×130 &lt;b&gt;(最小)&lt;/b&gt;&#xa;立即数生成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82B366;fontSize=10;align=left;spacingLeft=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="22" y="315" width="170" height="105" as="geometry" />
+        </mxCell>
+
+        <mxCell id="hierarchy" value="&lt;b&gt;层次结构&lt;/b&gt;&#xa;PIDE&#xa; ├─ imm_gen&#xa; │   (立即数生成)&#xa; └─ control&#xa;     (控制信号译码)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontSize=10;align=left;spacingLeft=8;arcSize=8;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="22" y="455" width="175" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#CCCCCC;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="22" y="595" width="185" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_t" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="38" y="600" width="40" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="38" y="627" width="20" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t1" value="PIDE  顶层（含字段提取）" style="text;html=1;fontSize=9;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="66" y="624" width="130" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="38" y="649" width="20" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t2" value="imm_gen  立即数生成" style="text;html=1;fontSize=9;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="66" y="646" width="115" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="38" y="671" width="20" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t3" value="control  控制译码" style="text;html=1;fontSize=9;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="66" y="668" width="115" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_ai" value="◀  输入端口" style="text;html=1;fontSize=9;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="38" y="694" width="70" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_ao" value="▶  输出端口" style="text;html=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="120" y="694" width="70" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_note" value="(全部纯组合逻辑，无时序)" style="text;html=1;fontSize=8;fontColor=#999999;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="38" y="714" width="140" height="16" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

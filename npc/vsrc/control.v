@@ -104,12 +104,12 @@ module control (
               default : ;
               endcase
             end
-              3'b001 : begin                                  // csrrw
-                csr_op        = 2'b00;                        // 写
-                csr_read      = 1'b1;                         // load  csr
-                csr_write     = 1'b1;                         // store csr
-                reg_write     = 1'b1;                         // store regfile
-                csr_imm       = 1'b1;                         // 取rs1_data
+              3'b001 : begin                              // csrrw
+                csr_op        = 2'b00;                    // 写
+                csr_read      = 1'b1;                     // load  csr
+                csr_write     = 1'b1;                     // store csr
+                reg_write     = 1'b1;                     // store regfile
+                csr_imm       = 1'b1;                     // 取rs1_data
                 reg_wdata_src = 2'b11;
               end
               3'b010 : begin                              // csrrs
@@ -159,6 +159,19 @@ module control (
 // =========================== R =====================================
           7'b0110011 : begin
             reg_write = 1'b1;
+            // M 乘除扩展
+            if (funct7 == 7'b00000001) begin
+              case (funct3)
+                3'b000 : alu_op = 5'b1_0000;  // MUL
+                3'b001 : alu_op = 5'b1_0001;  // MULH
+                3'b010 : alu_op = 5'b1_0010;  // MULHSU
+                3'b011 : alu_op = 5'b1_0011;  // MULHU
+                3'b100 : alu_op = 5'b1_0100;  // DIV
+                3'b101 : alu_op = 5'b1_0101;  // DIVU
+                3'b110 : alu_op = 5'b1_0110;  // REM
+                3'b111 : alu_op = 5'b1_0111;  // REMU
+              endcase
+            end else begin
             case (funct3)
                 3'b000 : alu_op = funct7[5] ? 5'b0_0000 : 5'b0_0001 ; // SUB/ADD
                 3'b001 : alu_op = 5'b0_0010                         ; // SLL
@@ -169,7 +182,8 @@ module control (
                 3'b110 : alu_op = 5'b0_0110                         ; // OR
                 3'b111 : alu_op = 5'b0_0111                         ; // AND
                 default: alu_op = 5'b0;
-            endcase            
+            endcase   
+            end
           end
 
 // ========================= I-算术立即数 ================================

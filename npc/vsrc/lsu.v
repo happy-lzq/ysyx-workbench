@@ -9,10 +9,14 @@ module lsu (
     ,mem_wdata              
     ,mem_wmask              
 );
-    input  wire [31:0] mem_addr, mem_rdata_raw, mem_wdata_raw;
+    input  wire [31:0] mem_addr;
+    input  wire [31:0] mem_rdata_raw;
+    input  wire [31:0] mem_wdata_raw;
     input  wire [2 :0] lsu_type;
-    input  wire [0 :0] mem_read,mem_write; 
-    output wire [31:0] mem_rdata, mem_wdata;
+    input  wire [0 :0] mem_read;
+    input  wire [0 :0] mem_write; 
+    output wire [31:0] mem_rdata;
+    output wire [31:0] mem_wdata;
     output wire [3 :0] mem_wmask;
     // 取字/半字
     wire [1 :0] sel_byte     = mem_addr[1:0];
