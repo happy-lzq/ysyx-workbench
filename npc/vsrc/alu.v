@@ -11,7 +11,7 @@ module alu (
 
     always @(*) begin
         case (alu_op)
-            5'b0_0000 :  result = src1 - src2;                                      // SUB 
+            5'b0_0000 :  result = src1 - src2;                                      // SUB    
             5'b0_0001 :  result = src1 + src2;                                      // ADD
             5'b0_0010 :  result = src1 << (src2[4:0]) ;                             // SLL  逻辑左移,RISCV规定移位只取低5位
             5'b0_0011 :  result = ($signed(src1) < $signed(src2)) ? 32'd1 : 32'd0;  // SLT  有符号小于置位
