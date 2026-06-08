@@ -8,13 +8,12 @@
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
 NPC_state npc_s, ref_s;
-
 int idx =0;
 int cycle = 0;
-
+uint32_t this_pc = 0;
 void single_cycle(){
     interrupt_check();
-    uint32_t this_pc = npc_pc(top, 0, READ);
+    this_pc   = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
 
     bool has_interrupt = top->interrupt_valid;  // 保存中断状态，eval 后会清零

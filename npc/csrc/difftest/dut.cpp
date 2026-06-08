@@ -61,7 +61,7 @@ void difftest_compare(){
     // PC 对比
     if (npc_s.pc != ref_s.pc) {
         npc_sim_state.state    = NPC_ABORT;
-        npc_sim_state.halt_pc  = npc_s.pc;
+        npc_sim_state.halt_pc  = this_pc;
         npc_sim_state.halt_ret = -1;
         return;
     }
@@ -69,7 +69,7 @@ void difftest_compare(){
     for (int i = 0; i < 32; i++) {
         if (npc_s.gpr[i] != ref_s.gpr[i]) {
             npc_sim_state.state    = NPC_ABORT;
-            npc_sim_state.halt_pc  = npc_s.pc;
+            npc_sim_state.halt_pc  = this_pc;
             npc_sim_state.halt_ret = i;
             return;
         }
@@ -78,7 +78,7 @@ void difftest_compare(){
     for (int i = 0; i < 8; i++) {
         if (npc_s.csr[i] != ref_s.csr[i]) {
             npc_sim_state.state    = NPC_ABORT;
-            npc_sim_state.halt_pc  = npc_s.pc;
+            npc_sim_state.halt_pc  = this_pc;
             npc_sim_state.halt_ret = 32 + i;  // CSR[i] → 32..39
             return;
         }
