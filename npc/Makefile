@@ -36,7 +36,14 @@ gdb: sim
 	gdb --args ./build/sim $(ARGS)
 
 vcd: sim
-	./build/sim $(ARGS)
+	@echo "Running simulation..."
+	@./build/sim $(ARGS); STATUS=$$?; \
+	if [ $$STATUS -eq 0 ]; then \
+		echo "✅ Simulation PASSED"; \
+	else \
+		echo "❌ Simulation FAILED (exit code $$STATUS)"; \
+	fi; \
+	echo "Opening waveform..."; \
 	gtkwave $(WAVE_FILE)
 
 clean:
