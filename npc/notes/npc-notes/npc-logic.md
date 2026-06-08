@@ -872,7 +872,7 @@ if (diff_so_file && !pmem_mmio_accessed()) {
 ```cpp
 void single_cycle(){
     interrupt_check();
-    uint32_t npc_cur_pc = npc_pc(top, 0, READ);
+    uint32_t npc->pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
 
     bool has_interrupt = top->interrupt_valid;  // ← 保存中断状态
@@ -954,7 +954,7 @@ bool pmem_mmio_accessed() {
 // main.cpp — single_cycle()
 void single_cycle() {
     interrupt_check();                           // ① clk=0 阶段：检测中断，设置 interrupt_valid
-    uint32_t npc_cur_pc = npc_pc(top, 0, READ);     // ② 记录当前 PC
+    uint32_t npc->pc = npc_pc(top, 0, READ);     // ② 记录当前 PC
 
     top->clk = 1; top->eval();                    // ③ 上升沿：状态更新
     // ...

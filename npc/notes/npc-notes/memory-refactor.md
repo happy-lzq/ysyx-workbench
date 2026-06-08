@@ -617,8 +617,8 @@ int cycle = 0;
 uint8_t npc_pmem[PMEM_SIZE];           // ← main.cpp 拥有 npc_pmem
 
 void single_cycle(){
-    uint32_t npc_cur_pc = npc_pc(top, 0, READ);
-    uint32_t this_inst = npc_imem(top, (npc_cur_pc - RESET_VECTOR) >> 2, 0, READ); // ← RTL IMEM
+    uint32_t npc->pc = npc_pc(top, 0, READ);
+    uint32_t this_inst = npc_imem(top, (npc->pc - RESET_VECTOR) >> 2, 0, READ); // ← RTL IMEM
     top->clk = 1; top->eval();
     halt_check();
 
@@ -648,7 +648,7 @@ int cycle = 0;
 // 删除 npc_pmem[PMEM_SIZE] — 已移入 memory.cpp
 
 void single_cycle(){
-    uint32_t npc_cur_pc = npc_pc(top, 0, READ);
+    uint32_t npc->pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;      // ← 直接读 top 端口（DPI-C 组合输出）
     top->clk = 1; top->eval();
     halt_check();
@@ -1634,7 +1634,7 @@ void interrupt_check() {
 
 ```cpp
 interrupt_check();
-uint32_t npc_cur_pc = npc_pc(top, 0, READ);
+uint32_t npc->pc = npc_pc(top, 0, READ);
 uint32_t this_inst = top->instr;
 
 bool has_interrupt = top->interrupt_valid;
