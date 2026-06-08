@@ -136,6 +136,21 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
         }
         fprintf(diff_fp, "\n");
     }
+
+    // CSR 寄存器对比（顺序需与 NEMU isa-def.h enum 一致）
+    static const char *csr_names[] = {
+        "mstatus ", "mip     ", "mie     ", "mcause  ",
+        "mtvec   ", "mtval   ", "mepc    ", "mscratch"
+    };
+    fprintf(diff_fp, "  --- CSR ---\n");
+    for (int i = 0; i < 8; i++) {
+        bool ok = (npc->csr[i] == ref->csr[i]);
+        fprintf(diff_fp, "  %s  %s %08x  %08x\n",
+                csr_names[i],
+                ok ? "[✔]" : "[✘]",
+                npc->csr[i], ref->csr[i]);
+    }
+
     fprintf(diff_fp, "\n");
     fflush(diff_fp);
 }
