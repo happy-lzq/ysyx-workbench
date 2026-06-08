@@ -137,18 +137,19 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
         fprintf(diff_fp, "\n");
     }
 
-    // CSR 寄存器对比（顺序需与 NEMU isa-def.h enum 一致）
-    static const char *csr_names[] = {
-        "mstatus ", "mip     ", "mie     ", "mcause  ",
-        "mtvec   ", "mtval   ", "mepc    ", "mscratch"
-    };
+    // CSR 寄存器对比：2行 × 4列，与 GPR 网格对齐
+    static const char *csr_names[] = {"mst","mip","mie","mca","mtv","mta","mep","msc"};
     fprintf(diff_fp, "  --- CSR ---\n");
-    for (int i = 0; i < 8; i++) {
-        bool ok = (npc->csr[i] == ref->csr[i]);
-        fprintf(diff_fp, "  %s  %s %08x  %08x\n",
-                csr_names[i],
-                ok ? "[✔]" : "[✘]",
-                npc->csr[i], ref->csr[i]);
+    for (int row = 0; row < 2; row++) {
+        fprintf(diff_fp, "  %s-%-3s", csr_names[row * 4], csr_names[row * 4 + 3]);
+        for (int col = 0; col < 4; col++) {
+            int i = row * 4 + col;
+            bool ok = (npc->csr[i] == ref->csr[i]);
+            fprintf(diff_fp, "  %s %08x  %08x",
+                    ok ? "[✔]" : "[✘]",
+                    npc->csr[i], ref->csr[i]);
+        }
+        fprintf(diff_fp, "\n");
     }
 
     fprintf(diff_fp, "\n");
