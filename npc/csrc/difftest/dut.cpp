@@ -85,6 +85,7 @@ void difftest_compare(){
         }
     }
 }
+
 void difftest_step(Vcore_top* top, int idx, uint32_t npc_exec_pc) {
     // ① 获取 NEMU 执行前的 PC
     ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
