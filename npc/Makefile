@@ -36,7 +36,7 @@ gdb: sim
 	gdb --args ./build/sim $(ARGS)
 
 vcd: sim
-	./build/sim $(ARGS) -w
+	./build/sim $(ARGS)
 	gtkwave $(WAVE_FILE)
 
 clean:
