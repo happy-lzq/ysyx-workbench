@@ -26,10 +26,11 @@ void single_cycle(){
     
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file){
-        // MMIO 访问或中断触发周期：NEMU 无法正确执行，直接同步 NPC 状态
-        if (pmem_mmio_accessed() || has_interrupt){   
+        // MMIO 访问、中断触发、或定时器刚置位：无法与 NEMU 对齐执行，直接同步 NPC 状态
+        if (pmem_mmio_accessed() || has_interrupt || timer_sync_needed){   
             npc_state_data(top);
             ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
+            timer_sync_needed = false;
         } else{
             difftest_step(top, cycle, this_pc);
         }

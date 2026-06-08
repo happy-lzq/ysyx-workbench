@@ -12,4 +12,5 @@
 word_t isa_query_intr();
 word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc);
 void interrupt_check();
+extern bool timer_sync_needed;  // 定时器触发标志，供 difftest 同步用
 #endif
