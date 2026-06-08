@@ -74,6 +74,7 @@ void difftest_compare(){
             return;
         }
     }
+    
     // CSR 对比
     // for (int i = 0; i < 8; i++) {
     //     if (npc_s.csr[i] != ref_s.csr[i]) {
