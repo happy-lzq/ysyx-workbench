@@ -84,10 +84,23 @@ void difftest_compare(){
         }
     }
 }
-void difftest_step(Vcore_top* top, int idx) {
+void difftest_step(Vcore_top* top, int idx, uint32_t npc_exec_pc) {
+    // ① 获取 NEMU 执行前的 PC
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    uint32_t ref_exec_pc = ref_s.pc;
+
+    // ② NEMU 执行一条指令
     ref_difftest_exec(1);
+
+    // ③ 获取执行后的 GPR/CSR
     ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
     npc_state_data(top);
+
+    // ④ 用执行 PC 覆盖 post-exec PC：后续比较和 log 都基于"刚执行指令的 PC"
+    npc_s.pc = npc_exec_pc;
+    ref_s.pc = ref_exec_pc;
+
+    // ⑤ 写 log + 比较（PC、GPR、CSR 全部对齐到同一条指令）
     diff_log_write(&npc_s, &ref_s, idx);
     difftest_compare();
 }
@@ -105,7 +118,7 @@ void diff_log_write(NPC_state *npc, NPC_state *ref, int cycle) {
     bool pc_ok = (npc->pc == ref->pc);
 
     fprintf(diff_fp, "--- cycle %d ---\n", cycle);
-    fprintf(diff_fp, "  PC:  NPC=0x%08x  REF=0x%08x  %s\n",
+    fprintf(diff_fp, "  Exec PC: NPC=0x%08x  REF=0x%08x  %s\n",
             npc->pc, ref->pc,
             pc_ok ? "[✔]" : "[✘]");
 

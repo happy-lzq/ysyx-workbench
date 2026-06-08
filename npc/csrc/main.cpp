@@ -31,7 +31,7 @@ void single_cycle(){
             npc_state_data(top);
             ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF); 
         } else{
-            difftest_step(top, cycle);
+            difftest_step(top, cycle, this_pc);
         }
     }
     #endif
