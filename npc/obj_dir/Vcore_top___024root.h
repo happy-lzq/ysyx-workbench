@@ -59,9 +59,9 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         VL_OUT(halt_ret,31,0);
         IData/*31:0*/ core_top__DOT__rs1_rdata;
         IData/*31:0*/ core_top__DOT__rs2_rdata;
-        IData/*31:0*/ core_top__DOT__jump_jalr;
         IData/*31:0*/ core_top__DOT__imm_jal;
         IData/*31:0*/ core_top__DOT__pc;
+        IData/*31:0*/ core_top__DOT__alu_result;
         IData/*31:0*/ core_top__DOT__mem_rdata_raw;
         IData/*31:0*/ core_top__DOT__csr_wdata;
         IData/*31:0*/ core_top__DOT__csr_rdata;
@@ -79,12 +79,30 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src1;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__src2;
         IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__csr_src;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__Vstatic__abs_dividend;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__Vstatic__abs_divisor;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__Vstatic__quotient;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__abs_dividend;
+    };
+    struct {
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__abs_divisor;
+        IData/*31:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__remainder;
         IData/*31:0*/ core_top__DOT__u_mem_stage__DOT__mem_rdata_raw;
         IData/*31:0*/ __VdfgRegularize_h3c5bdd75_0_0;
         IData/*31:0*/ __Vfunc_dpi_mem_read__0__Vfuncout;
-        IData/*31:0*/ __Vfunc_dpi_mem_read__1__Vfuncout;
-    };
-    struct {
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_rem32__1__Vfuncout;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_rem32__1__dividend;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_rem32__1__divisor;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__2__Vfuncout;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__2__dividend;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__2__divisor;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_div32__3__Vfuncout;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_div32__3__dividend;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__unsigned_div32__3__divisor;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__4__Vfuncout;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__4__dividend;
+        IData/*31:0*/ __Vfunc_core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_div32__4__divisor;
+        IData/*31:0*/ __Vfunc_dpi_mem_read__5__Vfuncout;
         IData/*31:0*/ __VdfgRegularize_h495687df_0_6;
         IData/*31:0*/ __VdfgRegularize_h495687df_0_7;
         IData/*31:0*/ __VdfgRegularize_h495687df_0_8;
