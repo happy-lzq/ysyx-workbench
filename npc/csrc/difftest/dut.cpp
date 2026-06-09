@@ -50,9 +50,8 @@ void init_difftest(const char* so_path,long img_size){
 	assert(ref_difftest_init);	
 	// init ref 
 	ref_difftest_init(1234);
-	// 同步 NPC 全部物理内存到 NEMU（而非仅 .bin 大小）
-	// 原因：堆栈/BSS 区域超出 img_size，不同步会导致 NEMU 读 CONFIG_MEM_RANDOM 随机值
-	ref_difftest_memcpy(RESET_VECTOR, npc_pmem, PMEM_SIZE, DIFFTEST_TO_REF);
+	// read npc-imem to ref
+	ref_difftest_memcpy(RESET_VECTOR, npc_pmem, img_size, DIFFTEST_TO_REF);
 	// read npc-gpr+pc to ref
     npc_state_data(top);
 	ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
