@@ -2,6 +2,7 @@
 #include <difftest.h>
 #include <trace.h>
 #include <memory.h>
+#include <interrupt.h>
 
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
@@ -22,7 +23,7 @@ int parse_agrs(int argc,char *argv[]){
             case 'e' : elf_file     = optarg; break;
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
-            case 'w' : break;  // wave is controlled by CONFIG_WAVE at compile time
+            case 'w' : break;  
             case 'h' : printf("Usage: ./build/sim -i <bin_file> [-e <elf_file>] [-d <diff_so>]\n"); exit(0);
             default  : exit(0);
         }

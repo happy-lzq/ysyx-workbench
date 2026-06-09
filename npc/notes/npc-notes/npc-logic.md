@@ -31,6 +31,14 @@
   - [4.5 dut.cpp 调用链路](#45-dutcpp-调用链路)
   - [4.6 dlopen 机制的核心理解](#46-dlopen-机制的核心理解)
   - [4.7 Skip Difftest 设计（MMIO/中断周期跳过）](#47-skip-difftest-设计mmio中断周期跳过)
+  - [4.8 统一同步机制：`difftest_sync_needed` 的设计哲学](#48-统一同步机制difftest_sync_needed-的设计哲学)
+    - [4.8.1 核心认知：difftest 只验证确定性执行](#481-核心认知difftest-只验证确定性执行)
+    - [4.8.2 三类外部事件，一条同步路径](#482-三类外部事件一条同步路径)
+    - [4.8.3 统一标志 `difftest_sync_needed`](#483-统一标志-difftest_sync_needed)
+    - [4.8.4 宿主闹钟定时器（替代周期计数）](#484-宿主闹钟定时器替代周期计数)
+    - [4.8.5 完整数据流图](#485-完整数据流图)
+    - [4.8.6 为什么 NEMU 收不到这些信号？](#486-为什么-nemu-收不到这些信号)
+    - [4.8.7 源码索引](#487-源码索引)
 - [第五部分：波形与调试](#第五部分波形与调试) 🔜
 - [第六部分：中断响应的核心设计逻辑](#第六部分中断响应的核心设计逻辑)
   - [6.1 问题起点：中断在哪个时刻被检测？](#61-问题起点中断在哪个时刻被检测)
@@ -935,6 +943,301 @@ bool pmem_mmio_accessed() {
 | NEMU 代码改动 | 改动 `ref.c` 4 个函数 | 不动 NEMU 代码 |
 | NPC 侧代码 | 完全一样（都是 `dlopen` + 5 个函数指针） | 完全一样 |
 | 推荐度 | 教学理解用 | 快速验证用 |
+
+---
+
+### 4.8 统一同步机制：`difftest_sync_needed` 的设计哲学
+
+> 日期：2026-06-09  
+> 从 MMIO 同步、中断同步、定时器同步三个独立路径，到统一的一个标志位。  
+> 核心认知：**difftest 只验证 CPU 指令执行的确定性结果，不验证外部异步事件。**
+
+#### 4.8.1 核心认知：difftest 只验证确定性执行
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    软件层（AM / OS）                      │
+│  发出控制信号：                                           │
+│    · 写 mtimecmp 寄存器（定时器比较值）                    │
+│    · 写 mie 使能位（开/关中断）                           │
+│    · 读写外设 MMIO（UART / RTC / 键盘……）                │
+└────────────────────────┬─────────────────────────────────┘
+                         │ 控制信号
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+   ┌──────────┐   ┌──────────┐   ┌──────────┐
+   │  NEMU    │   │  NPC     │   │  真实芯片  │
+   │          │   │          │   │          │
+   │ CPU ✅   │   │ CPU ✅   │   │ CPU ✅   │
+   │ 设备 ❓   │   │ 设备 ✅   │   │ 设备 ✅   │
+   │ 中断 ❓   │   │ 中断 ✅   │   │ 中断 ✅   │
+   └──────────┘   └──────────┘   └──────────┘
+        │               │
+        │    difftest   │
+        │    只对比这   │
+        │    部分 →    │
+        └───────┬───────┘
+                ▼
+   ┌─────────────────────────┐
+   │  difftest 对比范围       │
+   │  · PC                   │
+   │  · GPR[0..31]           │
+   │  · CSR（mstatus/mcause…）│
+   │                         │
+   │  不对比（也无法对比）：    │
+   │  · 设备寄存器（UART/RTC） │
+   │  · 中断 pending 时机     │
+   │  · 外部信号到达时刻       │
+   └─────────────────────────┘
+```
+
+**NEMU 的定位**：NEMU 是一个**纯 CPU 指令集模拟器**。它的设备模型依赖宿主机环境（`setitimer`、SDL 键盘事件等），不由被测软件（AM/OS）完全控制。所以：
+
+> 当 NPC 响应了软件发出的设备访问，或接收了外部中断后，NEMU 那边**没有对应的状态变化**。  
+> 软件层的控制信号 NPC 能收到，但 REF 参考机（NEMU）收不到。
+> 因此 difftest 不能比较这些周期，只能**同步**——把 NPC 的全量状态搬运到 NEMU。
+
+#### 4.8.2 三类外部事件，一条同步路径
+
+| 外部事件 | 触发条件 | NEMU 为何无法复现 |
+|---------|---------|------------------|
+| **MMIO 访问** | 软件读写外设地址空间 | NEMU 的设备是宿主演的，不是软件驱动的 |
+| **中断响应** | `mstatus.MIE=1` 且 `mip & mie ≠ 0` → CPU 跳转 mtvec | NEMU 的定时器是独立宿主闹钟，时机对不上 |
+| **定时器 pending** | 宿主闹钟触发 → `mip.MTIP = 1` | 同上，NPC 和 NEMU 的闹钟各自独立触发 |
+
+三条路径，本质相同：
+
+```
+外部事件发生 → NPC 状态合法变化 → NEMU 无法独立复现 → 同步代替对比
+```
+
+#### 4.8.3 统一标志 `difftest_sync_needed`
+
+**改前**：用 `top->interrupt_valid`（硬件 trap 信号）和 `timer_sync_needed`（独立的定时器标志）两个不同变量判断同步。`interrupt_valid` 的本职是硬件信号，却兼职了同步判断，职责混乱。
+
+**改后**：`interrupt_check()` 统一管理所有"NEMU 无法复现"的事件，设置唯一的 `difftest_sync_needed` 标志。
+
+```cpp
+// interrupt.cpp — interrupt_check()
+void interrupt_check() {
+    top->interrupt_valid    = 0;
+    top->interrupt_cause    = 0;
+    difftest_sync_needed    = false;       // ← 每周期清零
+
+    if (npc_sim_state.state != NPC_RUNNING) return;
+
+#ifdef CONFIG_HAS_TIMER
+    // ① 宿主闹钟触发 → 置 MTIP → 需同步
+    if (alarm_fired) {
+        alarm_fired = 0;
+        word_t mip = npc_csr(top, CSR_MIP, 0, READ);
+        npc_csr(top, CSR_MIP, mip | M_TIME_MASK, WRITE);
+        difftest_sync_needed = true;       // ← 统一标志
+    }
+#endif
+
+    // ② 中断该响应 → 需同步（同时设硬件 trap 信号）
+    word_t trap_cause = isa_query_intr();
+    if (trap_cause != INTR_EMPTY) {
+        top->interrupt_valid = 1;          // ← 纯硬件信号
+        top->interrupt_cause = trap_cause;
+        difftest_sync_needed = true;       // ← 统一标志
+    }
+}
+```
+
+```cpp
+// main.cpp — single_cycle()
+void single_cycle() {
+    interrupt_check();                     // ① 检测所有外部事件
+
+    top->clk = 1; top->eval();             // ② 硬件执行
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
+    halt_check();
+
+#ifdef CONFIG_DIFFTEST
+    if (diff_so_file) {
+        // ③ 统一判断：任何 NEMU 无法复现的事件 → 同步
+        if (pmem_mmio_accessed() || difftest_sync_needed) {
+            npc_state_data(top);
+            ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);  // NPC → NEMU
+            difftest_sync_needed = false;
+        } else {
+            difftest_step(top, cycle, this_pc);            // 正常对比
+        }
+    }
+#endif
+    // ...
+}
+```
+
+**职责分离**：
+
+| 变量 | 职责 | 设置者 | 使用者 |
+|------|------|--------|--------|
+| `top->interrupt_valid` | 硬件 trap 信号（杀当前指令、跳 mtvec） | `interrupt_check()` | `core_top.v` 硬件仲裁层 |
+| `difftest_sync_needed` | 统一的 difftest 同步请求 | `interrupt_check()` | `single_cycle()` difftest 分支 |
+| `pmem_mmio_accessed()` | MMIO 访问检测 | DPI-C 读写路径 | `single_cycle()` difftest 分支 |
+
+#### 4.8.4 宿主闹钟定时器（替代周期计数）
+
+**改前**：C++ 周期计数 `cycle % 100000 == 0` → 置 MTIP。与 NEMU 的宿主 `setitimer` 完全异构，difftest 必爆发 MTIP 不匹配。
+
+**改后**：与 NEMU 同样使用 `setitimer(ITIMER_VIRTUAL)` + `SIGVTALRM` 信号。
+
+```cpp
+// interrupt.cpp — 宿主闹钟
+static volatile sig_atomic_t alarm_fired = 0;
+
+static void alarm_handler(int signum) {
+    alarm_fired = 1;  // 信号上下文：仅设标志，不做任何复杂操作
+}
+
+void init_timer_alarm() {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = alarm_handler;
+    sigaction(SIGVTALRM, &sa, NULL);
+
+    struct itimerval it = {};
+    it.it_value.tv_sec     = 0;
+    it.it_value.tv_usec    = 1000000 / 60;   // TIMER_HZ=60
+    it.it_interval         = it.it_value;    // 周期性
+    setitimer(ITIMER_VIRTUAL, &it, NULL);
+}
+```
+
+**信号安全原则**：
+
+```
+┌──────────────────────────────────────────────────┐
+│  SIGVTALRM 信号到达（异步，任意时刻）              │
+│                                                  │
+│  alarm_handler() { alarm_fired = 1; }  ← 仅此！  │
+│  不能：调 printf、调 malloc、调 Verilator API     │
+│  不能：读写 CSR、访问外设                          │
+└──────────────────────┬───────────────────────────┘
+                       │ 信号返回
+═══════════════════════╪═══════════════════════════
+                       │ 下一个 single_cycle()
+                       ▼
+┌──────────────────────────────────────────────────┐
+│  interrupt_check()  ← 主循环安全点               │
+│                                                  │
+│  if (alarm_fired) {                              │
+│      alarm_fired = 0;       // ① 先清标志       │
+│      MTIP = 1;              // ② 再做操作       │
+│      difftest_sync_needed = true;               │
+│  }                                               │
+└──────────────────────────────────────────────────┘
+```
+
+> ⚠️ 必须先清标志再设 MTIP。顺序反了会丢失信号：设 MTIP 期间又来一个 SIGVTALRM 置了标志，但随后被清零，本次闹钟就丢了。
+
+#### 4.8.5 完整数据流图
+
+```
+                         single_cycle() 入口
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    interrupt_check()                          │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  宿主闹钟分支                                         │    │
+│  │  alarm_fired ?                                       │    │
+│  │    YES → alarm_fired=0, MTIP=1, sync_needed=true     │    │
+│  │    NO  → 跳过                                         │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  中断查询分支                                         │    │
+│  │  isa_query_intr() → 返回中断号？                      │    │
+│  │    YES → interrupt_valid=1, sync_needed=true          │    │
+│  │    NO  → 跳过                                         │    │
+│  └─────────────────────────────────────────────────────┘    │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    硬件执行（posedge clk）                     │
+│                                                              │
+│  interrupt_valid=1 ?                                         │
+│    → core_top 仲裁：kill 所有 *_eff，强开 trap_enter          │
+│    → csr.v 硬件：保存 mepc/mcause，更新 mstatus               │
+│    → PC 跳转 mtvec                                           │
+│                                                              │
+│  interrupt_valid=0 ?                                         │
+│    → 正常提交当前指令的寄存器/内存写回                         │
+└──────────────────────────┬───────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   difftest 决策点                             │
+│                                                              │
+│  pmem_mmio_accessed() || difftest_sync_needed ?              │
+│                                                              │
+│    YES ──────────────────────────────────────┐               │
+│    │  同步路径（不比较）                       │               │
+│    │  npc_state_data(top)   ← 读 NPC 全状态   │               │
+│    │       ↓                                  │               │
+│    │  ref_difftest_regcpy(NPC→NEMU)            │               │
+│    │       ↓                                  │               │
+│    │  NEMU 状态 = NPC 状态（信任 NPC）         │               │
+│    │  sync_needed = false                     │               │
+│    └──────────────────────────────────────────┘               │
+│                                                              │
+│    NO ───────────────────────────────────────┐               │
+│    │  对比路径                                │               │
+│    │  ref_difftest_exec(1)  ← NEMU 执行 1 条  │               │
+│    │  ref_difftest_regcpy(NEMU→DUT)            │               │
+│    │  difftest_compare()   ← PC/GPR/CSR 全比  │               │
+│    │  不匹配 → NPC_ABORT                      │               │
+│    └──────────────────────────────────────────┘               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### 4.8.6 为什么 NEMU 收不到这些信号？
+
+```
+软件发出控制信号（如写 mtimecmp、读 RTC）
+          │
+    ┌─────┴─────┐
+    ▼           ▼
+  NPC         NEMU
+    │           │
+    │           ├─ 设备模型是 C 函数模拟的（timer.c / serial.c）
+    │           ├─ 定时器是宿主 setitimer 异步触发的
+    │           ├─ 中断 pending 时机依赖真实 CPU 时间
+    │           │
+    │           └─ 结论：NEMU 的设备/中断状态 ≠ 软件驱动的结果
+    │               它是"另一个独立系统"的设备/中断状态
+    │
+    └─ 设备状态由 RTL 硬件直接驱动
+       中断检测由 Verilator 仿真时钟驱动
+       MMIO 访问真的走了 DPI-C 外设路径
+
+    结论：NPC 的状态是软件逻辑的真实反映；
+          NEMU 的状态是宿主机环境的投影。
+          两者在"外部事件"维度永远不可能自动对齐。
+          因此 difftest 在这些周期只能同步，不能对比。
+```
+
+#### 4.8.7 源码索引
+
+| 文件 | 关键内容 |
+|------|---------|
+| `npc/include/interrupt.h` | `difftest_sync_needed` 声明、`init_timer_alarm()` 声明 |
+| `npc/csrc/monitor/interrupt.cpp` | `interrupt_check()` 统一设置同步标志、宿主闹钟 `alarm_handler` + `init_timer_alarm` |
+| `npc/csrc/main.cpp` | `single_cycle()` 中 `pmem_mmio_accessed() \|\| difftest_sync_needed` 统一分支 |
+| `npc/csrc/memory/memory.cpp` | `pmem_mmio_accessed()` MMIO 访问检测 |
+| `npc/csrc/difftest/dut.cpp` | `difftest_step()` / `difftest_compare()` 正常对比逻辑 |
+| `npc/vsrc/core_top.v` | `interrupt_valid` 硬件仲裁（kill *_eff、强开 trap_enter） |
+| `npc/vsrc/csr.v` | CSR 硬件（trap_enter 时更新 mstatus/mepc/mcause、清 MTIP） |
+
+---
 
 ## 第五部分：波形与调试 🔜
 

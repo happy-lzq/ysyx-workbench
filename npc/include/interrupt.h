@@ -15,4 +15,5 @@ word_t isa_raise_intr(word_t trap_cause,vaddr_t npc_pc);
 void interrupt_check();
 void init_timer_alarm();
 extern bool difftest_sync_needed;  // 统一同步标志：timer 触发/中断响应 → difftest 同步
+extern void init_timer_alarm() ;
 #endif
