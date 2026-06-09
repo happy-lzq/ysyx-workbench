@@ -88,6 +88,10 @@ void monitor_init(int argc, char* argv[]){
     pmem_init();
     pmem_load_bin(img_file);
     npc_init();
+    #ifdef CONFIG_HAS_TIMER
+        init_timer_alarm();   
+    #endif
+    // ...
     #ifdef CONFIG_DIFFTEST 
         difftest_init();
     #endif
