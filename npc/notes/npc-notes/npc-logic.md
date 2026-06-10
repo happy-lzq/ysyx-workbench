@@ -39,7 +39,7 @@
     - [4.8.5 完整数据流图](#485-完整数据流图)
     - [4.8.6 为什么 NEMU 收不到这些信号？](#486-为什么-nemu-收不到这些信号)
     - [4.8.7 源码索引](#487-源码索引)
-    - [4.9 M 扩展四条指令：显式语义与改造前后对比](#49-m-扩展四条指令显式语义与改造前后对比)
+    - [4.9 M 扩展乘除指令：显式语义与调试记录](#49-m-扩展乘除指令显式语义与调试记录)
 - [第五部分：波形与调试](#第五部分波形与调试) 🔜
 - [第六部分：中断响应的核心设计逻辑](#第六部分中断响应的核心设计逻辑)
   - [6.1 问题起点：中断在哪个时刻被检测？](#61-问题起点中断在哪个时刻被检测)
@@ -1238,13 +1238,13 @@ void init_timer_alarm() {
 | `npc/vsrc/core_top.v` | `interrupt_valid` 硬件仲裁（kill *_eff、强开 trap_enter） |
 | `npc/vsrc/csr.v` | CSR 硬件（trap_enter 时更新 mstatus/mepc/mcause、清 MTIP） |
 
-### 4.9 M 扩展四条指令：显式语义与改造前后对比
+### 4.9 M 扩展乘除指令：显式语义与调试记录
 
 > 这部分放在第四部分，是因为它本质上来自 difftest 失配：先在对拍过程中暴露 M 扩展语义不一致，再把指令行为显式化，让 NPC 的结果和 NEMU/ISA 对齐。
 > 这部分对应 `npc/vsrc/control.v` 和 `npc/vsrc/alu.v`。
 > 先看指令本身的 ISA 语义，再看 RTL 从“隐式依赖工具行为”到“显式写死语义”的改造。
 
-#### 4.9.1 先看指令本身的语义
+#### 4.9.1 先看 DIV/REM 指令本身的语义
 向零截断的有符号除法和余数，除零和边界单独钉死：也就是保留整数部分的最大范围，避免溢出。
 余数的符号跟被除数保持一致，而不是跟除数保持一致。
 | 指令 | ISA 语义 | 除零行为 | 边界行为 |
@@ -1260,7 +1260,71 @@ $$a = b \times q + r$$
 
 其中 `q` 是 DIV 的商，`r` 是 REM 的余数。RISC-V 要求有符号除法向 0 截断，所以 `r` 的符号必须跟被除数 `a` 保持一致，而不是跟除数 `b` 一致。
 
-#### 4.9.2 修改前的逻辑：更像“能跑”，但语义不够显式
+#### 4.9.2 MULH 调试记录：高位乘法必须先扩到 64 位
+
+`mul-longlong` 测试曾在下面这条指令上触发 difftest 失配：
+
+```text
+ABORT: GPR[15] mismatch at pc=0x800000ac
+0x800000ac: 02fc97b3  mulh a5, s9, a5
+```
+
+波形和反汇编对应的译码是：
+
+```text
+funct7 = 7'b0000001
+funct3 = 3'b001
+alu_op = 5'b1_0001   // MULH
+```
+
+当时 `s9 = a5 = 0xaeb1c2aa`。低 32 位乘法 `mul` 已经得到正确结果 `0xdb1a18e4`，但 `mulh` 写回 `a5` 时 NPC 得到 `0x00000000`，NEMU 参考结果是 `0x19d29ab9`：
+
+```text
+signed 32x32 full product = 0x19d29ab9_db1a18e4
+MUL  取低 32 位: 0xdb1a18e4
+MULH 取高 32 位: 0x19d29ab9
+```
+
+出错写法是：
+
+```verilog
+5'b1_0001 : result = (($signed(src1) * $signed(src2)) >> 32);  // MULH
+5'b1_0010 : result = (($signed(src1) * src2) >> 32);           // MULHSU
+5'b1_0011 : result = ((src1 * src2) >> 32);                    // MULHU
+```
+
+这里的关键误区是：`$signed(src1)` 只改变 signedness，不改变位宽。`src1/src2` 仍然是 32 位操作数，高位乘法表达式没有明确产生 64 位中间乘积。Verilator 按这个表达式生成 C++ 时，`MULH/MULHSU/MULHU` 的高位结果路径会退化成 0，因此波形里看到 ALU 结果为 0 不是写回通路问题，而是 ALU 的高位乘法语义没有写出来。
+
+正确做法是：先按指令语义把两个 32 位操作数扩展成 64 位，再做 64 位乘法，最后取 `[63:32]`。
+
+```verilog
+wire signed [63:0] src1_s64 = {{32{src1[31]}}, src1};
+wire signed [63:0] src2_s64 = {{32{src2[31]}}, src2};
+wire        [63:0] src1_u64 = {32'b0, src1};
+wire        [63:0] src2_u64 = {32'b0, src2};
+wire signed [63:0] src2_zext_s64 = {32'b0, src2};
+
+wire signed [63:0] mul_ss = src1_s64 * src2_s64;      // MULH
+wire signed [63:0] mul_su = src1_s64 * src2_zext_s64; // MULHSU
+wire        [63:0] mul_uu = src1_u64 * src2_u64;      // MULHU
+
+5'b1_0000 : result = src1 * src2;     // MUL，低 32 位不区分 signed/unsigned
+5'b1_0001 : result = mul_ss[63:32];   // MULH
+5'b1_0010 : result = mul_su[63:32];   // MULHSU
+5'b1_0011 : result = mul_uu[63:32];   // MULHU
+```
+
+三条高位乘法的扩展规则必须区分清楚：
+
+| 指令 | 乘法语义 | 扩展方式 |
+|------|----------|----------|
+| MULH | signed x signed，取高 32 位 | `rs1` 符号扩展，`rs2` 符号扩展 |
+| MULHSU | signed x unsigned，取高 32 位 | `rs1` 符号扩展，`rs2` 零扩展 |
+| MULHU | unsigned x unsigned，取高 32 位 | `rs1` 零扩展，`rs2` 零扩展 |
+
+所以这类 bug 的判断顺序是：先确认 `control.v` 是否把 `funct7=0000001/funct3=001` 译成 `alu_op=1_0001`，再看 `alu.v` 是否真的构造了 64 位乘积。只看 `$signed(...)` 不够，它不会自动把 32 位乘法变成 64 位乘法。
+
+#### 4.9.3 修改前的逻辑：更像“能跑”，但语义不够显式
 
 在改造前，M 扩展常见的写法是直接让 RTL 依赖 Verilog 的 `/` 和 `%`，例如：
 
@@ -1279,7 +1343,7 @@ $$a = b \times q + r$$
 
 如果再往上看一层，编译链里在没有 M 扩展硬件时，还会把 `/` 和 `%` 降级到 libgcc 的软件实现。这样一来，同一类运算的语义会分散在编译器、库函数和 RTL 三层，difftest 的定位成本很高。
 
-#### 4.9.3 修改后的逻辑：把语义固定在 RTL 里
+#### 4.9.4 修改后的逻辑：把语义固定在 RTL 里
 
 现在的实现把四条指令拆成了四个显式函数：`signed_div32`、`unsigned_div32`、`signed_rem32`、`unsigned_rem32`。
 
@@ -1311,7 +1375,7 @@ $$a = b \times q + r$$
 
 对应的 RTL 结果不再依赖工具对 signedness 的默认理解，而是直接把 ISA 规则写在执行路径里。这样做的好处是：第一条 M 扩展指令一旦算错，问题会立刻暴露在 control/alu 这两层，不会把错误静默传播到后面的寄存器和地址计算里。
 
-#### 4.9.4 修改前后对比
+#### 4.9.5 修改前后对比
 
 | 维度 | 修改前 | 修改后 |
 |------|------|------|
@@ -1545,4 +1609,3 @@ interrupt_valid = 1
 | 5 | **中断脉冲单周期有效** | `interrupt_valid` 在 eval 后立即清零，避免下一周期误触发 |
 | 6 | **硬件自动保存上下文** | 不需执行任何指令：mepc/mcause/mstatus 全由 csr.v 的时序逻辑自动完成 |
 | 7 | **中断与异常共用 trap 路径** | `trap_enter_eff = trap_enter \| interrupt_valid`，统一走 mepc/mtvec/mcause 流程 |
-
