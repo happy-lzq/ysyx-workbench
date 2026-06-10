@@ -2,6 +2,7 @@
 #include <difftest.h>
 #include <trace.h>
 #include <memory.h>
+#include <interrupt.h>
 
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
@@ -12,15 +13,18 @@ int parse_agrs(int argc,char *argv[]){
         {"elf"  , required_argument, NULL,'e'},
         {"bin"  , required_argument, NULL,'i'},
         {"diff" , required_argument, NULL,'d'},
+        {"wave" , no_argument      , NULL,'w'},
         {"help" , no_argument      , NULL,'h'},
         {0      , 0                , NULL, 0 }
     };
     int o;
-    while ( (o = getopt_long(argc, argv, "-hd:e:i:", table, NULL)) != -1) {
+    while ( (o = getopt_long(argc, argv, "-hd:e:i:w", table, NULL)) != -1) {
         switch (o) {
             case 'e' : elf_file     = optarg; break;
             case 'i' : img_file     = optarg; break;
             case 'd' : diff_so_file = optarg; break;
+            case 'w' : break;  
+            case 'h' : printf("Usage: ./build/sim -i <bin_file> [-e <elf_file>] [-d <diff_so>]\n"); exit(0);
             default  : exit(0);
         }
     }
@@ -85,6 +89,10 @@ void monitor_init(int argc, char* argv[]){
     pmem_init();
     pmem_load_bin(img_file);
     npc_init();
+    #ifdef CONFIG_HAS_TIMER
+        init_timer_alarm();   
+    #endif
+    // ...
     #ifdef CONFIG_DIFFTEST 
         difftest_init();
     #endif

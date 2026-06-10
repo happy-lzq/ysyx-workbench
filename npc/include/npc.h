@@ -75,6 +75,7 @@ extern FILE *diff_fp;
 extern bool wave_enabled;
 extern uint64_t sim_time;
 extern int cycle;
+
 // ==================== 函数声明 ====================
 void halt_check();
 void npc_init();

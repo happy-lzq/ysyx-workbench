@@ -78,7 +78,7 @@ module csr (
         end else begin
             mcycle_64       <= mcycle_64 + 64'd1           ;     // 每个周期自增
             if (trap_enter) begin
-                
+            // 轮询之前优先清理
                 case (trap_code)
                     IRQ_M_TIMER : csr_mip <= {csr_mip[31:8],  1'b0, csr_mip[6:0]};     // clear MTIP (bit 7)
                     IRQ_M_EXT   : csr_mip <= {csr_mip[31:12], 1'b0, csr_mip[10:0]};    // clear MEIP (bit 11)
