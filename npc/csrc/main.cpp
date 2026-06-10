@@ -25,9 +25,10 @@ void single_cycle(){
     bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file){
+        bool mmio_accessed = pmem_mmio_accessed();
         // 外部事件（MMIO / 异步中断）：NEMU 无法复现 → 同步代替对比
-        if (pmem_mmio_accessed() || difftest_sync_needed || post_intr_pending){   
-            if (difftest_sync_needed && !pmem_mmio_accessed() && !is_trap && !post_intr_pending) {
+        if (mmio_accessed || difftest_sync_needed || post_intr_pending){   
+            if (difftest_sync_needed && !mmio_accessed && !is_trap && !post_intr_pending) {
                 ref_difftest_exec(1);
             }
             npc_state_data(top);
