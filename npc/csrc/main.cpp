@@ -16,23 +16,25 @@ void single_cycle(){
     interrupt_check();
     uint32_t this_pc = npc_pc(top, 0, READ);
     uint32_t this_inst = top->instr;
-
     bool is_trap = top->interrupt_valid;  // 保存：本周期是否响应中断（kill 指令）
-    bool post_intr_pending = !is_trap && (isa_query_intr()!=INTR_EMPTY);
+    
     top->clk = 1; top->eval();
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
     halt_check();
-    
+    bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
     #ifdef CONFIG_DIFFTEST 
     if (diff_so_file){
         // 外部事件（MMIO / 异步中断）：NEMU 无法复现 → 同步代替对比
-        if (pmem_mmio_accessed() || difftest_sync_needed || post_intr_pending) {
-          npc_state_data(top);
-          ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
-          difftest_sync_needed = false;
-        } else {
-          difftest_step(top, cycle, this_pc);
+        if (pmem_mmio_accessed() || difftest_sync_needed || post_intr_pending){   
+            if (difftest_sync_needed && !pmem_mmio_accessed() && !is_trap && !post_intr_pending) {
+                ref_difftest_exec(1);
+            }
+            npc_state_data(top);
+            ref_difftest_regcpy(&npc_s,DIFFTEST_TO_REF);
+            difftest_sync_needed = false;
+        } else{
+            difftest_step(top, cycle, this_pc);
         }
     }
     #endif
