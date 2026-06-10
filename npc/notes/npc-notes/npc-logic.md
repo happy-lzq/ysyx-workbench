@@ -39,6 +39,7 @@
     - [4.8.5 完整数据流图](#485-完整数据流图)
     - [4.8.6 为什么 NEMU 收不到这些信号？](#486-为什么-nemu-收不到这些信号)
     - [4.8.7 源码索引](#487-源码索引)
+    - [4.9 M 扩展四条指令：显式语义与改造前后对比](#49-m-扩展四条指令显式语义与改造前后对比)
 - [第五部分：波形与调试](#第五部分波形与调试) 🔜
 - [第六部分：中断响应的核心设计逻辑](#第六部分中断响应的核心设计逻辑)
   - [6.1 问题起点：中断在哪个时刻被检测？](#61-问题起点中断在哪个时刻被检测)
@@ -295,7 +296,7 @@ include $(AM_HOME)/scripts/platform/npc.mk       # NPC 平台配置
 COMMON_CFLAGS += -march=rv32i_zicsr -mabi=ilp32  # RV32I + 无M扩展 + Zicsr
 LDFLAGS       += -melf32lriscv                   # 32位 RISC-V ELF 格式
 
-# 软乘除模拟（M 扩展未实现前需要）
+# 软乘除模拟（仅在 RTL 还没实现 M 扩展时需要）
 AM_SRCS += riscv/npc/libgcc/div.S \
            riscv/npc/libgcc/muldi3.S \
            riscv/npc/libgcc/multi3.c \
@@ -305,7 +306,7 @@ AM_SRCS += riscv/npc/libgcc/div.S \
 
 | 参数 | 含义 | 原因 |
 |------|------|------|
-| `-march=rv32i_zicsr` | RV32I 基础 + CSR 扩展，无 M | 当前 NPC 未实现 M 扩展硬件 |
+| `-march=rv32i_zicsr` | RV32I 基础 + CSR 扩展，无 M | 适用于尚未启用 M 扩展硬件的构建 |
 | `-mabi=ilp32` | 32 寄存器标准 ABI | NPC 有 32 个通用寄存器 (x0-x31) |
 | `-melf32lriscv` | 32 位小端 RISC-V ELF | 与链接脚本 linker.ld 匹配 |
 | libgcc 源文件 | 软乘除模拟 | 编译器遇到 `*` `/` `%` 时链接这些实现 |
@@ -1236,6 +1237,91 @@ void init_timer_alarm() {
 | `npc/csrc/difftest/dut.cpp` | `difftest_step()` / `difftest_compare()` 正常对比逻辑 |
 | `npc/vsrc/core_top.v` | `interrupt_valid` 硬件仲裁（kill *_eff、强开 trap_enter） |
 | `npc/vsrc/csr.v` | CSR 硬件（trap_enter 时更新 mstatus/mepc/mcause、清 MTIP） |
+
+### 4.9 M 扩展四条指令：显式语义与改造前后对比
+
+> 这部分放在第四部分，是因为它本质上来自 difftest 失配：先在对拍过程中暴露 M 扩展语义不一致，再把指令行为显式化，让 NPC 的结果和 NEMU/ISA 对齐。
+> 这部分对应 `npc/vsrc/control.v` 和 `npc/vsrc/alu.v`。
+> 先看指令本身的 ISA 语义，再看 RTL 从“隐式依赖工具行为”到“显式写死语义”的改造。
+
+#### 4.9.1 先看指令本身的语义
+向零截断的有符号除法和余数，除零和边界单独钉死：也就是保留整数部分的最大范围，避免溢出。
+余数的符号跟被除数保持一致，而不是跟除数保持一致。
+| 指令 | ISA 语义 | 除零行为 | 边界行为 |
+|------|----------|----------|----------|
+| DIV  | 有符号除法，商向 0 截断 | 返回 `0xffffffff` | `INT_MIN / -1` 返回 `INT_MIN` |
+| DIVU | 无符号除法 | 返回 `0xffffffff` | 无额外有符号溢出边界 |
+| REM  | 有符号余数，余数符号跟被除数 | 返回被除数 | `INT_MIN % -1` 返回 `0` |
+| REMU | 无符号余数 | 返回被除数 | 无额外有符号溢出边界 |
+
+对于有符号余数，可以用下面这条关系式理解：
+
+$$a = b \times q + r$$
+
+其中 `q` 是 DIV 的商，`r` 是 REM 的余数。RISC-V 要求有符号除法向 0 截断，所以 `r` 的符号必须跟被除数 `a` 保持一致，而不是跟除数 `b` 一致。
+
+#### 4.9.2 修改前的逻辑：更像“能跑”，但语义不够显式
+
+在改造前，M 扩展常见的写法是直接让 RTL 依赖 Verilog 的 `/` 和 `%`，例如：
+
+```verilog
+5'b1_0100 : result = (src2 == 0) ? ~32'd0 : $signed(src1) / $signed(src2);  // DIV
+5'b1_0101 : result = (src2 == 0) ? ~32'd0 : src1 / src2;                    // DIVU
+5'b1_0110 : result = (src2 == 0) ? src1 : $signed(src1) % $signed(src2);    // REM
+5'b1_0111 : result = (src2 == 0) ? src1 : src1 % src2;                      // REMU
+```
+
+这类写法的问题不是“完全错”，而是语义太隐式：
+
+- DIV / REM 依赖 `$signed(...)`，DIVU / REMU 依赖默认无符号行为，符号含义被散落在表达式里。
+- 除零只做了简单兜底，但没有把 `INT_MIN / -1`、`INT_MIN % -1` 这种边界单独钉死。
+- 一旦结果不对，很难快速判断是译码、符号位、还是工具对 `/` 和 `%` 的解释出了问题。
+
+如果再往上看一层，编译链里在没有 M 扩展硬件时，还会把 `/` 和 `%` 降级到 libgcc 的软件实现。这样一来，同一类运算的语义会分散在编译器、库函数和 RTL 三层，difftest 的定位成本很高。
+
+#### 4.9.3 修改后的逻辑：把语义固定在 RTL 里
+
+现在的实现把四条指令拆成了四个显式函数：`signed_div32`、`unsigned_div32`、`signed_rem32`、`unsigned_rem32`。
+
+`control.v` 先用 `funct7 == 7'b00000001` 锁定 M 扩展，再用 `funct3` 把四条指令映射成 `alu_op`：
+
+```verilog
+3'b100 : alu_op = 5'b1_0100;  // DIV
+3'b101 : alu_op = 5'b1_0101;  // DIVU
+3'b110 : alu_op = 5'b1_0110;  // REM
+3'b111 : alu_op = 5'b1_0111;  // REMU
+```
+
+`alu.v` 里对应的语义是：
+
+- `signed_div32`：
+    - 除数为 0 时返回 `0xffffffff`
+    - `INT_MIN / -1` 返回 `INT_MIN`
+    - 其他情况先把两个操作数取绝对值做无符号除法，再按符号位异或恢复结果符号
+- `unsigned_div32`：
+    - 除数为 0 时返回 `0xffffffff`
+    - 其他情况直接做无符号除法
+- `signed_rem32`：
+    - 除数为 0 时返回被除数本身
+    - `INT_MIN % -1` 返回 0
+    - 其他情况先按绝对值取模，再把余数符号恢复成被除数的符号
+- `unsigned_rem32`：
+    - 除数为 0 时返回被除数本身
+    - 其他情况直接做无符号取模
+
+对应的 RTL 结果不再依赖工具对 signedness 的默认理解，而是直接把 ISA 规则写在执行路径里。这样做的好处是：第一条 M 扩展指令一旦算错，问题会立刻暴露在 control/alu 这两层，不会把错误静默传播到后面的寄存器和地址计算里。
+
+#### 4.9.4 修改前后对比
+
+| 维度 | 修改前 | 修改后 |
+|------|------|------|
+| 语义来源 | 依赖 Verilog `/`、`%` 和 `$signed(...)` 的组合行为 | 由 `signed_div32` / `unsigned_div32` / `signed_rem32` / `unsigned_rem32` 显式实现 |
+| 除零处理 | 在表达式里简单三目兜底 | 按每条指令单独写清楚返回值 |
+| signed/unsigned | DIV/REM 和 DIVU/REMU 混在同一个表达式风格里 | 先在 control 里分出 alu_op，再在 ALU 里按语义拆分 |
+| 边界值 | `INT_MIN / -1`、`INT_MIN % -1` 没有单独钉死 | 两个边界都被显式特判 |
+| 调试定位 | 错误可能来自工具行为、表达式类型、或边界值 | 错误只会落在译码或显式语义函数里，定位更直接 |
+
+如果把“编译链”和“RTL 执行”合在一起看，修改前更像“软件先兜底、RTL 只管把表达式写出来”，修改后则是“编译器只负责产出 M 指令，RTL 负责按 ISA 规则逐条执行”。这就是这次改造真正想要的差别。
 
 ---
 

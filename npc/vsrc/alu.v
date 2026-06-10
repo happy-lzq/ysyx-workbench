@@ -83,10 +83,10 @@ module alu (
             5'b1_0001 : result = (($signed(src1) * $signed(src2)) >> 32);               // MULH
             5'b1_0010 : result = (($signed(src1) * src2) >> 32);                        // MULHSU
             5'b1_0011 : result = ((src1 * src2) >> 32);                                 // MULHU
-            5'b1_0100 : result = signed_div32(src1, src2);                               // DIV
-            5'b1_0101 : result = unsigned_div32(src1, src2);                             // DIVU
-            5'b1_0110 : result = signed_rem32(src1, src2);                               // REM
-            5'b1_0111 : result = unsigned_rem32(src1, src2);                             // REMU
+            5'b1_0100 : result = signed_div32(src1, src2);                              // DIV
+            5'b1_0101 : result = unsigned_div32(src1, src2);                            // DIVU
+            5'b1_0110 : result = signed_rem32(src1, src2);                              // REM
+            5'b1_0111 : result = unsigned_rem32(src1, src2);                            // REMU
         
             default:    result = 32'd0;
         endcase
