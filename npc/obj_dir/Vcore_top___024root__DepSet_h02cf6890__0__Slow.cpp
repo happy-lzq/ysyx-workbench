@@ -228,6 +228,8 @@ VL_ATTR_COLD void Vcore_top___024root___ctor_var_reset(Vcore_top___024root* vlSe
     vlSelf->core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__abs_dividend = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 13997516000010029770ull);
     vlSelf->core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__abs_divisor = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 497865357259850270ull);
     vlSelf->core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__signed_rem32__Vstatic__remainder = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 6670480447543750450ull);
+    vlSelf->core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__src1_s64 = VL_SCOPED_RAND_RESET_Q(64, __VscopeHash, 6345636435993590800ull);
+    vlSelf->core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__mul_uu = VL_SCOPED_RAND_RESET_Q(64, __VscopeHash, 11241162868700003518ull);
     vlSelf->core_top__DOT__u_mem_stage__DOT__mem_rdata_raw = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 10475187206980374080ull);
     vlSelf->core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__byte_selected = VL_SCOPED_RAND_RESET_I(8, __VscopeHash, 13132455624507066660ull);
     vlSelf->core_top__DOT__u_mem_stage__DOT__lsu_pic__DOT__half_selected = VL_SCOPED_RAND_RESET_I(16, __VscopeHash, 1308833202003551685ull);

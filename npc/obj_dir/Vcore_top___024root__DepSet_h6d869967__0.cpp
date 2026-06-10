@@ -505,6 +505,28 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
     vlSelfRef.core_top__DOT__mem_read = 0U;
     vlSelfRef.core_top__DOT__alu_op = 0U;
     vlSelfRef.core_top__DOT__alu_src_b = 0U;
+    vlSelfRef.core_top__DOT__rs2_rdata = ((0U == (0x1fU 
+                                                  & (vlSelfRef.instr 
+                                                     >> 0x14U)))
+                                           ? 0U : vlSelfRef.core_top__DOT__u_regfile__DOT__rf
+                                          [(0x1fU & 
+                                            (vlSelfRef.instr 
+                                             >> 0x14U))]);
+    if ((2U & vlSelfRef.instr)) {
+        if ((1U & vlSelfRef.instr)) {
+            vlSelfRef.__VdfgRegularize_h495687df_0_8 
+                = (0xfffff000U & vlSelfRef.instr);
+            vlSelfRef.__VdfgRegularize_h495687df_0_6 
+                = (((- (IData)((vlSelfRef.instr >> 0x1fU))) 
+                    << 0xcU) | (vlSelfRef.instr >> 0x14U));
+        } else {
+            vlSelfRef.__VdfgRegularize_h495687df_0_8 = 0U;
+            vlSelfRef.__VdfgRegularize_h495687df_0_6 = 0U;
+        }
+    } else {
+        vlSelfRef.__VdfgRegularize_h495687df_0_8 = 0U;
+        vlSelfRef.__VdfgRegularize_h495687df_0_6 = 0U;
+    }
     vlSelfRef.core_top__DOT__alu_src_a = 0U;
     if ((1U & (~ (vlSelfRef.instr >> 6U)))) {
         if ((0x20U & vlSelfRef.instr)) {
@@ -583,28 +605,6 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
                 }
             }
         }
-    }
-    vlSelfRef.core_top__DOT__rs2_rdata = ((0U == (0x1fU 
-                                                  & (vlSelfRef.instr 
-                                                     >> 0x14U)))
-                                           ? 0U : vlSelfRef.core_top__DOT__u_regfile__DOT__rf
-                                          [(0x1fU & 
-                                            (vlSelfRef.instr 
-                                             >> 0x14U))]);
-    if ((2U & vlSelfRef.instr)) {
-        if ((1U & vlSelfRef.instr)) {
-            vlSelfRef.__VdfgRegularize_h495687df_0_8 
-                = (0xfffff000U & vlSelfRef.instr);
-            vlSelfRef.__VdfgRegularize_h495687df_0_6 
-                = (((- (IData)((vlSelfRef.instr >> 0x1fU))) 
-                    << 0xcU) | (vlSelfRef.instr >> 0x14U));
-        } else {
-            vlSelfRef.__VdfgRegularize_h495687df_0_8 = 0U;
-            vlSelfRef.__VdfgRegularize_h495687df_0_6 = 0U;
-        }
-    } else {
-        vlSelfRef.__VdfgRegularize_h495687df_0_8 = 0U;
-        vlSelfRef.__VdfgRegularize_h495687df_0_6 = 0U;
     }
     vlSelfRef.core_top__DOT__rs1_rdata = ((0U == (0x1fU 
                                                   & (vlSelfRef.instr 
@@ -1338,6 +1338,10 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
                                                   ((~ vlSelfRef.core_top__DOT__u_ex_stage__DOT__csr_src) 
                                                    & vlSelfRef.core_top__DOT__csr_rdata)
                                                    : 0U)));
+    vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__src1_s64 
+        = (((QData)((IData)((- (IData)((vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
+                                        >> 0x1fU))))) 
+            << 0x20U) | (QData)((IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1)));
     vlSelfRef.__VdfgRegularize_h3c5bdd75_0_0 = (vlSelfRef.core_top__DOT__imm_jal 
                                                 + vlSelfRef.core_top__DOT__pc);
     vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2 
@@ -1345,6 +1349,9 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             ? vlSelfRef.core_top__DOT__rs2_rdata : 
            ((1U == (IData)(vlSelfRef.core_top__DOT__alu_src_b))
              ? vlSelfRef.core_top__DOT__imm_jal : 4U));
+    vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__mul_uu 
+        = ((QData)((IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1)) 
+           * (QData)((IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)));
     if ((0x10U & (IData)(vlSelfRef.core_top__DOT__alu_op))) {
         if ((8U & (IData)(vlSelfRef.core_top__DOT__alu_op))) {
             vlSelfRef.core_top__DOT__alu_result = 0U;
@@ -1441,14 +1448,29 @@ VL_INLINE_OPT void Vcore_top___024root___nba_sequent__TOP__0(Vcore_top___024root
             vlSelfRef.core_top__DOT__alu_result = (
                                                    (2U 
                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                    ? 0U
+                                                    ? 
+                                                   ((1U 
+                                                     & (IData)(vlSelfRef.core_top__DOT__alu_op))
+                                                     ? (IData)(
+                                                               (vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__mul_uu 
+                                                                >> 0x20U))
+                                                     : (IData)(
+                                                               ((vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__src1_s64 
+                                                                 * (QData)((IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2))) 
+                                                                >> 0x20U)))
                                                     : 
                                                    ((1U 
                                                      & (IData)(vlSelfRef.core_top__DOT__alu_op))
-                                                     ? 0U
-                                                     : 
-                                                    (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src1 
-                                                     * vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)));
+                                                     ? (IData)(
+                                                               (VL_MULS_QQQ(64, vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__src1_s64, 
+                                                                            (((QData)((IData)(
+                                                                                (- (IData)(
+                                                                                (vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2 
+                                                                                >> 0x1fU))))) 
+                                                                              << 0x20U) 
+                                                                             | (QData)((IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__src2)))) 
+                                                                >> 0x20U))
+                                                     : (IData)(vlSelfRef.core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__mul_uu)));
         }
     } else {
         vlSelfRef.core_top__DOT__alu_result = ((8U 

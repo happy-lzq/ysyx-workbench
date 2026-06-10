@@ -64,6 +64,16 @@ module alu (
             end
         end
     endfunction
+    // 有符号64位扩展
+    wire signed [63:0] src1_s64 = {{32{src1[31]}}, src1};
+    wire signed [63:0] src2_s64 = {{32{src2[31]}}, src2};
+    wire signed [63:0] mul_ss   = src1_s64 * src2_s64;
+    // 无符号64位扩展
+    wire [63:0] src1_u64 = {32'b0, src1};
+    wire [63:0] src2_u64 = {32'b0, src2};
+    wire [63:0] mul_uu   = src1_u64 * src2_u64;
+    // 有符号和无符号乘法高位
+    wire [63:0] mul_su   = src1_s64 * src2_u64;
 
     always @(*) begin
         case (alu_op)
@@ -79,10 +89,10 @@ module alu (
             5'b0_1001 :  result = $signed(src1) >>> src2[4:0];                      // SRA  算术右移 有符号
             5'b0_1010 :  result = src2;                                             // LUI  高位立即数
 
-            5'b1_0000 : result = src1 * src2;                                           // MUL
-            5'b1_0001 : result = (($signed(src1) * $signed(src2)) >> 32);               // MULH
-            5'b1_0010 : result = (($signed(src1) * src2) >> 32);                        // MULHSU
-            5'b1_0011 : result = ((src1 * src2) >> 32);                                 // MULHU
+            5'b1_0000 : result = mul_uu[31:0] ;                                         // MUL
+            5'b1_0001 : result = mul_ss[63:32];                                         // MULH
+            5'b1_0010 : result = mul_su[63:32];                                         // MULHSU
+            5'b1_0011 : result = mul_uu[63:32];                                         // MULHU
             5'b1_0100 : result = signed_div32(src1, src2);                              // DIV
             5'b1_0101 : result = unsigned_div32(src1, src2);                            // DIVU
             5'b1_0110 : result = signed_rem32(src1, src2);                              // REM

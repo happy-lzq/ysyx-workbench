@@ -108,6 +108,8 @@ class alignas(VL_CACHE_LINE_BYTES) Vcore_top___024root final : public VerilatedM
         IData/*31:0*/ __VdfgRegularize_h495687df_0_8;
         IData/*31:0*/ __VactIterCount;
         QData/*63:0*/ core_top__DOT__u_csr__DOT__mcycle_64;
+        QData/*63:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__src1_s64;
+        QData/*63:0*/ core_top__DOT__u_ex_stage__DOT__alu_pic__DOT__mul_uu;
         VlUnpacked<IData/*31:0*/, 32> core_top__DOT__u_regfile__DOT__rf;
         VlUnpacked<CData/*0:0*/, 3> __Vm_traceActivity;
     };
