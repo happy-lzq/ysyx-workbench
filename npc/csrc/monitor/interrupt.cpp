@@ -84,6 +84,7 @@ void interrupt_check(){
     }
     #endif
     word_t trap_cause = isa_query_intr();
+    
     if (trap_cause != INTR_EMPTY){
         top->interrupt_valid = 1;
         top->interrupt_cause = trap_cause;
