@@ -160,30 +160,35 @@ module control (
           7'b0110011 : begin
             reg_write = 1'b1;
             // M 乘除扩展
-            if (funct7 == 7'b00000001) begin
-              case (funct3)
-                3'b000 : alu_op = 5'b1_0000;  // MUL
-                3'b001 : alu_op = 5'b1_0001;  // MULH
-                3'b010 : alu_op = 5'b1_0010;  // MULHSU
-                3'b011 : alu_op = 5'b1_0011;  // MULHU
-                3'b100 : alu_op = 5'b1_0100;  // DIV
-                3'b101 : alu_op = 5'b1_0101;  // DIVU
-                3'b110 : alu_op = 5'b1_0110;  // REM
-                3'b111 : alu_op = 5'b1_0111;  // REMU
-              endcase
-            end else begin
-            case (funct3)
-                3'b000 : alu_op = funct7[5] ? 5'b0_0000 : 5'b0_0001 ; // SUB/ADD
-                3'b001 : alu_op = 5'b0_0010                         ; // SLL
-                3'b010 : alu_op = 5'b0_0011                         ; // SLT
-                3'b011 : alu_op = 5'b0_0100                         ; // SLTU
-                3'b100 : alu_op = 5'b0_0101                         ; // XOR
-                3'b101 : alu_op = funct7[5] ? 5'b0_1001 : 5'b0_1000 ; // SRA/SRL
-                3'b110 : alu_op = 5'b0_0110                         ; // OR
-                3'b111 : alu_op = 5'b0_0111                         ; // AND
-                default: alu_op = 5'b0;
-            endcase   
-            end
+            case (funct7)
+              7'b00000001 : begin
+                case (funct3)
+                  3'b000 : alu_op = 5'b1_0000;  // MUL
+                  3'b001 : alu_op = 5'b1_0001;  // MULH
+                  3'b010 : alu_op = 5'b1_0010;  // MULHSU
+                  3'b011 : alu_op = 5'b1_0011;  // MULHU
+                  3'b100 : alu_op = 5'b1_0100;  // DIV
+                  3'b101 : alu_op = 5'b1_0101;  // DIVU
+                  3'b110 : alu_op = 5'b1_0110;  // REM
+                  3'b111 : alu_op = 5'b1_0111;  // REMU
+                  default : alu_op = 5'b0;
+                endcase
+              end
+              7'b00000000 : begin
+                case (funct3)
+                  3'b000 : alu_op = funct7[5] ? 5'b0_0000 : 5'b0_0001 ; // SUB/ADD
+                  3'b001 : alu_op = 5'b0_0010                         ; // SLL
+                  3'b010 : alu_op = 5'b0_0011                         ; // SLT
+                  3'b011 : alu_op = 5'b0_0100                         ; // SLTU
+                  3'b100 : alu_op = 5'b0_0101                         ; // XOR
+                  3'b101 : alu_op = funct7[5] ? 5'b0_1001 : 5'b0_1000 ; // SRA/SRL
+                  3'b110 : alu_op = 5'b0_0110                         ; // OR
+                  3'b111 : alu_op = 5'b0_0111                         ; // AND
+                  default: alu_op = 5'b0;
+                endcase   
+              end
+              default : ;
+            endcase
           end
 
 // ========================= I-算术立即数 ================================
