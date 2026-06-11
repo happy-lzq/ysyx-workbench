@@ -8,6 +8,9 @@
 #define PMEM_END  (PMEM_BASE + PMEM_SIZE)
 #define NPC_SERIAL_PORT  0xa00003f8
 #define NPC_RTC_ADDR     0xa0000048
+
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif

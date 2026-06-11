@@ -60,11 +60,6 @@ void pmem_write(uint32_t addr, int len, uint32_t data) {
         npc_pmem[offset + i] = (data >> (i * 8)) & 0xFF;
 }
 
-static uint64_t host_time_us() {
-    using namespace std::chrono;
-    return duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count();
-}
-
 // ==================== DPI-C: 统一内存读写 ====================
 
 extern "C" {
@@ -122,7 +117,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
     }
 }
 
-}  // extern "C"
+} 
 
 // ==================== difftest 跳过检测 ====================
 bool pmem_mmio_accessed() {
