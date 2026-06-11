@@ -7,7 +7,7 @@
 uint8_t npc_pmem[PMEM_SIZE];
 long npc_img_size = 0;
 static bool mmio_accessed = false;   // difftest 跳过标志
-static uint64_t rtc_latched_us = 0;
+
 
 // ==================== C++ 辅助函数 ====================
 
@@ -78,17 +78,7 @@ int dpi_mem_read(int addr, int is_load) {
 
     // MMIO 设备读
     mmio_accessed = true;
-    switch (paddr) {
-        case NPC_SERIAL_PORT:
-            return 0;           // UART 只写设备
-        case NPC_RTC_ADDR + 4:
-            rtc_latched_us = host_time_us();
-            return (int)(rtc_latched_us >> 32);
-        case NPC_RTC_ADDR:
-            if (rtc_latched_us == 0) rtc_latched_us = host_time_us();
-            return (int)(rtc_latched_us & 0xffffffffu);
-        default: return 0;
-    }
+    return mmio_read(paddr);
 }
 
 void dpi_mem_write(int addr, int data, int wmask) {
@@ -108,13 +98,7 @@ void dpi_mem_write(int addr, int data, int wmask) {
 
     // MMIO 设备写
     mmio_accessed = true;
-    switch (paddr) {
-        case NPC_SERIAL_PORT:  // UART (NEMU 兼容地址)
-            if (wmask & 0x1)
-                npc_serial_putc(wdata & 0xFF);
-            break;
-        default: break;
-    }
+    mmio_write(paddr,wdata,wmask);
 }
 
 } 
