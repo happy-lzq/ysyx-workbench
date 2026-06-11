@@ -853,98 +853,303 @@ npc/csrc/difftest/dut.cpp  ─────────────────�
 
 > **一句话**：`dlopen` 是把 NEMU 的代码"借"过来用——你不需要改 NPC 的 RTL，不需要改 NEMU 的 main，只需要通过 5 个函数接口驱动 NEMU 引擎，和你的 NPC 硬件同步执行并逐指令比对。
 
-### 4.7 Skip Difftest 设计（MMIO/中断周期跳过）
+### 4.7 Difftest 事件分类与同步策略
 
-> 核心矛盾：NPC 有 MMIO 设备和中断，NEMU 没有。MMIO 访存会导致 NEMU 访问越界崩溃，中断会导致 NEMU PC 不同步。
+> 核心问题不是“遇到 trap 就跳过”，而是判断 REF 和 NPC 对“一步执行”的定义是否一致。
+> difftest 只适合验证确定性 CPU 执行；凡是外部设备、异步中断、宿主时间参与进来，就要先把事件分类，再决定 compare 还是 sync。
 
-#### 4.7.1 问题分层
+#### 4.7.1 difftest 的基本假设
 
-| 场景 | NEMU 能执行吗？ | NEMU 知道跳转吗？ | 处理方式 |
-|------|:---:|:---:|------|
-| MMIO 访存指令（读 RTC / 写 UART） | ❌ 崩溃 | 不需要（下条 PC+4） | 强制同步 NPC→NEMU，跳过对比 |
-| 中断触发周期 | ✅ 能执行普通指令 | ❌ 不知道要跳 mtvec | 强制同步 NPC→NEMU，跳过对比 |
-| 中断处理程序内访问 MMIO | ❌ 崩溃 | N/A | 强制同步 NPC→NEMU，跳过对比 |
-
-#### 4.7.2 旧方案 Bug：ref_difftest_exec 被跳过
+`npc/csrc/difftest/dut.cpp` 中正常路径是：
 
 ```cpp
-// 旧方案（错误）：MMIO 周期跳过整个 difftest_step
-if (diff_so_file && !pmem_mmio_accessed()) {
-    difftest_step(top, cycle);   // ref_difftest_exec(1) 在里面！
+void difftest_step(Vcore_top* top, int idx, uint32_t npc_exec_pc) {
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    uint32_t ref_exec_pc = ref_s.pc;
+
+    ref_difftest_exec(1);             // REF 执行 1 条
+
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    npc_state_data(top);              // NPC 执行 1 拍后的状态
+
+    npc_s.pc = npc_exec_pc;
+    ref_s.pc = ref_exec_pc;
+    diff_log_write(&npc_s, &ref_s, idx);
+    difftest_compare();
 }
-// → NEMU PC 停滞，几个 MMIO 周期后 NPC 领先 NEMU 数条指令，PC 永远偏移
 ```
 
-#### 4.7.3 当前方案：在 single_cycle() 分路径处理
+这段代码隐含一个前提：
+
+```text
+NPC 当前周期提交的架构状态
+    ==
+REF 从同一 PC 执行一条确定性指令后的架构状态
+```
+
+只要这个前提成立，就应该普通 compare；如果这个前提不成立，继续 compare 只会得到假失败。
+
+#### 4.7.2 四类事件处理总表
+
+| 事件类型 | 例子 | 来源 | REF 是否能独立复现 | difftest 处理 |
+|----------|------|------|-------------------|---------------|
+| 普通确定性指令 | `add/lw/sw/csrw/andi` | 当前指令语义 | 能 | `difftest_step()` 普通 compare |
+| 同步异常 / 同步 trap | `ecall`、非法指令、对齐异常 | 当前指令确定触发 | 应该能 | 普通 compare，不能用 skip 掩盖 |
+| 异步中断 | timer interrupt、external interrupt | 外部设备状态 + 指令边界采样 | 不能稳定复现 | skip compare + sync REF 到 NPC |
+| MMIO 外设访问 | UART 写 `0xa00003f8`、RTC 读 `0xa0000048` | 设备地址空间副作用 | 不能稳定复现，甚至可能越界 | skip compare + sync REF 到 NPC |
+
+一个简单判断原则：
+
+```text
+由当前指令唯一决定的状态变化：compare
+由外部时间/设备/中断 pending 决定的状态变化：sync
+```
+
+#### 4.7.3 同步异常：正常 compare
+
+`ecall` 这类不是“同步中断”，更准确叫同步异常或同步 trap。它是当前指令语义的一部分，所以 NPC 和 REF 执行到同一条 `ecall` 时，都应该进入同一个 trap 路径：
+
+```text
+ecall 指令提交语义
+    ├─ mepc   ← 当前 ecall PC
+    ├─ mcause ← 11
+    ├─ mstatus 按 trap 规则更新
+    └─ pc     ← mtvec
+```
+
+NPC 的硬件路径在 `core_top.v` 和 `csr.v`：
+
+```verilog
+// core_top.v
+assign trap_enter_eff = trap_enter | interrupt_valid;
+assign trap_code_eff  = interrupt_valid ? interrupt_cause : trap_code;
+
+// csr.v
+if (trap_enter) begin
+    csr_mepc    <= trap_pc;
+    csr_mcause  <= trap_code;
+    csr_mstatus <= {csr_mstatus[31:13], 2'b11, csr_mstatus[10:8],
+                    csr_mstatus[3], csr_mstatus[6:4], 1'b0, csr_mstatus[2:0]};
+end
+```
+
+同步异常的关键点是：它不依赖宿主时间，也不依赖另一个独立设备模型。因此如果 `ecall` 后 CSR/PC 对不上，说明异常处理逻辑本身有问题，应该修 RTL 或 REF，而不是 skip。
+
+#### 4.7.4 异步中断：skip compare + sync
+
+异步中断和同步异常最大的区别是：异步中断不是当前指令的语义，而是在指令边界检查外部状态。
+
+timer interrupt 的响应条件是：
+
+```text
+mstatus.MIE == 1
+mie.MTIE    == 1
+mip.MTIP    == 1
+```
+
+NPC 在 `interrupt_check()` 中检查异步中断：
 
 ```cpp
-void single_cycle(){
-    interrupt_check();
-    uint32_t npc->pc = npc_pc(top, 0, READ);
-    uint32_t this_inst = top->instr;
-
-    bool has_interrupt = top->interrupt_valid;  // ← 保存中断状态
-
-    top->clk = 1; top->eval();
+void interrupt_check() {
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
-    halt_check();
+    difftest_sync_needed = false;
 
-#ifdef CONFIG_DIFFTEST
-    if (diff_so_file){
-        if (pmem_mmio_accessed() || has_interrupt){
-            // MMIO/中断周期：NEMU 不能自己执行
-            // → 读 NPC 完整状态 (PC+GPR+CSR)，灌给 NEMU，跳过对比
-            npc_state_data(top);
-            ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
-        } else{
-            // 正常周期：NEMU 自己跑，然后对比
-            difftest_step(top, cycle);  // exec(1) + regcpy(TO_DUT) + compare
-        }
+    if (alarm_fired) {
+        alarm_fired = 0;
+        word_t mip = npc_csr(top, CSR_MIP, 0, READ);
+        npc_csr(top, CSR_MIP, mip | M_TIME_MASK, WRITE);
+        difftest_sync_needed = true;      // 只置 pending，也要同步
     }
-#endif
-    // ...
+
+    word_t trap_cause = isa_query_intr();
+    if (trap_cause != INTR_EMPTY) {
+        top->interrupt_valid = 1;         // 硬件 trap 信号
+        top->interrupt_cause = trap_cause;
+        difftest_sync_needed = true;      // 本周期将响应异步中断
+    }
 }
 ```
 
-#### 4.7.4 MMIO 访问检测机制
+如果 `interrupt_valid=1`，`core_top.v` 会 kill 当前指令所有副作用，并强制进入 trap：
+
+```verilog
+assign mem_read_eff   = interrupt_valid ? 1'b0 : mem_read;
+assign mem_write_eff  = interrupt_valid ? 1'b0 : mem_write;
+assign reg_write_eff  = interrupt_valid ? 1'b0 : reg_write;
+assign csr_write_eff  = interrupt_valid ? 1'b0 : csr_write;
+assign mret_eff       = interrupt_valid ? 1'b0 : mret;
+assign trap_enter_eff = trap_enter | interrupt_valid;
+```
+
+这类周期不能让 REF 自己执行一条普通指令，因为 REF 不知道 NPC 在这个指令边界收到了哪个异步事件。因此处理方式是：
+
+```text
+NPC 响应异步中断
+    → 本拍不 compare
+    → npc_state_data(top)
+    → ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF)
+```
+
+**CSR 打开中断门的特殊情况**
+
+`csrs mstatus, a5` 这类指令本身是普通 CSR 指令，但它可能让 pending 的异步中断在执行后立刻满足条件：
+
+```text
+执行前：mstatus.MIE=0, mie.MTIE=1, mip.MTIP=1  → 不能响应
+执行后：mstatus.MIE=1, mie.MTIE=1, mip.MTIP=1  → 可以响应
+```
+
+NPC 的 `interrupt_check()` 在本周期执行前已经检查过一次，所以本拍只提交 `csrs`；下一周期入口才响应中断。REF 的 `ref_difftest_exec(1)` 可能在执行完这条 CSR 后立即做一次中断查询，于是 REF 的“一步”变成：
+
+```text
+csrs mstatus, a5 + timer interrupt
+```
+
+而 NPC 的“一步”仍然是：
+
+```text
+csrs mstatus, a5
+```
+
+所以 `main.cpp` 在 `top->clk=1; top->eval();` 后补一次 post 检查：
 
 ```cpp
-// memory.cpp — 静态标志位
-static bool mmio_accessed = false;
+bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
+```
 
-// DPI-C 读写路径中打标
-int dpi_mem_read(int addr, int is_load) {
-    if (物理内存) return ...;
-    if (!is_load) return 0;   // 取指不打标
-    mmio_accessed = true;     // ← data load 打标
-    // ... MMIO read ...
-}
+注意这个判断必须在当前指令执行后。放在 `eval()` 前会漏掉“CSR 刚打开 MIE”的那一拍。
+
+#### 4.7.5 MMIO 外设：skip compare + sync
+
+MMIO 的问题不是 PC 错拍，而是 REF 很可能没有同一个设备模型。以 UART 为例，AM 写串口会访问：
+
+```text
+SERIAL_PORT = 0xa00003f8
+```
+
+NPC 的 DPI-C 内存路径会把它分发到设备：
+
+```cpp
 void dpi_mem_write(int addr, int data, int wmask) {
-    if (物理内存) return;
-    mmio_accessed = true;     // ← MMIO write 打标
-    // ... MMIO write ...
-}
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        // 普通物理内存
+        return;
+    }
 
-// 读取并自动清零
+    mmio_accessed = true;
+    switch (paddr) {
+        case NPC_SERIAL_PORT:
+            if (wmask & 0x1) npc_serial_putc(wdata & 0xFF);
+            break;
+    }
+}
+```
+
+但 REF 如果没有打开设备，执行同一条 `sb ..., 0xa00003f8` 会走普通物理内存检查，然后报：
+
+```text
+address = 0xa00003f8 is out of bound of pmem
+```
+
+因此 MMIO 周期必须 skip compare，并把 NPC 状态同步给 REF。这里有一个容易踩的点：`pmem_mmio_accessed()` 是读后清零函数。
+
+```cpp
 bool pmem_mmio_accessed() {
     bool v = mmio_accessed;
-    mmio_accessed = false;    // 读取后清零，下周期重新检测
+    mmio_accessed = false;
     return v;
 }
 ```
 
-#### 4.7.5 与 Spike 做 REF 的对比
+所以一个周期内只能读一次，必须缓存：
 
-| | NEMU 做 REF | Spike 做 REF |
-|---|---|---|
-| 5 个函数 | 需要自己在 `ref.c` 中实现 | 已在 `spike-diff/difftest.cc` 中实现 |
-| 编译方式 | `nemu/` 下 `make SHARE=1` | `cd tools/spike-diff && make` |
-| NEMU 代码改动 | 改动 `ref.c` 4 个函数 | 不动 NEMU 代码 |
-| NPC 侧代码 | 完全一样（都是 `dlopen` + 5 个函数指针） | 完全一样 |
-| 推荐度 | 教学理解用 | 快速验证用 |
+```cpp
+bool mmio_accessed = pmem_mmio_accessed();
+```
 
----
+不能在外层 `if` 和内层条件里各调用一次，否则第一次已经清零，第二次会误判为非 MMIO，导致 REF 执行串口访问而崩溃。
+
+#### 4.7.6 single_cycle 决策图
+
+当前 `single_cycle()` 的 difftest 分支可以概括为：
+
+```cpp
+void single_cycle() {
+    interrupt_check();                         // 执行前异步事件检查
+    uint32_t this_pc = npc_pc(top, 0, READ);
+    bool is_trap = top->interrupt_valid;
+
+    top->clk = 1; top->eval();                 // NPC 提交一拍
+    top->interrupt_valid = 0;
+    top->interrupt_cause = 0;
+    halt_check();
+
+    bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
+    bool mmio_accessed = pmem_mmio_accessed();
+
+    if (mmio_accessed || difftest_sync_needed || post_intr_pending) {
+        if (difftest_sync_needed && !mmio_accessed && !is_trap && !post_intr_pending) {
+            ref_difftest_exec(1);
+        }
+        npc_state_data(top);
+        ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
+        difftest_sync_needed = false;
+    } else {
+        difftest_step(top, cycle, this_pc);
+    }
+}
+```
+
+完整决策图：
+
+```text
+single_cycle()
+    │
+    ▼
+interrupt_check()
+    ├─ alarm_fired?
+    │     └─ 置 MTIP, difftest_sync_needed=1
+    └─ isa_query_intr()?
+          └─ interrupt_valid=1, interrupt_cause=NO, difftest_sync_needed=1
+
+    │
+    ▼
+posedge clk / top->eval()
+    ├─ interrupt_valid=1
+    │     └─ core_top kill 当前指令副作用，csr.v 进入 trap
+    └─ interrupt_valid=0
+          └─ 当前指令正常提交，可能产生 MMIO 或打开 MIE
+
+    │
+    ▼
+difftest 决策点
+    ├─ post_intr_pending=1?
+    │     └─ CSR 等指令后异步中断变为可响应 → sync
+    ├─ mmio_accessed=1?
+    │     └─ 外设读写，REF 不能复现 → sync
+    ├─ difftest_sync_needed=1?
+    │     ├─ is_trap=1 → NPC 已响应异步中断 → sync
+    │     └─ 仅 timer pending，且不是 MMIO/post_intr
+    │          └─ REF 先 exec(1) 保留普通指令内存副作用，再 sync
+    └─ 三者都为 0
+          └─ ref_difftest_exec(1) + compare
+```
+
+为什么“仅 timer pending 但没有 trap”时要先 `ref_difftest_exec(1)`？因为 NPC 本周期仍然正常提交了一条普通指令。`ref_difftest_regcpy()` 只同步 GPR/PC/CSR，不同步普通内存，所以如果当前指令是普通 `sw`，必须让 REF 也执行这一条来保留内存副作用，然后再用 NPC 的寄存器/CSR 状态覆盖 REF。
+
+#### 4.7.7 源码索引
+
+| 文件 | 关键内容 |
+|------|----------|
+| `npc/csrc/difftest/dut.cpp` | `difftest_step()` 的正常一条指令 compare 路径 |
+| `npc/csrc/main.cpp` | `single_cycle()` 中 `mmio_accessed / difftest_sync_needed / post_intr_pending` 的分流 |
+| `npc/csrc/monitor/interrupt.cpp` | `alarm_fired`、`isa_query_intr()`、`interrupt_valid`、`difftest_sync_needed` |
+| `npc/csrc/memory/memory.cpp` | MMIO 读写分发、`pmem_mmio_accessed()` 读后清零标志 |
+| `npc/vsrc/core_top.v` | `interrupt_valid` 触发 kill，统一关掉 reg/mem/csr 写副作用 |
+| `npc/vsrc/csr.v` | `trap_enter` 时更新 `mepc/mcause/mstatus`，清理 `mip` pending 位 |
+| `nemu/src/cpu/cpu-exec.c` | REF 执行一条指令后可能查询异步中断，是 CSR 打开 MIE 错拍的来源 |
+| `nemu/src/memory/paddr.c` | REF 未启用设备时，MMIO 地址会被判为 pmem 越界 |
 
 ### 4.8 统一同步机制：`difftest_sync_needed` 的设计哲学
 
