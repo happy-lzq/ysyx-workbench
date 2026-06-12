@@ -19,7 +19,7 @@
 #include <verilated_vcd_c.h>
 #include <Vcore_top___024root.h>
 #include <generated/autoconf.h>
-#include <memory.h>
+// #include <memory.h>
 
 // ==================== 基础常量（由 Kconfig 生成） ====================
 #define RESET_VECTOR CONFIG_RESET_VECTOR

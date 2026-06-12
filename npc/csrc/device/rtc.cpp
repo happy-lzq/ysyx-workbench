@@ -37,6 +37,7 @@ uint32_t rtc_read_handler(MMIODevice *dev, uint32_t offset) {
         rtc_latched_us = host_time_us();   // 读高位时重新锁存
         return (uint32_t)(rtc_latched_us >> 32);
     }
+    return 0;
 }
 
 /*
