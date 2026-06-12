@@ -43,7 +43,7 @@ void add_mmio_device(const char *name,void *space, uint32_t addr, uint32_t len,
                     uint8_t wmask, mmio_read_cb read, mmio_write_cb write){
     paddr_t left = addr, right = addr + len - 1;
     // 检查 addr 范围不与PMEM重叠
-    Assert(!(in_pmem(left) || in_pmem(right)),"the device addr=0x%08 of %s belong to PMEM",addr,name);
+    Assert(!(in_pmem(left) || in_pmem(right)),"the device addr=0x%08x of %s belong to PMEM",addr,name);
     // 检查 addr 范围不与已注册设备重叠
     for (int i = 0; i < nr_map; i++) {
         if (left <= maps[i].addr_end && right >= maps[i].addr_start) {
@@ -82,7 +82,7 @@ uint32_t mmio_read(uint32_t addr){
             }
         }
     }
-    Assert(!(i==nr_map),"mmio_read addr[0x%08] is illegal !",addr);
+    Assert(!(i==nr_map),"mmio_read addr[0x%08x] is illegal !",addr);
     return 0;
 }
 void mmio_space_write(MMIODevice *dev,uint32_t offset,uint32_t data,uint8_t wmask){
@@ -105,7 +105,7 @@ void mmio_write(uint32_t addr, uint32_t data,uint8_t wmask){
             return ;
         }
     }
-    Assert(!(i==nr_map),"mmio_write addr[0x%08] is illegal !",addr);
+    Assert(!(i==nr_map),"mmio_write addr[0x%08x] is illegal !",addr);
 }
 
 
