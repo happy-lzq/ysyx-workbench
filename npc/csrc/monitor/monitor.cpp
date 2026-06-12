@@ -3,6 +3,7 @@
 #include <trace.h>
 #include <memory.h>
 #include <interrupt.h>
+#include <mmio.h>
 
 uint64_t sim_time = 0;
 NPCSIM_State npc_sim_state;
@@ -87,6 +88,9 @@ void assert_fail_msg() {
 void monitor_init(int argc, char* argv[]){
     parse_agrs(argc,argv);
     pmem_init();
+    #ifdef CONFIG_DEVICE
+        init_mmio();
+    #endif
     pmem_load_bin(img_file);
     npc_init();
     #ifdef CONFIG_HAS_TIMER

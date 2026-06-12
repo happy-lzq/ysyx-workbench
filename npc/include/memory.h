@@ -6,8 +6,8 @@
 #define PMEM_BASE 0x80000000U
 #define PMEM_SIZE (128U * 1024 * 1024)   // 128MB
 #define PMEM_END  (PMEM_BASE + PMEM_SIZE)
-#define NPC_SERIAL_PORT  0xa00003f8
-#define NPC_RTC_ADDR     0xa0000048
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,8 +28,12 @@ void pmem_load_bin(const char *path);
 
 uint32_t pmem_read(uint32_t addr, int len);
 void     pmem_write(uint32_t addr, int len, uint32_t data);
-bool     pmem_mmio_accessed();           // 本周期是否访问了 MMIO（difftest 跳过用）
+bool     pmem_mmio_accessed();        
 
 #endif
 
+
+static inline bool in_pmem(uint32_t addr) {
+  return addr - PMEM_BASE < PMEM_SIZE;
+}
 #endif

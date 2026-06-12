@@ -30,16 +30,15 @@
   - [4.4 ref.c 中 5 个函数的实现逻辑](#44-refc-中-5-个函数的实现逻辑)
   - [4.5 dut.cpp 调用链路](#45-dutcpp-调用链路)
   - [4.6 dlopen 机制的核心理解](#46-dlopen-机制的核心理解)
-  - [4.7 Skip Difftest 设计（MMIO/中断周期跳过）](#47-skip-difftest-设计mmio中断周期跳过)
-  - [4.8 统一同步机制：`difftest_sync_needed` 的设计哲学](#48-统一同步机制difftest_sync_needed-的设计哲学)
-    - [4.8.1 核心认知：difftest 只验证确定性执行](#481-核心认知difftest-只验证确定性执行)
-    - [4.8.2 三类外部事件，一条同步路径](#482-三类外部事件一条同步路径)
-    - [4.8.3 统一标志 `difftest_sync_needed`](#483-统一标志-difftest_sync_needed)
-    - [4.8.4 宿主闹钟定时器（替代周期计数）](#484-宿主闹钟定时器替代周期计数)
-    - [4.8.5 完整数据流图](#485-完整数据流图)
-    - [4.8.6 为什么 NEMU 收不到这些信号？](#486-为什么-nemu-收不到这些信号)
-    - [4.8.7 源码索引](#487-源码索引)
-    - [4.9 M 扩展四条指令：显式语义与改造前后对比](#49-m-扩展四条指令显式语义与改造前后对比)
+  - [4.7 Difftest 事件分类与同步策略](#47-difftest-事件分类与同步策略)
+    - [4.7.1 difftest 的基本假设](#471-difftest-的基本假设)
+    - [4.7.2 四类事件处理总表](#472-四类事件处理总表)
+    - [4.7.3 同步异常：正常 compare](#473-同步异常正常-compare)
+    - [4.7.4 异步中断：skip compare + sync](#474-异步中断skip-compare--sync)
+    - [4.7.5 MMIO 外设：skip compare + sync](#475-mmio-外设skip-compare--sync)
+    - [4.7.6 single_cycle 决策图](#476-single_cycle-决策图)
+    - [4.7.7 源码索引](#477-源码索引)
+  - [4.8 M 扩展乘除指令：显式语义与调试记录](#48-m-扩展乘除指令显式语义与调试记录)
 - [第五部分：波形与调试](#第五部分波形与调试) 🔜
 - [第六部分：中断响应的核心设计逻辑](#第六部分中断响应的核心设计逻辑)
   - [6.1 问题起点：中断在哪个时刻被检测？](#61-问题起点中断在哪个时刻被检测)
@@ -854,397 +853,311 @@ npc/csrc/difftest/dut.cpp  ─────────────────�
 
 > **一句话**：`dlopen` 是把 NEMU 的代码"借"过来用——你不需要改 NPC 的 RTL，不需要改 NEMU 的 main，只需要通过 5 个函数接口驱动 NEMU 引擎，和你的 NPC 硬件同步执行并逐指令比对。
 
-### 4.7 Skip Difftest 设计（MMIO/中断周期跳过）
+### 4.7 Difftest 事件分类与同步策略
 
-> 核心矛盾：NPC 有 MMIO 设备和中断，NEMU 没有。MMIO 访存会导致 NEMU 访问越界崩溃，中断会导致 NEMU PC 不同步。
+> 核心问题不是“遇到 trap 就跳过”，而是判断 REF 和 NPC 对“一步执行”的定义是否一致。
+> difftest 只适合验证确定性 CPU 执行；凡是外部设备、异步中断、宿主时间参与进来，就要先把事件分类，再决定 compare 还是 sync。
 
-#### 4.7.1 问题分层
+#### 4.7.1 difftest 的基本假设
 
-| 场景 | NEMU 能执行吗？ | NEMU 知道跳转吗？ | 处理方式 |
-|------|:---:|:---:|------|
-| MMIO 访存指令（读 RTC / 写 UART） | ❌ 崩溃 | 不需要（下条 PC+4） | 强制同步 NPC→NEMU，跳过对比 |
-| 中断触发周期 | ✅ 能执行普通指令 | ❌ 不知道要跳 mtvec | 强制同步 NPC→NEMU，跳过对比 |
-| 中断处理程序内访问 MMIO | ❌ 崩溃 | N/A | 强制同步 NPC→NEMU，跳过对比 |
-
-#### 4.7.2 旧方案 Bug：ref_difftest_exec 被跳过
+`npc/csrc/difftest/dut.cpp` 中正常路径是：
 
 ```cpp
-// 旧方案（错误）：MMIO 周期跳过整个 difftest_step
-if (diff_so_file && !pmem_mmio_accessed()) {
-    difftest_step(top, cycle);   // ref_difftest_exec(1) 在里面！
+void difftest_step(Vcore_top* top, int idx, uint32_t npc_exec_pc) {
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    uint32_t ref_exec_pc = ref_s.pc;
+
+    ref_difftest_exec(1);             // REF 执行 1 条
+
+    ref_difftest_regcpy(&ref_s, DIFFTEST_TO_DUT);
+    npc_state_data(top);              // NPC 执行 1 拍后的状态
+
+    npc_s.pc = npc_exec_pc;
+    ref_s.pc = ref_exec_pc;
+    diff_log_write(&npc_s, &ref_s, idx);
+    difftest_compare();
 }
-// → NEMU PC 停滞，几个 MMIO 周期后 NPC 领先 NEMU 数条指令，PC 永远偏移
 ```
 
-#### 4.7.3 当前方案：在 single_cycle() 分路径处理
+这段代码隐含一个前提：
+
+```text
+NPC 当前周期提交的架构状态
+    ==
+REF 从同一 PC 执行一条确定性指令后的架构状态
+```
+
+只要这个前提成立，就应该普通 compare；如果这个前提不成立，继续 compare 只会得到假失败。
+
+#### 4.7.2 四类事件处理总表
+
+| 事件类型 | 例子 | 来源 | REF 是否能独立复现 | difftest 处理 |
+|----------|------|------|-------------------|---------------|
+| 普通确定性指令 | `add/lw/sw/csrw/andi` | 当前指令语义 | 能 | `difftest_step()` 普通 compare |
+| 同步异常 / 同步 trap | `ecall`、非法指令、对齐异常 | 当前指令确定触发 | 应该能 | 普通 compare，不能用 skip 掩盖 |
+| 异步中断 | timer interrupt、external interrupt | 外部设备状态 + 指令边界采样 | 不能稳定复现 | skip compare + sync REF 到 NPC |
+| MMIO 外设访问 | UART 写 `0xa00003f8`、RTC 读 `0xa0000048` | 设备地址空间副作用 | 不能稳定复现，甚至可能越界 | skip compare + sync REF 到 NPC |
+
+一个简单判断原则：
+
+```text
+由当前指令唯一决定的状态变化：compare
+由外部时间/设备/中断 pending 决定的状态变化：sync
+```
+
+#### 4.7.3 同步异常：正常 compare
+
+`ecall` 这类不是“同步中断”，更准确叫同步异常或同步 trap。它是当前指令语义的一部分，所以 NPC 和 REF 执行到同一条 `ecall` 时，都应该进入同一个 trap 路径：
+
+```text
+ecall 指令提交语义
+    ├─ mepc   ← 当前 ecall PC
+    ├─ mcause ← 11
+    ├─ mstatus 按 trap 规则更新
+    └─ pc     ← mtvec
+```
+
+NPC 的硬件路径在 `core_top.v` 和 `csr.v`：
+
+```verilog
+// core_top.v
+assign trap_enter_eff = trap_enter | interrupt_valid;
+assign trap_code_eff  = interrupt_valid ? interrupt_cause : trap_code;
+
+// csr.v
+if (trap_enter) begin
+    csr_mepc    <= trap_pc;
+    csr_mcause  <= trap_code;
+    csr_mstatus <= {csr_mstatus[31:13], 2'b11, csr_mstatus[10:8],
+                    csr_mstatus[3], csr_mstatus[6:4], 1'b0, csr_mstatus[2:0]};
+end
+```
+
+同步异常的关键点是：它不依赖宿主时间，也不依赖另一个独立设备模型。因此如果 `ecall` 后 CSR/PC 对不上，说明异常处理逻辑本身有问题，应该修 RTL 或 REF，而不是 skip。
+
+#### 4.7.4 异步中断：skip compare + sync
+
+异步中断和同步异常最大的区别是：异步中断不是当前指令的语义，而是在指令边界检查外部状态。
+
+timer interrupt 的响应条件是：
+
+```text
+mstatus.MIE == 1
+mie.MTIE    == 1
+mip.MTIP    == 1
+```
+
+NPC 在 `interrupt_check()` 中检查异步中断：
 
 ```cpp
-void single_cycle(){
-    interrupt_check();
-    uint32_t npc->pc = npc_pc(top, 0, READ);
-    uint32_t this_inst = top->instr;
-
-    bool has_interrupt = top->interrupt_valid;  // ← 保存中断状态
-
-    top->clk = 1; top->eval();
+void interrupt_check() {
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
-    halt_check();
+    difftest_sync_needed = false;
 
-#ifdef CONFIG_DIFFTEST
-    if (diff_so_file){
-        if (pmem_mmio_accessed() || has_interrupt){
-            // MMIO/中断周期：NEMU 不能自己执行
-            // → 读 NPC 完整状态 (PC+GPR+CSR)，灌给 NEMU，跳过对比
-            npc_state_data(top);
-            ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
-        } else{
-            // 正常周期：NEMU 自己跑，然后对比
-            difftest_step(top, cycle);  // exec(1) + regcpy(TO_DUT) + compare
-        }
-    }
-#endif
-    // ...
-}
-```
-
-#### 4.7.4 MMIO 访问检测机制
-
-```cpp
-// memory.cpp — 静态标志位
-static bool mmio_accessed = false;
-
-// DPI-C 读写路径中打标
-int dpi_mem_read(int addr, int is_load) {
-    if (物理内存) return ...;
-    if (!is_load) return 0;   // 取指不打标
-    mmio_accessed = true;     // ← data load 打标
-    // ... MMIO read ...
-}
-void dpi_mem_write(int addr, int data, int wmask) {
-    if (物理内存) return;
-    mmio_accessed = true;     // ← MMIO write 打标
-    // ... MMIO write ...
-}
-
-// 读取并自动清零
-bool pmem_mmio_accessed() {
-    bool v = mmio_accessed;
-    mmio_accessed = false;    // 读取后清零，下周期重新检测
-    return v;
-}
-```
-
-#### 4.7.5 与 Spike 做 REF 的对比
-
-| | NEMU 做 REF | Spike 做 REF |
-|---|---|---|
-| 5 个函数 | 需要自己在 `ref.c` 中实现 | 已在 `spike-diff/difftest.cc` 中实现 |
-| 编译方式 | `nemu/` 下 `make SHARE=1` | `cd tools/spike-diff && make` |
-| NEMU 代码改动 | 改动 `ref.c` 4 个函数 | 不动 NEMU 代码 |
-| NPC 侧代码 | 完全一样（都是 `dlopen` + 5 个函数指针） | 完全一样 |
-| 推荐度 | 教学理解用 | 快速验证用 |
-
----
-
-### 4.8 统一同步机制：`difftest_sync_needed` 的设计哲学
-
-> 日期：2026-06-09  
-> 从 MMIO 同步、中断同步、定时器同步三个独立路径，到统一的一个标志位。  
-> 核心认知：**difftest 只验证 CPU 指令执行的确定性结果，不验证外部异步事件。**
-
-#### 4.8.1 核心认知：difftest 只验证确定性执行
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                    软件层（AM / OS）                      │
-│  发出控制信号：                                           │
-│    · 写 mtimecmp 寄存器（定时器比较值）                    │
-│    · 写 mie 使能位（开/关中断）                           │
-│    · 读写外设 MMIO（UART / RTC / 键盘……）                │
-└────────────────────────┬─────────────────────────────────┘
-                         │ 控制信号
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │  NEMU    │   │  NPC     │   │  真实芯片  │
-   │          │   │          │   │          │
-   │ CPU ✅   │   │ CPU ✅   │   │ CPU ✅   │
-   │ 设备 ❓   │   │ 设备 ✅   │   │ 设备 ✅   │
-   │ 中断 ❓   │   │ 中断 ✅   │   │ 中断 ✅   │
-   └──────────┘   └──────────┘   └──────────┘
-        │               │
-        │    difftest   │
-        │    只对比这   │
-        │    部分 →    │
-        └───────┬───────┘
-                ▼
-   ┌─────────────────────────┐
-   │  difftest 对比范围       │
-   │  · PC                   │
-   │  · GPR[0..31]           │
-   │  · CSR（mstatus/mcause…）│
-   │                         │
-   │  不对比（也无法对比）：    │
-   │  · 设备寄存器（UART/RTC） │
-   │  · 中断 pending 时机     │
-   │  · 外部信号到达时刻       │
-   └─────────────────────────┘
-```
-
-**NEMU 的定位**：NEMU 是一个**纯 CPU 指令集模拟器**。它的设备模型依赖宿主机环境（`setitimer`、SDL 键盘事件等），不由被测软件（AM/OS）完全控制。所以：
-
-> 当 NPC 响应了软件发出的设备访问，或接收了外部中断后，NEMU 那边**没有对应的状态变化**。  
-> 软件层的控制信号 NPC 能收到，但 REF 参考机（NEMU）收不到。
-> 因此 difftest 不能比较这些周期，只能**同步**——把 NPC 的全量状态搬运到 NEMU。
-
-#### 4.8.2 三类外部事件，一条同步路径
-
-| 外部事件 | 触发条件 | NEMU 为何无法复现 |
-|---------|---------|------------------|
-| **MMIO 访问** | 软件读写外设地址空间 | NEMU 的设备是宿主演的，不是软件驱动的 |
-| **中断响应** | `mstatus.MIE=1` 且 `mip & mie ≠ 0` → CPU 跳转 mtvec | NEMU 的定时器是独立宿主闹钟，时机对不上 |
-| **定时器 pending** | 宿主闹钟触发 → `mip.MTIP = 1` | 同上，NPC 和 NEMU 的闹钟各自独立触发 |
-
-三条路径，本质相同：
-
-```
-外部事件发生 → NPC 状态合法变化 → NEMU 无法独立复现 → 同步代替对比
-```
-
-#### 4.8.3 统一标志 `difftest_sync_needed`
-
-**改前**：用 `top->interrupt_valid`（硬件 trap 信号）和 `timer_sync_needed`（独立的定时器标志）两个不同变量判断同步。`interrupt_valid` 的本职是硬件信号，却兼职了同步判断，职责混乱。
-
-**改后**：`interrupt_check()` 统一管理所有"NEMU 无法复现"的事件，设置唯一的 `difftest_sync_needed` 标志。
-
-```cpp
-// interrupt.cpp — interrupt_check()
-void interrupt_check() {
-    top->interrupt_valid    = 0;
-    top->interrupt_cause    = 0;
-    difftest_sync_needed    = false;       // ← 每周期清零
-
-    if (npc_sim_state.state != NPC_RUNNING) return;
-
-#ifdef CONFIG_HAS_TIMER
-    // ① 宿主闹钟触发 → 置 MTIP → 需同步
     if (alarm_fired) {
         alarm_fired = 0;
         word_t mip = npc_csr(top, CSR_MIP, 0, READ);
         npc_csr(top, CSR_MIP, mip | M_TIME_MASK, WRITE);
-        difftest_sync_needed = true;       // ← 统一标志
+        difftest_sync_needed = true;      // 只置 pending，也要同步
     }
-#endif
 
-    // ② 中断该响应 → 需同步（同时设硬件 trap 信号）
     word_t trap_cause = isa_query_intr();
     if (trap_cause != INTR_EMPTY) {
-        top->interrupt_valid = 1;          // ← 纯硬件信号
+        top->interrupt_valid = 1;         // 硬件 trap 信号
         top->interrupt_cause = trap_cause;
-        difftest_sync_needed = true;       // ← 统一标志
+        difftest_sync_needed = true;      // 本周期将响应异步中断
     }
 }
 ```
 
-```cpp
-// main.cpp — single_cycle()
-void single_cycle() {
-    interrupt_check();                     // ① 检测所有外部事件
+如果 `interrupt_valid=1`，`core_top.v` 会 kill 当前指令所有副作用，并强制进入 trap：
 
-    top->clk = 1; top->eval();             // ② 硬件执行
+```verilog
+assign mem_read_eff   = interrupt_valid ? 1'b0 : mem_read;
+assign mem_write_eff  = interrupt_valid ? 1'b0 : mem_write;
+assign reg_write_eff  = interrupt_valid ? 1'b0 : reg_write;
+assign csr_write_eff  = interrupt_valid ? 1'b0 : csr_write;
+assign mret_eff       = interrupt_valid ? 1'b0 : mret;
+assign trap_enter_eff = trap_enter | interrupt_valid;
+```
+
+这类周期不能让 REF 自己执行一条普通指令，因为 REF 不知道 NPC 在这个指令边界收到了哪个异步事件。因此处理方式是：
+
+```text
+NPC 响应异步中断
+    → 本拍不 compare
+    → npc_state_data(top)
+    → ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF)
+```
+
+**CSR 打开中断门的特殊情况**
+
+`csrs mstatus, a5` 这类指令本身是普通 CSR 指令，但它可能让 pending 的异步中断在执行后立刻满足条件：
+
+```text
+执行前：mstatus.MIE=0, mie.MTIE=1, mip.MTIP=1  → 不能响应
+执行后：mstatus.MIE=1, mie.MTIE=1, mip.MTIP=1  → 可以响应
+```
+
+NPC 的 `interrupt_check()` 在本周期执行前已经检查过一次，所以本拍只提交 `csrs`；下一周期入口才响应中断。REF 的 `ref_difftest_exec(1)` 可能在执行完这条 CSR 后立即做一次中断查询，于是 REF 的“一步”变成：
+
+```text
+csrs mstatus, a5 + timer interrupt
+```
+
+而 NPC 的“一步”仍然是：
+
+```text
+csrs mstatus, a5
+```
+
+所以 `main.cpp` 在 `top->clk=1; top->eval();` 后补一次 post 检查：
+
+```cpp
+bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
+```
+
+注意这个判断必须在当前指令执行后。放在 `eval()` 前会漏掉“CSR 刚打开 MIE”的那一拍。
+
+#### 4.7.5 MMIO 外设：skip compare + sync
+
+MMIO 的问题不是 PC 错拍，而是 REF 很可能没有同一个设备模型。以 UART 为例，AM 写串口会访问：
+
+```text
+SERIAL_PORT = 0xa00003f8
+```
+
+NPC 的 DPI-C 内存路径会把它分发到设备：
+
+```cpp
+void dpi_mem_write(int addr, int data, int wmask) {
+    if (paddr >= PMEM_BASE && paddr < PMEM_END) {
+        // 普通物理内存
+        return;
+    }
+
+    mmio_accessed = true;
+    switch (paddr) {
+        case NPC_SERIAL_PORT:
+            if (wmask & 0x1) npc_serial_putc(wdata & 0xFF);
+            break;
+    }
+}
+```
+
+但 REF 如果没有打开设备，执行同一条 `sb ..., 0xa00003f8` 会走普通物理内存检查，然后报：
+
+```text
+address = 0xa00003f8 is out of bound of pmem
+```
+
+因此 MMIO 周期必须 skip compare，并把 NPC 状态同步给 REF。这里有一个容易踩的点：`pmem_mmio_accessed()` 是读后清零函数。
+
+```cpp
+bool pmem_mmio_accessed() {
+    bool v = mmio_accessed;
+    mmio_accessed = false;
+    return v;
+}
+```
+
+所以一个周期内只能读一次，必须缓存：
+
+```cpp
+bool mmio_accessed = pmem_mmio_accessed();
+```
+
+不能在外层 `if` 和内层条件里各调用一次，否则第一次已经清零，第二次会误判为非 MMIO，导致 REF 执行串口访问而崩溃。
+
+#### 4.7.6 single_cycle 决策图
+
+当前 `single_cycle()` 的 difftest 分支可以概括为：
+
+```cpp
+void single_cycle() {
+    interrupt_check();                         // 执行前异步事件检查
+    uint32_t this_pc = npc_pc(top, 0, READ);
+    bool is_trap = top->interrupt_valid;
+
+    top->clk = 1; top->eval();                 // NPC 提交一拍
     top->interrupt_valid = 0;
     top->interrupt_cause = 0;
     halt_check();
 
-#ifdef CONFIG_DIFFTEST
-    if (diff_so_file) {
-        // ③ 统一判断：任何 NEMU 无法复现的事件 → 同步
-        if (pmem_mmio_accessed() || difftest_sync_needed) {
-            npc_state_data(top);
-            ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);  // NPC → NEMU
-            difftest_sync_needed = false;
-        } else {
-            difftest_step(top, cycle, this_pc);            // 正常对比
+    bool post_intr_pending = !is_trap && (isa_query_intr() != INTR_EMPTY);
+    bool mmio_accessed = pmem_mmio_accessed();
+
+    if (mmio_accessed || difftest_sync_needed || post_intr_pending) {
+        if (difftest_sync_needed && !mmio_accessed && !is_trap && !post_intr_pending) {
+            ref_difftest_exec(1);
         }
+        npc_state_data(top);
+        ref_difftest_regcpy(&npc_s, DIFFTEST_TO_REF);
+        difftest_sync_needed = false;
+    } else {
+        difftest_step(top, cycle, this_pc);
     }
-#endif
-    // ...
 }
 ```
 
-**职责分离**：
+完整决策图：
 
-| 变量 | 职责 | 设置者 | 使用者 |
-|------|------|--------|--------|
-| `top->interrupt_valid` | 硬件 trap 信号（杀当前指令、跳 mtvec） | `interrupt_check()` | `core_top.v` 硬件仲裁层 |
-| `difftest_sync_needed` | 统一的 difftest 同步请求 | `interrupt_check()` | `single_cycle()` difftest 分支 |
-| `pmem_mmio_accessed()` | MMIO 访问检测 | DPI-C 读写路径 | `single_cycle()` difftest 分支 |
-
-#### 4.8.4 宿主闹钟定时器（替代周期计数）
-
-**改前**：C++ 周期计数 `cycle % 100000 == 0` → 置 MTIP。与 NEMU 的宿主 `setitimer` 完全异构，difftest 必爆发 MTIP 不匹配。
-
-**改后**：与 NEMU 同样使用 `setitimer(ITIMER_VIRTUAL)` + `SIGVTALRM` 信号。
-
-```cpp
-// interrupt.cpp — 宿主闹钟
-static volatile sig_atomic_t alarm_fired = 0;
-
-static void alarm_handler(int signum) {
-    alarm_fired = 1;  // 信号上下文：仅设标志，不做任何复杂操作
-}
-
-void init_timer_alarm() {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = alarm_handler;
-    sigaction(SIGVTALRM, &sa, NULL);
-
-    struct itimerval it = {};
-    it.it_value.tv_sec     = 0;
-    it.it_value.tv_usec    = 1000000 / 60;   // TIMER_HZ=60
-    it.it_interval         = it.it_value;    // 周期性
-    setitimer(ITIMER_VIRTUAL, &it, NULL);
-}
-```
-
-**信号安全原则**：
-
-```
-┌──────────────────────────────────────────────────┐
-│  SIGVTALRM 信号到达（异步，任意时刻）              │
-│                                                  │
-│  alarm_handler() { alarm_fired = 1; }  ← 仅此！  │
-│  不能：调 printf、调 malloc、调 Verilator API     │
-│  不能：读写 CSR、访问外设                          │
-└──────────────────────┬───────────────────────────┘
-                       │ 信号返回
-═══════════════════════╪═══════════════════════════
-                       │ 下一个 single_cycle()
-                       ▼
-┌──────────────────────────────────────────────────┐
-│  interrupt_check()  ← 主循环安全点               │
-│                                                  │
-│  if (alarm_fired) {                              │
-│      alarm_fired = 0;       // ① 先清标志       │
-│      MTIP = 1;              // ② 再做操作       │
-│      difftest_sync_needed = true;               │
-│  }                                               │
-└──────────────────────────────────────────────────┘
-```
-
-> ⚠️ 必须先清标志再设 MTIP。顺序反了会丢失信号：设 MTIP 期间又来一个 SIGVTALRM 置了标志，但随后被清零，本次闹钟就丢了。
-
-#### 4.8.5 完整数据流图
-
-```
-                         single_cycle() 入口
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    interrupt_check()                          │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  宿主闹钟分支                                         │    │
-│  │  alarm_fired ?                                       │    │
-│  │    YES → alarm_fired=0, MTIP=1, sync_needed=true     │    │
-│  │    NO  → 跳过                                         │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                           │                                  │
-│                           ▼                                  │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  中断查询分支                                         │    │
-│  │  isa_query_intr() → 返回中断号？                      │    │
-│  │    YES → interrupt_valid=1, sync_needed=true          │    │
-│  │    NO  → 跳过                                         │    │
-│  └─────────────────────────────────────────────────────┘    │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    硬件执行（posedge clk）                     │
-│                                                              │
-│  interrupt_valid=1 ?                                         │
-│    → core_top 仲裁：kill 所有 *_eff，强开 trap_enter          │
-│    → csr.v 硬件：保存 mepc/mcause，更新 mstatus               │
-│    → PC 跳转 mtvec                                           │
-│                                                              │
-│  interrupt_valid=0 ?                                         │
-│    → 正常提交当前指令的寄存器/内存写回                         │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                   difftest 决策点                             │
-│                                                              │
-│  pmem_mmio_accessed() || difftest_sync_needed ?              │
-│                                                              │
-│    YES ──────────────────────────────────────┐               │
-│    │  同步路径（不比较）                       │               │
-│    │  npc_state_data(top)   ← 读 NPC 全状态   │               │
-│    │       ↓                                  │               │
-│    │  ref_difftest_regcpy(NPC→NEMU)            │               │
-│    │       ↓                                  │               │
-│    │  NEMU 状态 = NPC 状态（信任 NPC）         │               │
-│    │  sync_needed = false                     │               │
-│    └──────────────────────────────────────────┘               │
-│                                                              │
-│    NO ───────────────────────────────────────┐               │
-│    │  对比路径                                │               │
-│    │  ref_difftest_exec(1)  ← NEMU 执行 1 条  │               │
-│    │  ref_difftest_regcpy(NEMU→DUT)            │               │
-│    │  difftest_compare()   ← PC/GPR/CSR 全比  │               │
-│    │  不匹配 → NPC_ABORT                      │               │
-│    └──────────────────────────────────────────┘               │
-└──────────────────────────────────────────────────────────────┘
-```
-
-#### 4.8.6 为什么 NEMU 收不到这些信号？
-
-```
-软件发出控制信号（如写 mtimecmp、读 RTC）
-          │
-    ┌─────┴─────┐
-    ▼           ▼
-  NPC         NEMU
-    │           │
-    │           ├─ 设备模型是 C 函数模拟的（timer.c / serial.c）
-    │           ├─ 定时器是宿主 setitimer 异步触发的
-    │           ├─ 中断 pending 时机依赖真实 CPU 时间
-    │           │
-    │           └─ 结论：NEMU 的设备/中断状态 ≠ 软件驱动的结果
-    │               它是"另一个独立系统"的设备/中断状态
+```text
+single_cycle()
     │
-    └─ 设备状态由 RTL 硬件直接驱动
-       中断检测由 Verilator 仿真时钟驱动
-       MMIO 访问真的走了 DPI-C 外设路径
+    ▼
+interrupt_check()
+    ├─ alarm_fired?
+    │     └─ 置 MTIP, difftest_sync_needed=1
+    └─ isa_query_intr()?
+          └─ interrupt_valid=1, interrupt_cause=trap_cause, difftest_sync_needed=1
 
-    结论：NPC 的状态是软件逻辑的真实反映；
-          NEMU 的状态是宿主机环境的投影。
-          两者在"外部事件"维度永远不可能自动对齐。
-          因此 difftest 在这些周期只能同步，不能对比。
+    │
+    ▼
+posedge clk / top->eval()
+    ├─ interrupt_valid=1
+    │     └─ core_top kill 当前指令副作用，csr.v 进入 trap
+    └─ interrupt_valid=0
+          └─ 当前指令正常提交，可能产生 MMIO 或打开 MIE
+
+    │
+    ▼
+difftest 决策点
+    ├─ post_intr_pending=1?
+    │     └─ CSR 等指令后异步中断变为可响应 → sync
+    ├─ mmio_accessed=1?
+    │     └─ 外设读写，REF 不能复现 → sync
+    ├─ difftest_sync_needed=1?
+    │     ├─ is_trap=1 → NPC 已响应异步中断 → sync
+    │     └─ 仅 timer pending，且不是 MMIO/post_intr
+    │          └─ REF 先 exec(1) 保留普通指令内存副作用，再 sync
+    └─ 三者都为 0
+          └─ ref_difftest_exec(1) + compare
 ```
 
-#### 4.8.7 源码索引
+为什么“仅 timer pending 但没有 trap”时要先 `ref_difftest_exec(1)`？因为 NPC 本周期仍然正常提交了一条普通指令。`ref_difftest_regcpy()` 只同步 GPR/PC/CSR，不同步普通内存，所以如果当前指令是普通 `sw`，必须让 REF 也执行这一条来保留内存副作用，然后再用 NPC 的寄存器/CSR 状态覆盖 REF。
+
+#### 4.7.7 源码索引
 
 | 文件 | 关键内容 |
-|------|---------|
-| `npc/include/interrupt.h` | `difftest_sync_needed` 声明、`init_timer_alarm()` 声明 |
-| `npc/csrc/monitor/interrupt.cpp` | `interrupt_check()` 统一设置同步标志、宿主闹钟 `alarm_handler` + `init_timer_alarm` |
-| `npc/csrc/main.cpp` | `single_cycle()` 中 `pmem_mmio_accessed() \|\| difftest_sync_needed` 统一分支 |
-| `npc/csrc/memory/memory.cpp` | `pmem_mmio_accessed()` MMIO 访问检测 |
-| `npc/csrc/difftest/dut.cpp` | `difftest_step()` / `difftest_compare()` 正常对比逻辑 |
-| `npc/vsrc/core_top.v` | `interrupt_valid` 硬件仲裁（kill *_eff、强开 trap_enter） |
-| `npc/vsrc/csr.v` | CSR 硬件（trap_enter 时更新 mstatus/mepc/mcause、清 MTIP） |
+|------|----------|
+| `npc/csrc/difftest/dut.cpp` | `difftest_step()` 的正常一条指令 compare 路径 |
+| `npc/csrc/main.cpp` | `single_cycle()` 中 `mmio_accessed / difftest_sync_needed / post_intr_pending` 的分流 |
+| `npc/csrc/monitor/interrupt.cpp` | `alarm_fired`、`isa_query_intr()`、`interrupt_valid`、`difftest_sync_needed` |
+| `npc/csrc/memory/memory.cpp` | MMIO 读写分发、`pmem_mmio_accessed()` 读后清零标志 |
+| `npc/vsrc/core_top.v` | `interrupt_valid` 触发 kill，统一关掉 reg/mem/csr 写副作用 |
+| `npc/vsrc/csr.v` | `trap_enter` 时更新 `mepc/mcause/mstatus`，清理 `mip` pending 位 |
+| `nemu/src/cpu/cpu-exec.c` | REF 执行一条指令后可能查询异步中断，是 CSR 打开 MIE 错拍的来源 |
+| `nemu/src/memory/paddr.c` | REF 未启用设备时，MMIO 地址会被判为 pmem 越界 |
 
-### 4.9 M 扩展四条指令：显式语义与改造前后对比
+### 4.8 M 扩展乘除指令：显式语义与调试记录
 
 > 这部分放在第四部分，是因为它本质上来自 difftest 失配：先在对拍过程中暴露 M 扩展语义不一致，再把指令行为显式化，让 NPC 的结果和 NEMU/ISA 对齐。
 > 这部分对应 `npc/vsrc/control.v` 和 `npc/vsrc/alu.v`。
 > 先看指令本身的 ISA 语义，再看 RTL 从“隐式依赖工具行为”到“显式写死语义”的改造。
 
-#### 4.9.1 先看指令本身的语义
+#### 4.8.1 先看 DIV/REM 指令本身的语义
 向零截断的有符号除法和余数，除零和边界单独钉死：也就是保留整数部分的最大范围，避免溢出。
 余数的符号跟被除数保持一致，而不是跟除数保持一致。
 | 指令 | ISA 语义 | 除零行为 | 边界行为 |
@@ -1260,7 +1173,71 @@ $$a = b \times q + r$$
 
 其中 `q` 是 DIV 的商，`r` 是 REM 的余数。RISC-V 要求有符号除法向 0 截断，所以 `r` 的符号必须跟被除数 `a` 保持一致，而不是跟除数 `b` 一致。
 
-#### 4.9.2 修改前的逻辑：更像“能跑”，但语义不够显式
+#### 4.8.2 MULH 调试记录：高位乘法必须先扩到 64 位
+
+`mul-longlong` 测试曾在下面这条指令上触发 difftest 失配：
+
+```text
+ABORT: GPR[15] mismatch at pc=0x800000ac
+0x800000ac: 02fc97b3  mulh a5, s9, a5
+```
+
+波形和反汇编对应的译码是：
+
+```text
+funct7 = 7'b0000001
+funct3 = 3'b001
+alu_op = 5'b1_0001   // MULH
+```
+
+当时 `s9 = a5 = 0xaeb1c2aa`。低 32 位乘法 `mul` 已经得到正确结果 `0xdb1a18e4`，但 `mulh` 写回 `a5` 时 NPC 得到 `0x00000000`，NEMU 参考结果是 `0x19d29ab9`：
+
+```text
+signed 32x32 full product = 0x19d29ab9_db1a18e4
+MUL  取低 32 位: 0xdb1a18e4
+MULH 取高 32 位: 0x19d29ab9
+```
+
+出错写法是：
+
+```verilog
+5'b1_0001 : result = (($signed(src1) * $signed(src2)) >> 32);  // MULH
+5'b1_0010 : result = (($signed(src1) * src2) >> 32);           // MULHSU
+5'b1_0011 : result = ((src1 * src2) >> 32);                    // MULHU
+```
+
+这里的关键误区是：`$signed(src1)` 只改变 signedness，不改变位宽。`src1/src2` 仍然是 32 位操作数，高位乘法表达式没有明确产生 64 位中间乘积。Verilator 按这个表达式生成 C++ 时，`MULH/MULHSU/MULHU` 的高位结果路径会退化成 0，因此波形里看到 ALU 结果为 0 不是写回通路问题，而是 ALU 的高位乘法语义没有写出来。
+
+正确做法是：先按指令语义把两个 32 位操作数扩展成 64 位，再做 64 位乘法，最后取 `[63:32]`。
+
+```verilog
+wire signed [63:0] src1_s64 = {{32{src1[31]}}, src1};
+wire signed [63:0] src2_s64 = {{32{src2[31]}}, src2};
+wire        [63:0] src1_u64 = {32'b0, src1};
+wire        [63:0] src2_u64 = {32'b0, src2};
+wire signed [63:0] src2_zext_s64 = {32'b0, src2};
+
+wire signed [63:0] mul_ss = src1_s64 * src2_s64;      // MULH
+wire signed [63:0] mul_su = src1_s64 * src2_zext_s64; // MULHSU
+wire        [63:0] mul_uu = src1_u64 * src2_u64;      // MULHU
+
+5'b1_0000 : result = src1 * src2;     // MUL，低 32 位不区分 signed/unsigned
+5'b1_0001 : result = mul_ss[63:32];   // MULH
+5'b1_0010 : result = mul_su[63:32];   // MULHSU
+5'b1_0011 : result = mul_uu[63:32];   // MULHU
+```
+
+三条高位乘法的扩展规则必须区分清楚：
+
+| 指令 | 乘法语义 | 扩展方式 |
+|------|----------|----------|
+| MULH | signed x signed，取高 32 位 | `rs1` 符号扩展，`rs2` 符号扩展 |
+| MULHSU | signed x unsigned，取高 32 位 | `rs1` 符号扩展，`rs2` 零扩展 |
+| MULHU | unsigned x unsigned，取高 32 位 | `rs1` 零扩展，`rs2` 零扩展 |
+
+所以这类 bug 的判断顺序是：先确认 `control.v` 是否把 `funct7=0000001/funct3=001` 译成 `alu_op=1_0001`，再看 `alu.v` 是否真的构造了 64 位乘积。只看 `$signed(...)` 不够，它不会自动把 32 位乘法变成 64 位乘法。
+
+#### 4.8.3 修改前的逻辑：更像“能跑”，但语义不够显式
 
 在改造前，M 扩展常见的写法是直接让 RTL 依赖 Verilog 的 `/` 和 `%`，例如：
 
@@ -1279,7 +1256,7 @@ $$a = b \times q + r$$
 
 如果再往上看一层，编译链里在没有 M 扩展硬件时，还会把 `/` 和 `%` 降级到 libgcc 的软件实现。这样一来，同一类运算的语义会分散在编译器、库函数和 RTL 三层，difftest 的定位成本很高。
 
-#### 4.9.3 修改后的逻辑：把语义固定在 RTL 里
+#### 4.8.4 修改后的逻辑：把语义固定在 RTL 里
 
 现在的实现把四条指令拆成了四个显式函数：`signed_div32`、`unsigned_div32`、`signed_rem32`、`unsigned_rem32`。
 
@@ -1311,7 +1288,7 @@ $$a = b \times q + r$$
 
 对应的 RTL 结果不再依赖工具对 signedness 的默认理解，而是直接把 ISA 规则写在执行路径里。这样做的好处是：第一条 M 扩展指令一旦算错，问题会立刻暴露在 control/alu 这两层，不会把错误静默传播到后面的寄存器和地址计算里。
 
-#### 4.9.4 修改前后对比
+#### 4.8.5 修改前后对比
 
 | 维度 | 修改前 | 修改后 |
 |------|------|------|
@@ -1546,3 +1523,479 @@ interrupt_valid = 1
 | 6 | **硬件自动保存上下文** | 不需执行任何指令：mepc/mcause/mstatus 全由 csr.v 的时序逻辑自动完成 |
 | 7 | **中断与异常共用 trap 路径** | `trap_enter_eff = trap_enter \| interrupt_valid`，统一走 mepc/mtvec/mcause 流程 |
 
+---
+
+## 第七部分：MMIO 外设架构重构 — 统一回调分发机制
+
+> 从硬编码 `switch-case` 到 NEMU 风格的设备注册表 + 回调分发。
+> 覆盖 serial（串口）和 RTC（时钟）两个外设的完整设计与实现。
+
+### 7.1 设计动机
+
+#### 7.1.1 旧架构问题
+
+| 问题 | 说明 |
+|------|------|
+| 地址硬编码 | `NPC_SERIAL_PORT 0xa00003f8` 写死在 `memory.h`，无法 Kconfig 配置 |
+| 设备逻辑散落 | RTC 读逻辑 (锁存/时间计算) 混在 `memory.cpp` 的 switch-case 里 |
+| 新增设备代价高 | 每加一个设备（键盘、VGA、声卡）要在 2 个 switch 里各加 case |
+| 无重叠检查 | 新设备可能和已有设备地址冲突，编译期发现不了 |
+
+#### 7.1.2 新架构目标
+
+```
+dpi_mem_read/write → mmio_read/write → 查设备表 → 调回调
+                                             ↑
+                              maps[] 统一注册表（启动时填充）
+```
+
+
+### 7.2 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      RTL (Verilog)                          │
+│                                                             │
+│  if_stage.v:  assign instr = dpi_mem_read(pc, 0);          │
+│  mem_stage.v: assign rdata = dpi_mem_read(addr, mem_read); │
+│  mem_stage.v: dpi_mem_write(addr, wdata, wmask);           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │  DPI-C (import "DPI-C" function)
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│               memory.cpp (统一入口，不区分设备)               │
+│                                                             │
+│  dpi_mem_read(addr, is_load):                               │
+│    if (addr ∈ PMEM) → pmem_read()      // 物理内存          │
+│    if (!is_load) return 0;             // 非 load 指令门控  │
+│    mmio_accessed = true;                                     │
+│    return mmio_read(addr);             // 委托分发           │
+│                                                             │
+│  dpi_mem_write(addr, data, wmask):                          │
+│    if (addr ∈ PMEM) → pmem_write()     // 物理内存          │
+│    mmio_accessed = true;                                     │
+│    mmio_write(addr, data, wmask);      // 委托分发           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              device/mmio.cpp (分发层)                        │
+│                                                             │
+│  maps[] 设备注册表 (NR_MAP=16):                              │
+│  ┌──────────┬──────────┬──────────┬──────────┬────────────┐ │
+│  │ name     │ space    │ low/high │ wmask    │ read/write │ │
+│  ├──────────┼──────────┼──────────┼──────────┼────────────┤ │
+│  │"serial"  │ 8B space │0xa00003f8│   0x1    │ NULL / cb  │ │
+│  │          │          │ ~3ff     │          │            │ │
+│  ├──────────┼──────────┼──────────┼──────────┼────────────┤ │
+│  │"rtc"     │ 8B space │0xa0000048│   0xF    │ cb / NULL  │ │
+│  │          │          │ ~4f      │          │            │ │
+│  └──────────┴──────────┴──────────┴──────────┴────────────┘ │
+│                                                             │
+│  mmio_read(addr):  遍历 maps → 命中 → 回调(或 space 直读)   │
+│  mmio_write(addr): 遍历 maps → 命中 → space 先写 → 再回调   │
+└───────────────────┬─────────────────┬───────────────────────┘
+                    │                 │
+          ┌─────────┘                 └─────────┐
+          ▼                                     ▼
+┌───────────────────┐                 ┌───────────────────┐
+│ device/serial.cpp │                 │ device/rtc.cpp    │
+│                   │                 │                   │
+│ serial_write_     │                 │ rtc_read_handler  │
+│ handler()         │                 │ (回调: 读)        │
+│ (回调: 写)        │                 │ + host_time_us()  │
+│ + npc_serial_     │                 │ + init_timer_     │
+│ putc()            │                 │ alarm() (中断源)  │
+└───────┬───────────┘                 └─────────┬─────────┘
+        │                                       │
+        ▼                                       ▼
+   fputc(stderr)                         steady_clock::now()
+   终端输出                              宿主微秒时间
+```
+
+
+### 7.3 文件组织
+
+| 文件 | 分类 | 职责 |
+|------|------|------|
+| `npc/Kconfig` | 配置 | 设备开关 + MMIO 地址 |
+| `npc/include/generated/autoconf.h` | 生成 | `make menuconfig` 自动生成 |
+| `npc/include/mmio.h` | 框架头 | `MMIODevice` 结构体、回调类型、`mmio_read/write` 声明 |
+| `npc/include/device.h` | 设备头 | 各外设回调函数声明 |
+| `npc/include/memory.h` | 内存头 | PMEM 宏定义、`in_pmem()`、`dpi_mem_read/write` 声明 |
+| `npc/csrc/device/mmio.cpp` | 框架实现 | IO 空间池、设备注册表、统一分发、space 读写 |
+| `npc/csrc/device/serial.cpp` | 串口设备 | `npc_serial_putc()` + 回调 `serial_write_handler()` |
+| `npc/csrc/device/rtc.cpp` | RTC 设备 | `host_time_us()` + 回调 `rtc_read_handler()` + 中断源 `init_timer_alarm()` |
+| `npc/csrc/memory/memory.cpp` | DPI-C 入口 | `dpi_mem_read/write` → `mmio_read/write` 委托 |
+
+### 7.4 Kconfig 配置
+
+```kconfig
+menu "Device Configuration"
+    config DEVICE
+        bool "Enable Device support"
+        default y
+
+    config HAS_SERIAL
+        bool "Enable Serial (UART)"
+        default y
+        depends on DEVICE
+
+    config SERIAL_MMIO
+        hex "Serial port MMIO base address"
+        default 0xa00003f8
+        depends on HAS_SERIAL
+
+    config HAS_TIMER
+        bool "Enable Timer"
+        default y
+        depends on DEVICE
+
+    config RTC_MMIO
+        hex "RTC MMIO base address"
+        default 0xa0000048
+        depends on HAS_TIMER
+endmenu
+```
+
+生成的 `autoconf.h` 关键宏：`CONFIG_DEVICE 1`, `CONFIG_HAS_SERIAL 1`, `CONFIG_SERIAL_MMIO 0xa00003f8`, `CONFIG_HAS_TIMER 1`, `CONFIG_RTC_MMIO 0xa0000048`。
+
+### 7.5 核心数据结构 — `mmio.h`
+
+```cpp
+typedef uint32_t (*mmio_read_cb)(MMIODevice *dev, uint32_t offset);
+typedef void (*mmio_write_cb)(MMIODevice *dev, uint32_t offset,
+                              uint32_t data, uint8_t wmask);
+
+struct MMIODevice {
+    const char *name;       // 设备名，调试用
+    uint8_t    *space;      // 设备寄存器状态区 (IO 空间池分配)
+    uint32_t    addr_start; // MMIO 起始地址 (含)
+    uint32_t    addr_end;   // MMIO 结束地址 (含)
+    uint32_t    wmask;      // 默认写掩码 (0x1=字节写, 0xF=字写)
+    mmio_read_cb  read;     // 读回调 (NULL=space 直读)
+    mmio_write_cb write;    // 写回调 (NULL=space 直写)
+};
+```
+
+**读写分离 vs 读写合一对比：**
+
+| | 读写分离 (NPC) | 读写合一 (NEMU) |
+|------|------|------|
+| 回调数量 | 2 个函数指针 | 1 个函数指针 |
+| 优点 | 参数精确，读有返回值，写有 wmask | 只需一个函数 |
+| 缺点 | 结构体存两个指针 | 回调内需 switch(is_write) |
+
+NPC 选择读写分离，因为串口只写、RTC 只读，不对称。
+
+### 7.6 IO 空间管理 — `mmio.cpp` 框架层
+
+#### 7.6.1 预分配池 + 页对齐分配
+
+```cpp
+#define NPC_IO_SPACE_MAX (64 * 1024)   // 64KB
+#define NPC_PAGE_SIZE  4096
+#define NPC_PAGE_MASK  (NPC_PAGE_SIZE - 1)
+
+static uint8_t *io_space = NULL;
+static uint8_t *p_space = NULL;
+
+void init_map() {
+    io_space = (uint8_t*)malloc(NPC_IO_SPACE_MAX);
+    assert(io_space);
+    p_space = io_space;
+}
+
+uint8_t* new_space(int size) {
+    uint8_t *p = p_space;
+    size = (size + NPC_PAGE_MASK) & ~NPC_PAGE_MASK;  // 页对齐
+    p_space += size;
+    assert(p_space - io_space <= NPC_IO_SPACE_MAX);
+    memset(p, 0, size);
+    return p;
+}
+```
+
+**页对齐意义：** `new_space(8)` → 实际分配 4096 字节。每个设备独占至少一页，支持未来 MMU 页级权限控制。
+
+#### 7.6.2 设备注册 — `add_mmio_device()`
+
+```cpp
+void add_mmio_device(const char *name, void *space,
+                     uint32_t addr, uint32_t len, uint8_t wmask,
+                     mmio_read_cb read, mmio_write_cb write) {
+    paddr_t left = addr, right = addr + len - 1;
+
+    // ① 检查不与 PMEM 重叠
+    Assert(!(in_pmem(left) || in_pmem(right)), ...);
+
+    // ② 检查不与已注册设备重叠
+    for (int i = 0; i < nr_map; i++)
+        if (left <= maps[i].addr_end && right >= maps[i].addr_start)
+            report_mmio_overlap(...);  // → panic
+
+    // ③ 写入设备表
+    maps[nr_map++] = {.name=name, .space=(uint8_t*)space,
+                      .addr_start=left, .addr_end=right,
+                      .wmask=wmask, .read=read, .write=write};
+}
+```
+
+**重叠检测算法：** `[L1,R1]` 与 `[L2,R2]` 重叠 ⇔ `L1 ≤ R2 ∧ R1 ≥ L2`
+
+#### 7.6.3 统一分发逻辑
+
+```
+mmio_read(addr):
+  for i in 0..nr_map:
+    if addr ∈ [maps[i].addr_start, maps[i].addr_end]:
+      offset = addr - maps[i].addr_start
+      return maps[i].read ? maps[i].read(...) : mmio_space_read(...)
+  Assert panic
+
+mmio_write(addr, data, wmask):
+  for i in 0..nr_map:
+    if addr ∈ [maps[i].addr_start, maps[i].addr_end]:
+      offset = addr - maps[i].addr_start
+      mmio_space_write(...)           // ① 先写 space
+      if (maps[i].write) maps[i].write(...)  // ② 再调回调
+      return
+  Assert panic
+```
+
+> **关键顺序：先 space_write，再回调。** 和 NEMU 的 `host_write → invoke_callback` 一致，回调体可从 `dev->space[offset]` 读刚写入的数据。
+
+#### 7.6.4 Space 读写辅助函数
+
+```cpp
+uint32_t mmio_space_read(MMIODevice *dev, uint32_t offset) {
+    uint32_t val = 0;
+    for (int i = 0; i < 4; i++)
+        val |= (uint32_t)dev->space[offset + i] << (i * 8);
+    return val;
+}
+
+void mmio_space_write(MMIODevice *dev, uint32_t offset,
+                      uint32_t data, uint8_t wmask) {
+    for (int i = 0; i < 4; i++)
+        if (wmask & (1 << i))
+            dev->space[offset + i] = (data >> (i * 8)) & 0xFF;
+}
+```
+
+**wmask 逐字节写：** CPU 执行 `sb t0, 0x0(串口地址)` 时，`wmask=0b0001`，只有 `space[0]` 被写入，其余跳过。
+
+#### 7.6.5 启动注册 — `init_mmio()`
+
+```cpp
+void init_mmio() {
+    init_map();
+    add_mmio_device("serial", new_space(8), CONFIG_SERIAL_MMIO, 8,
+                    0x1, NULL, serial_write_handler);  // 只写
+    add_mmio_device("rtc", new_space(8), CONFIG_RTC_MMIO, 8,
+                    0xF, rtc_read_handler, NULL);      // 只读
+}
+```
+
+### 7.7 调用链路 — 启动到运行时
+
+```
+启动时:
+  pmem_init() → init_mmio() → init_map() + add_mmio_device ×2 → pmem_load_bin()
+
+运行时 (每周期):
+  single_cycle() → top->clk=1
+    if_stage.v:   instr = dpi_mem_read(pc, 0)         ← is_load=0，不走 MMIO
+    mem_stage.v:  rdata = dpi_mem_read(addr, mem_read) ← is_load=1 → mmio_read
+    mem_stage.v:  dpi_mem_write(addr, data, wmask)     ← mmio_write
+```
+
+### 7.8 串口设备 — `serial.cpp`
+
+#### 7.8.1 8250 UART 寄存器布局
+
+| 偏移 | 寄存器 | 读写 | NPC 实现 |
+|------|--------|------|----------|
+| 0 | RBR / THR | 读/写 | ✅ 写输出字符; 读预留键盘 |
+| 5 | LSR | 只读 | ⚠️ 预留键盘状态查询 |
+| 1~4,6~7 | 其他寄存器 | — | 忽略 |
+
+`len=8` 预留完整 8250 空间，方便后续扩展。
+
+#### 7.8.2 写回调
+
+```cpp
+void serial_write_handler(MMIODevice *dev, uint32_t offset,
+                          uint32_t data, uint8_t wmask) {
+    switch (offset) {
+        case 0:
+            if (wmask & 0x1)
+                npc_serial_putc(dev->space[0]);  // 从 space 取刚写入的字节
+            break;
+        default: break;  // 静默忽略
+    }
+}
+```
+
+#### 7.8.3 数据流：`putch('A')` → 终端
+
+```
+AM putch('A') → sb 0xa00003f8 → DPI-C dpi_mem_write(0xa00003f8, ..., 0x1)
+  → mmio_write → mmio_space_write (space[0]=0x41)
+  → serial_write_handler → npc_serial_putc(dev->space[0])
+  → fputc('A', stderr) → 终端显示 'A'
+```
+
+### 7.9 RTC 时钟设备 — `rtc.cpp`
+
+#### 7.9.1 两条独立路径
+
+```
+路径 A (被动应答):                路径 B (主动推送):
+host_time_us()                    init_timer_alarm()
+  ↓ CPU load 读 0xa0000048         ↓ SIGVTALRM 每 16.7ms
+rtc_read_handler()                alarm_handler()
+  ↓ 返回微秒时间                   ↓ alarm_fired = 1
+软件知道"现在几点"                 interrupt_check()
+                                   ↓ MIP.MTIP = 1
+                                  CPU 收到时钟中断
+```
+
+#### 7.9.2 RTC 读回调
+
+```cpp
+static uint64_t rtc_latched_us = 0;
+
+uint32_t rtc_read_handler(MMIODevice *dev, uint32_t offset) {
+    switch (offset) {
+        case 0:  // 低 32 位
+            if (rtc_latched_us == 0) rtc_latched_us = host_time_us();
+            return (uint32_t)(rtc_latched_us & 0xFFFFFFFF);
+        case 4:  // 高 32 位 — 每次重新锁存，保证时间推进
+            rtc_latched_us = host_time_us();
+            return (uint32_t)(rtc_latched_us >> 32);
+        default: return 0;
+    }
+}
+```
+
+**锁存机制：** 防止 64 位时间撕裂。`case 4` 每次重新锁存确保 AM 读出的高低 32 位来自同一快照且能随周期推进。
+
+#### 7.9.3 时钟中断注入链路
+
+```
+init_timer_alarm() → setitimer(SIGVTALRM, 16.7ms)
+  每 16.7ms: alarm_handler() → alarm_fired = 1
+  每周期: interrupt_check() → if(alarm_fired) { MIP.MTIP=1; alarm_fired=0; }
+  isa_query_intr() → MIP.MTIP & MIE.MTIE → 返回 0x80000007
+  single_cycle() → top->interrupt_valid=1 → RTL 下周期 trap
+```
+
+> `alarm_handler` 只设标志的原因是信号处理器运行在异步上下文，printf/锁/malloc 不安全。
+
+### 7.10 `memory.cpp` — DPI-C 入口改动
+
+```cpp
+// 改前: switch(paddr) { case SERIAL... case RTC... }
+// 改后:
+int dpi_mem_read(int addr, int is_load) {
+    if (in_pmem(paddr)) return (int)pmem_read(paddr & ~3U, 4);
+    if (!is_load) return 0;
+    mmio_accessed = true;
+    return mmio_read(paddr);  // 一行委托
+}
+
+void dpi_mem_write(int addr, int data, int wmask) {
+    if (in_pmem(paddr)) { pmem_write(...); return; }
+    mmio_accessed = true;
+    mmio_write(paddr, data, (uint8_t)wmask);
+}
+```
+
+**`is_load` 门控：**
+
+| 调用者 | is_load | MMIO 副作用 |
+|--------|:---:|------|
+| if_stage (取指) | 0 | ❌ 不触发 RTC 锁存 |
+| mem_stage (load) | 1 | ✅ 正常交互 |
+
+### 7.11 启动初始化 — `monitor.cpp`
+
+```cpp
+void monitor_init(...) {
+    pmem_init();                 // ① 清空 128MB PMEM
+    init_mmio();                 // ② init_map + 设备注册
+    pmem_load_bin(img_file);     // ③ 加载 .bin
+    init_timer_alarm();          // ④ 启动定时器中断源
+}
+```
+
+### 7.12 mmio_accessed 与 difftest
+
+| 事件 | mmio_accessed | difftest 行为 |
+|------|:---:|------|
+| 正常指令 | 0 | compare |
+| load RTC / store 串口 | 1 | skip compare → sync |
+| 定时器中断 | 0 | skip compare → sync (通过 difftest_sync_needed) |
+
+### 7.13 in_pmem() — 无符号回绕技巧
+
+```cpp
+static inline bool in_pmem(uint32_t addr) {
+    return addr - PMEM_BASE < PMEM_SIZE;
+}
+```
+
+`addr < PMEM_BASE` 时 `addr - PMEM_BASE` 回绕到巨大正值 → 必然 ≥ `PMEM_SIZE` → false。只有 `[PMEM_BASE, PMEM_BASE+PMEM_SIZE)` 内的地址，差值才 < `PMEM_SIZE`。一次比较顶两次。
+
+### 7.14 Bug 修复记录
+
+| # | 文件 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | mmio.cpp | `addr < addr_end` 应 `<=` | 改 `<=` |
+| 2 | mmio.cpp | `mmio_write` 命中后缺 `return` | 加 `return` |
+| 3 | mmio.cpp | `init_mmio` 缺 `init_map()` | 加 `init_map()` |
+| 4 | mmio.cpp | `%08` 缺 `x` | 改 `%08x` |
+| 5 | npc.h | `#include <memory.h>` 在 `typedef paddr_t` 之前 | 移 include 到 typedef 之后 |
+| 6 | device.h | 用 `MMIODevice*` 未 include `mmio.h` | 加 `#include <mmio.h>` |
+| 7 | rtc.cpp | switch 后缺 `return 0` | 加 `return 0` |
+| 8 | Kconfig | `config  Device Configuration` 有空格 | 改 `config DEVICE` |
+
+### 7.15 源码索引
+
+| 组件 | 文件 |
+|------|------|
+| 设备配置 | `npc/Kconfig` L120-175 |
+| 自动生成宏 | `npc/include/generated/autoconf.h` |
+| 结构体 + 回调类型 | `npc/include/mmio.h` |
+| 回调声明 | `npc/include/device.h` |
+| PMEM + in_pmem | `npc/include/memory.h` |
+| DPI-C 入口 | `npc/csrc/memory/memory.cpp` |
+| IO 空间池 + 分发 | `npc/csrc/device/mmio.cpp` |
+| 串口回调 | `npc/csrc/device/serial.cpp` |
+| RTC 回调 + 中断源 | `npc/csrc/device/rtc.cpp` |
+| 时基中断注入 | `npc/csrc/monitor/interrupt.cpp` |
+| 启动初始化 | `npc/csrc/monitor/monitor.cpp` |
+
+### 7.16 扩展指南 — 新增外设（三步）
+
+```
+① Kconfig: 加 HAS_xxx + xxx_MMIO 配置项 → make menuconfig
+② device/xxx.cpp: 实现 read/write 回调函数
+③ mmio.cpp init_mmio(): 加 add_mmio_device() 注册
+```
+
+无需修改 `memory.cpp`、`main.cpp`、RTL——统一分发架构的核心优势。
+
+### 7.17 设计原则总结
+
+| # | 原则 | 说明 |
+|:--:|------|------|
+| 1 | **状态与行为分离** | space_read/write 管数据，回调管副作用 |
+| 2 | **先写 space，再回调** | 回调从 space 读数据，与 NEMU 一致 |
+| 3 | **地址可配置** | Kconfig 管理 MMIO 地址，编译期检查重叠 |
+| 4 | **读写回调分离** | 适合 RTC 只读、串口只写场景 |
+| 5 | **is_load 门控** | 只有 load 指令触发 MMIO 读副作用 |
+| 6 | **mmio_accessed 标记** | MMIO → difftest skip compare + sync |
+| 7 | **页对齐分配** | IO 空间按 4KB 切分，支持未来 MMU 权限控制 |
+| 8 | **新增设备零侵入** | 只加 Kconfig + 回调 + 注册，不改框架代码 |
