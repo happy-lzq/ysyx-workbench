@@ -1522,3 +1522,480 @@ interrupt_valid = 1
 | 5 | **中断脉冲单周期有效** | `interrupt_valid` 在 eval 后立即清零，避免下一周期误触发 |
 | 6 | **硬件自动保存上下文** | 不需执行任何指令：mepc/mcause/mstatus 全由 csr.v 的时序逻辑自动完成 |
 | 7 | **中断与异常共用 trap 路径** | `trap_enter_eff = trap_enter \| interrupt_valid`，统一走 mepc/mtvec/mcause 流程 |
+
+---
+
+## 第七部分：MMIO 外设架构重构 — 统一回调分发机制
+
+> 从硬编码 `switch-case` 到 NEMU 风格的设备注册表 + 回调分发。
+> 覆盖 serial（串口）和 RTC（时钟）两个外设的完整设计与实现。
+
+### 7.1 设计动机
+
+#### 7.1.1 旧架构问题
+
+| 问题 | 说明 |
+|------|------|
+| 地址硬编码 | `NPC_SERIAL_PORT 0xa00003f8` 写死在 `memory.h`，无法 Kconfig 配置 |
+| 设备逻辑散落 | RTC 读逻辑 (锁存/时间计算) 混在 `memory.cpp` 的 switch-case 里 |
+| 新增设备代价高 | 每加一个设备（键盘、VGA、声卡）要在 2 个 switch 里各加 case |
+| 无重叠检查 | 新设备可能和已有设备地址冲突，编译期发现不了 |
+
+#### 7.1.2 新架构目标
+
+```
+dpi_mem_read/write → mmio_read/write → 查设备表 → 调回调
+                                             ↑
+                              maps[] 统一注册表（启动时填充）
+```
+
+
+### 7.2 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      RTL (Verilog)                          │
+│                                                             │
+│  if_stage.v:  assign instr = dpi_mem_read(pc, 0);          │
+│  mem_stage.v: assign rdata = dpi_mem_read(addr, mem_read); │
+│  mem_stage.v: dpi_mem_write(addr, wdata, wmask);           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │  DPI-C (import "DPI-C" function)
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│               memory.cpp (统一入口，不区分设备)               │
+│                                                             │
+│  dpi_mem_read(addr, is_load):                               │
+│    if (addr ∈ PMEM) → pmem_read()      // 物理内存          │
+│    if (!is_load) return 0;             // 非 load 指令门控  │
+│    mmio_accessed = true;                                     │
+│    return mmio_read(addr);             // 委托分发           │
+│                                                             │
+│  dpi_mem_write(addr, data, wmask):                          │
+│    if (addr ∈ PMEM) → pmem_write()     // 物理内存          │
+│    mmio_accessed = true;                                     │
+│    mmio_write(addr, data, wmask);      // 委托分发           │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              device/mmio.cpp (分发层)                        │
+│                                                             │
+│  maps[] 设备注册表 (NR_MAP=16):                              │
+│  ┌──────────┬──────────┬──────────┬──────────┬────────────┐ │
+│  │ name     │ space    │ low/high │ wmask    │ read/write │ │
+│  ├──────────┼──────────┼──────────┼──────────┼────────────┤ │
+│  │"serial"  │ 8B space │0xa00003f8│   0x1    │ NULL / cb  │ │
+│  │          │          │ ~3ff     │          │            │ │
+│  ├──────────┼──────────┼──────────┼──────────┼────────────┤ │
+│  │"rtc"     │ 8B space │0xa0000048│   0xF    │ cb / NULL  │ │
+│  │          │          │ ~4f      │          │            │ │
+│  └──────────┴──────────┴──────────┴──────────┴────────────┘ │
+│                                                             │
+│  mmio_read(addr):  遍历 maps → 命中 → 回调(或 space 直读)   │
+│  mmio_write(addr): 遍历 maps → 命中 → space 先写 → 再回调   │
+└───────────────────┬─────────────────┬───────────────────────┘
+                    │                 │
+          ┌─────────┘                 └─────────┐
+          ▼                                     ▼
+┌───────────────────┐                 ┌───────────────────┐
+│ device/serial.cpp │                 │ device/rtc.cpp    │
+│                   │                 │                   │
+│ serial_write_     │                 │ rtc_read_handler  │
+│ handler()         │                 │ (回调: 读)        │
+│ (回调: 写)        │                 │ + host_time_us()  │
+│ + npc_serial_     │                 │ + init_timer_     │
+│ putc()            │                 │ alarm() (中断源)  │
+└───────┬───────────┘                 └─────────┬─────────┘
+        │                                       │
+        ▼                                       ▼
+   fputc(stderr)                         steady_clock::now()
+   终端输出                              宿主微秒时间
+```
+
+
+### 7.3 文件组织
+
+| 文件 | 分类 | 职责 |
+|------|------|------|
+| `npc/Kconfig` | 配置 | 设备开关 + MMIO 地址 |
+| `npc/include/generated/autoconf.h` | 生成 | `make menuconfig` 自动生成 |
+| `npc/include/mmio.h` | 框架头 | `MMIODevice` 结构体、回调类型、`mmio_read/write` 声明 |
+| `npc/include/device.h` | 设备头 | 各外设回调函数声明 |
+| `npc/include/memory.h` | 内存头 | PMEM 宏定义、`in_pmem()`、`dpi_mem_read/write` 声明 |
+| `npc/csrc/device/mmio.cpp` | 框架实现 | IO 空间池、设备注册表、统一分发、space 读写 |
+| `npc/csrc/device/serial.cpp` | 串口设备 | `npc_serial_putc()` + 回调 `serial_write_handler()` |
+| `npc/csrc/device/rtc.cpp` | RTC 设备 | `host_time_us()` + 回调 `rtc_read_handler()` + 中断源 `init_timer_alarm()` |
+| `npc/csrc/memory/memory.cpp` | DPI-C 入口 | `dpi_mem_read/write` → `mmio_read/write` 委托 |
+
+### 7.4 Kconfig 配置
+
+```kconfig
+menu "Device Configuration"
+    config DEVICE
+        bool "Enable Device support"
+        default y
+
+    config HAS_SERIAL
+        bool "Enable Serial (UART)"
+        default y
+        depends on DEVICE
+
+    config SERIAL_MMIO
+        hex "Serial port MMIO base address"
+        default 0xa00003f8
+        depends on HAS_SERIAL
+
+    config HAS_TIMER
+        bool "Enable Timer"
+        default y
+        depends on DEVICE
+
+    config RTC_MMIO
+        hex "RTC MMIO base address"
+        default 0xa0000048
+        depends on HAS_TIMER
+endmenu
+```
+
+生成的 `autoconf.h` 关键宏：`CONFIG_DEVICE 1`, `CONFIG_HAS_SERIAL 1`, `CONFIG_SERIAL_MMIO 0xa00003f8`, `CONFIG_HAS_TIMER 1`, `CONFIG_RTC_MMIO 0xa0000048`。
+
+### 7.5 核心数据结构 — `mmio.h`
+
+```cpp
+typedef uint32_t (*mmio_read_cb)(MMIODevice *dev, uint32_t offset);
+typedef void (*mmio_write_cb)(MMIODevice *dev, uint32_t offset,
+                              uint32_t data, uint8_t wmask);
+
+struct MMIODevice {
+    const char *name;       // 设备名，调试用
+    uint8_t    *space;      // 设备寄存器状态区 (IO 空间池分配)
+    uint32_t    addr_start; // MMIO 起始地址 (含)
+    uint32_t    addr_end;   // MMIO 结束地址 (含)
+    uint32_t    wmask;      // 默认写掩码 (0x1=字节写, 0xF=字写)
+    mmio_read_cb  read;     // 读回调 (NULL=space 直读)
+    mmio_write_cb write;    // 写回调 (NULL=space 直写)
+};
+```
+
+**读写分离 vs 读写合一对比：**
+
+| | 读写分离 (NPC) | 读写合一 (NEMU) |
+|------|------|------|
+| 回调数量 | 2 个函数指针 | 1 个函数指针 |
+| 优点 | 参数精确，读有返回值，写有 wmask | 只需一个函数 |
+| 缺点 | 结构体存两个指针 | 回调内需 switch(is_write) |
+
+NPC 选择读写分离，因为串口只写、RTC 只读，不对称。
+
+### 7.6 IO 空间管理 — `mmio.cpp` 框架层
+
+#### 7.6.1 预分配池 + 页对齐分配
+
+```cpp
+#define NPC_IO_SPACE_MAX (64 * 1024)   // 64KB
+#define NPC_PAGE_SIZE  4096
+#define NPC_PAGE_MASK  (NPC_PAGE_SIZE - 1)
+
+static uint8_t *io_space = NULL;
+static uint8_t *p_space = NULL;
+
+void init_map() {
+    io_space = (uint8_t*)malloc(NPC_IO_SPACE_MAX);
+    assert(io_space);
+    p_space = io_space;
+}
+
+uint8_t* new_space(int size) {
+    uint8_t *p = p_space;
+    size = (size + NPC_PAGE_MASK) & ~NPC_PAGE_MASK;  // 页对齐
+    p_space += size;
+    assert(p_space - io_space <= NPC_IO_SPACE_MAX);
+    memset(p, 0, size);
+    return p;
+}
+```
+
+**页对齐意义：** `new_space(8)` → 实际分配 4096 字节。每个设备独占至少一页，支持未来 MMU 页级权限控制。
+
+#### 7.6.2 设备注册 — `add_mmio_device()`
+
+```cpp
+void add_mmio_device(const char *name, void *space,
+                     uint32_t addr, uint32_t len, uint8_t wmask,
+                     mmio_read_cb read, mmio_write_cb write) {
+    paddr_t left = addr, right = addr + len - 1;
+
+    // ① 检查不与 PMEM 重叠
+    Assert(!(in_pmem(left) || in_pmem(right)), ...);
+
+    // ② 检查不与已注册设备重叠
+    for (int i = 0; i < nr_map; i++)
+        if (left <= maps[i].addr_end && right >= maps[i].addr_start)
+            report_mmio_overlap(...);  // → panic
+
+    // ③ 写入设备表
+    maps[nr_map++] = {.name=name, .space=(uint8_t*)space,
+                      .addr_start=left, .addr_end=right,
+                      .wmask=wmask, .read=read, .write=write};
+}
+```
+
+**重叠检测算法：** `[L1,R1]` 与 `[L2,R2]` 重叠 ⇔ `L1 ≤ R2 ∧ R1 ≥ L2`
+
+#### 7.6.3 统一分发逻辑
+
+```
+mmio_read(addr):
+  for i in 0..nr_map:
+    if addr ∈ [maps[i].addr_start, maps[i].addr_end]:
+      offset = addr - maps[i].addr_start
+      return maps[i].read ? maps[i].read(...) : mmio_space_read(...)
+  Assert panic
+
+mmio_write(addr, data, wmask):
+  for i in 0..nr_map:
+    if addr ∈ [maps[i].addr_start, maps[i].addr_end]:
+      offset = addr - maps[i].addr_start
+      mmio_space_write(...)           // ① 先写 space
+      if (maps[i].write) maps[i].write(...)  // ② 再调回调
+      return
+  Assert panic
+```
+
+> **关键顺序：先 space_write，再回调。** 和 NEMU 的 `host_write → invoke_callback` 一致，回调体可从 `dev->space[offset]` 读刚写入的数据。
+
+#### 7.6.4 Space 读写辅助函数
+
+```cpp
+uint32_t mmio_space_read(MMIODevice *dev, uint32_t offset) {
+    uint32_t val = 0;
+    for (int i = 0; i < 4; i++)
+        val |= (uint32_t)dev->space[offset + i] << (i * 8);
+    return val;
+}
+
+void mmio_space_write(MMIODevice *dev, uint32_t offset,
+                      uint32_t data, uint8_t wmask) {
+    for (int i = 0; i < 4; i++)
+        if (wmask & (1 << i))
+            dev->space[offset + i] = (data >> (i * 8)) & 0xFF;
+}
+```
+
+**wmask 逐字节写：** CPU 执行 `sb t0, 0x0(串口地址)` 时，`wmask=0b0001`，只有 `space[0]` 被写入，其余跳过。
+
+#### 7.6.5 启动注册 — `init_mmio()`
+
+```cpp
+void init_mmio() {
+    init_map();
+    add_mmio_device("serial", new_space(8), CONFIG_SERIAL_MMIO, 8,
+                    0x1, NULL, serial_write_handler);  // 只写
+    add_mmio_device("rtc", new_space(8), CONFIG_RTC_MMIO, 8,
+                    0xF, rtc_read_handler, NULL);      // 只读
+}
+```
+
+### 7.7 调用链路 — 启动到运行时
+
+```
+启动时:
+  pmem_init() → init_mmio() → init_map() + add_mmio_device ×2 → pmem_load_bin()
+
+运行时 (每周期):
+  single_cycle() → top->clk=1
+    if_stage.v:   instr = dpi_mem_read(pc, 0)         ← is_load=0，不走 MMIO
+    mem_stage.v:  rdata = dpi_mem_read(addr, mem_read) ← is_load=1 → mmio_read
+    mem_stage.v:  dpi_mem_write(addr, data, wmask)     ← mmio_write
+```
+
+### 7.8 串口设备 — `serial.cpp`
+
+#### 7.8.1 8250 UART 寄存器布局
+
+| 偏移 | 寄存器 | 读写 | NPC 实现 |
+|------|--------|------|----------|
+| 0 | RBR / THR | 读/写 | ✅ 写输出字符; 读预留键盘 |
+| 5 | LSR | 只读 | ⚠️ 预留键盘状态查询 |
+| 1~4,6~7 | 其他寄存器 | — | 忽略 |
+
+`len=8` 预留完整 8250 空间，方便后续扩展。
+
+#### 7.8.2 写回调
+
+```cpp
+void serial_write_handler(MMIODevice *dev, uint32_t offset,
+                          uint32_t data, uint8_t wmask) {
+    switch (offset) {
+        case 0:
+            if (wmask & 0x1)
+                npc_serial_putc(dev->space[0]);  // 从 space 取刚写入的字节
+            break;
+        default: break;  // 静默忽略
+    }
+}
+```
+
+#### 7.8.3 数据流：`putch('A')` → 终端
+
+```
+AM putch('A') → sb 0xa00003f8 → DPI-C dpi_mem_write(0xa00003f8, ..., 0x1)
+  → mmio_write → mmio_space_write (space[0]=0x41)
+  → serial_write_handler → npc_serial_putc(dev->space[0])
+  → fputc('A', stderr) → 终端显示 'A'
+```
+
+### 7.9 RTC 时钟设备 — `rtc.cpp`
+
+#### 7.9.1 两条独立路径
+
+```
+路径 A (被动应答):                路径 B (主动推送):
+host_time_us()                    init_timer_alarm()
+  ↓ CPU load 读 0xa0000048         ↓ SIGVTALRM 每 16.7ms
+rtc_read_handler()                alarm_handler()
+  ↓ 返回微秒时间                   ↓ alarm_fired = 1
+软件知道"现在几点"                 interrupt_check()
+                                   ↓ MIP.MTIP = 1
+                                  CPU 收到时钟中断
+```
+
+#### 7.9.2 RTC 读回调
+
+```cpp
+static uint64_t rtc_latched_us = 0;
+
+uint32_t rtc_read_handler(MMIODevice *dev, uint32_t offset) {
+    switch (offset) {
+        case 0:  // 低 32 位
+            if (rtc_latched_us == 0) rtc_latched_us = host_time_us();
+            return (uint32_t)(rtc_latched_us & 0xFFFFFFFF);
+        case 4:  // 高 32 位 — 每次重新锁存，保证时间推进
+            rtc_latched_us = host_time_us();
+            return (uint32_t)(rtc_latched_us >> 32);
+        default: return 0;
+    }
+}
+```
+
+**锁存机制：** 防止 64 位时间撕裂。`case 4` 每次重新锁存确保 AM 读出的高低 32 位来自同一快照且能随周期推进。
+
+#### 7.9.3 时钟中断注入链路
+
+```
+init_timer_alarm() → setitimer(SIGVTALRM, 16.7ms)
+  每 16.7ms: alarm_handler() → alarm_fired = 1
+  每周期: interrupt_check() → if(alarm_fired) { MIP.MTIP=1; alarm_fired=0; }
+  isa_query_intr() → MIP.MTIP & MIE.MTIE → 返回 0x80000007
+  single_cycle() → top->interrupt_valid=1 → RTL 下周期 trap
+```
+
+> `alarm_handler` 只设标志的原因是信号处理器运行在异步上下文，printf/锁/malloc 不安全。
+
+### 7.10 `memory.cpp` — DPI-C 入口改动
+
+```cpp
+// 改前: switch(paddr) { case SERIAL... case RTC... }
+// 改后:
+int dpi_mem_read(int addr, int is_load) {
+    if (in_pmem(paddr)) return (int)pmem_read(paddr & ~3U, 4);
+    if (!is_load) return 0;
+    mmio_accessed = true;
+    return mmio_read(paddr);  // 一行委托
+}
+
+void dpi_mem_write(int addr, int data, int wmask) {
+    if (in_pmem(paddr)) { pmem_write(...); return; }
+    mmio_accessed = true;
+    mmio_write(paddr, data, (uint8_t)wmask);
+}
+```
+
+**`is_load` 门控：**
+
+| 调用者 | is_load | MMIO 副作用 |
+|--------|:---:|------|
+| if_stage (取指) | 0 | ❌ 不触发 RTC 锁存 |
+| mem_stage (load) | 1 | ✅ 正常交互 |
+
+### 7.11 启动初始化 — `monitor.cpp`
+
+```cpp
+void monitor_init(...) {
+    pmem_init();                 // ① 清空 128MB PMEM
+    init_mmio();                 // ② init_map + 设备注册
+    pmem_load_bin(img_file);     // ③ 加载 .bin
+    init_timer_alarm();          // ④ 启动定时器中断源
+}
+```
+
+### 7.12 mmio_accessed 与 difftest
+
+| 事件 | mmio_accessed | difftest 行为 |
+|------|:---:|------|
+| 正常指令 | 0 | compare |
+| load RTC / store 串口 | 1 | skip compare → sync |
+| 定时器中断 | 0 | skip compare → sync (通过 difftest_sync_needed) |
+
+### 7.13 in_pmem() — 无符号回绕技巧
+
+```cpp
+static inline bool in_pmem(uint32_t addr) {
+    return addr - PMEM_BASE < PMEM_SIZE;
+}
+```
+
+`addr < PMEM_BASE` 时 `addr - PMEM_BASE` 回绕到巨大正值 → 必然 ≥ `PMEM_SIZE` → false。只有 `[PMEM_BASE, PMEM_BASE+PMEM_SIZE)` 内的地址，差值才 < `PMEM_SIZE`。一次比较顶两次。
+
+### 7.14 Bug 修复记录
+
+| # | 文件 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | mmio.cpp | `addr < addr_end` 应 `<=` | 改 `<=` |
+| 2 | mmio.cpp | `mmio_write` 命中后缺 `return` | 加 `return` |
+| 3 | mmio.cpp | `init_mmio` 缺 `init_map()` | 加 `init_map()` |
+| 4 | mmio.cpp | `%08` 缺 `x` | 改 `%08x` |
+| 5 | npc.h | `#include <memory.h>` 在 `typedef paddr_t` 之前 | 移 include 到 typedef 之后 |
+| 6 | device.h | 用 `MMIODevice*` 未 include `mmio.h` | 加 `#include <mmio.h>` |
+| 7 | rtc.cpp | switch 后缺 `return 0` | 加 `return 0` |
+| 8 | Kconfig | `config  Device Configuration` 有空格 | 改 `config DEVICE` |
+
+### 7.15 源码索引
+
+| 组件 | 文件 |
+|------|------|
+| 设备配置 | `npc/Kconfig` L120-175 |
+| 自动生成宏 | `npc/include/generated/autoconf.h` |
+| 结构体 + 回调类型 | `npc/include/mmio.h` |
+| 回调声明 | `npc/include/device.h` |
+| PMEM + in_pmem | `npc/include/memory.h` |
+| DPI-C 入口 | `npc/csrc/memory/memory.cpp` |
+| IO 空间池 + 分发 | `npc/csrc/device/mmio.cpp` |
+| 串口回调 | `npc/csrc/device/serial.cpp` |
+| RTC 回调 + 中断源 | `npc/csrc/device/rtc.cpp` |
+| 时基中断注入 | `npc/csrc/monitor/interrupt.cpp` |
+| 启动初始化 | `npc/csrc/monitor/monitor.cpp` |
+
+### 7.16 扩展指南 — 新增外设（三步）
+
+```
+① Kconfig: 加 HAS_xxx + xxx_MMIO 配置项 → make menuconfig
+② device/xxx.cpp: 实现 read/write 回调函数
+③ mmio.cpp init_mmio(): 加 add_mmio_device() 注册
+```
+
+无需修改 `memory.cpp`、`main.cpp`、RTL——统一分发架构的核心优势。
+
+### 7.17 设计原则总结
+
+| # | 原则 | 说明 |
+|:--:|------|------|
+| 1 | **状态与行为分离** | space_read/write 管数据，回调管副作用 |
+| 2 | **先写 space，再回调** | 回调从 space 读数据，与 NEMU 一致 |
+| 3 | **地址可配置** | Kconfig 管理 MMIO 地址，编译期检查重叠 |
+| 4 | **读写回调分离** | 适合 RTC 只读、串口只写场景 |
+| 5 | **is_load 门控** | 只有 load 指令触发 MMIO 读副作用 |
+| 6 | **mmio_accessed 标记** | MMIO → difftest skip compare + sync |
+| 7 | **页对齐分配** | IO 空间按 4KB 切分，支持未来 MMU 权限控制 |
+| 8 | **新增设备零侵入** | 只加 Kconfig + 回调 + 注册，不改框架代码 |
