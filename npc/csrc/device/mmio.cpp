@@ -125,5 +125,10 @@ void init_mmio(){
     #ifdef CONFIG_HAS_VGA
     init_vga();
     #endif
+    // 4. 键盘：4 字节 space（读回调返回键码）
+    #ifdef CONFIG_HAS_KEYBOARD
+    init_i8042();
+    #endif
+    printf("[mmio] init_mmio done, nr_map=%d\n", nr_map);
 }
 
