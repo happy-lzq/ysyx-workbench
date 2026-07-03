@@ -15,7 +15,8 @@ SIM_CFLAGS = -g -O0 \
 			 -I$(NPC_HOME)/include/generated \
 			 -I$(NPC_HOME)/tools/capstone/repo/include
 
-LDFLAGS = -ldl -lreadline   # ← 加 -lreadline
+LDFLAGS = -ldl -lreadline -lSDL2
+SIM_CFLAGS += $(shell pkg-config --cflags sdl2)
 
 # ==================== run-vcd 执行逻辑 ====================
 
