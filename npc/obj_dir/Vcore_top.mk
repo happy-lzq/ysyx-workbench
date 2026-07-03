@@ -37,7 +37,7 @@ VM_PREFIX = Vcore_top
 VM_MODPREFIX = Vcore_top
 # User CFLAGS (from -CFLAGS on Verilator command line)
 VM_USER_CFLAGS = \
-  -g -O0 -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated -I/home/luo/ysyx/ysyx-workbench/npc/tools/capstone/repo/include -D_REENTRANT -I/usr/include/SDL2 \
+  -g -O2 -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated -I/home/luo/ysyx/ysyx-workbench/npc/tools/capstone/repo/include -D_REENTRANT -I/usr/include/SDL2 \
 
 # User LDLIBS (from -LDFLAGS on Verilator command line)
 VM_USER_LDLIBS = \
