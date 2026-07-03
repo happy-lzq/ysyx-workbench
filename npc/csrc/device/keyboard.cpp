@@ -56,6 +56,7 @@ void send_key(uint8_t scancode, bool is_keydown) {
   if (npc_sim_state.state == NPC_RUNNING && keymap[scancode] != NEMU_KEY_NONE) {
     uint32_t am_scancode = keymap[scancode] | (is_keydown ? KEYDOWN_MASK : 0);
     key_enqueue(am_scancode);
+    if (is_keydown) fprintf(stderr, "[KBD] keydown scancode=%d -> am_code=%d\n", scancode, keymap[scancode]);
   }
 }
 #endif
