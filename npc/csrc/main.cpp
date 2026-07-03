@@ -59,15 +59,19 @@ void single_cycle(){
 }
 
 void npc_exec(){
+    int vga_skip = 0;
     while (npc_sim_state.state != NPC_QUIT) {
         switch (npc_sim_state.state) {
         case NPC_RUNNING:
             single_cycle();
             #ifdef CONFIG_HAS_VGA
+            if (++vga_skip >= 1000) {
                 vga_update_screen();
+                vga_skip = 0;
+            }
             #endif
             #ifdef CONFIG_HAS_KEYBOARD
-            {
+            if (vga_skip == 0) {
               SDL_Event event;
               while (SDL_PollEvent(&event)) {
                 switch (event.type) {
