@@ -62,6 +62,9 @@ void npc_exec(){
         switch (npc_sim_state.state) {
         case NPC_RUNNING:
             single_cycle();
+            #ifdef CONFIG_HAS_VGA
+                vga_update_screen();
+            #endif
             cycle++;
             break;
         case NPC_STOP:
