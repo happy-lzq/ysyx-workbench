@@ -72,7 +72,8 @@ void init_vga() {
 
   add_mmio_device("vgactl", vgactl_port_base, CONFIG_VGA_CTL_MMIO, 8, 0xF, NULL, NULL);
 
-  vmem = new_space(screen_size());
+  vmem = malloc(screen_size());
+  assert(vmem);
   add_mmio_device("vmem", vmem, CONFIG_FB_ADDR, screen_size(), 0xF, NULL, NULL);
 
   #ifdef CONFIG_VGA_SHOW_SCREEN
