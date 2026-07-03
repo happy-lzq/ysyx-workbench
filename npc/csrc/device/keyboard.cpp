@@ -72,7 +72,6 @@ void init_i8042() {
   i8042_data_port_base[0] = NEMU_KEY_NONE;
   add_mmio_device("keyboard", new_space(4), CONFIG_KEYBOARD_MMIO, 4, 0xF, keyboard_read_handler, NULL);
   init_keymap();
-  printf("[keyboard] init_i8042 done, addr=0x%08x\n", CONFIG_KEYBOARD_MMIO);
 }
 
 void sdl_clear_event_queue() {

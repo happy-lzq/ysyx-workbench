@@ -129,6 +129,5 @@ void init_mmio(){
     #ifdef CONFIG_HAS_KEYBOARD
     init_i8042();
     #endif
-    printf("[mmio] init_mmio done, nr_map=%d\n", nr_map);
 }
 
