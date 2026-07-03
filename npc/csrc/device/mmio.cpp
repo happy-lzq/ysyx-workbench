@@ -129,5 +129,9 @@ void init_mmio(){
     #ifdef CONFIG_HAS_KEYBOARD
     init_i8042();
     #endif
+    // 5. 声卡：控制寄存器 + 流缓冲区
+    #ifdef CONFIG_HAS_AUDIO
+    init_audio();
+    #endif
 }
 

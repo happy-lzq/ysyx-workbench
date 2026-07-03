@@ -12,6 +12,7 @@ uint8_t* new_space(int size);
 void init_i8042();
 void send_key(uint8_t scancode, bool is_keydown);
 void sdl_clear_event_queue();
+void init_audio();
 
 // ================= 外部设计的回调函数声明 =================
 void serial_write_handler(MMIODevice *dev, uint32_t offset,
