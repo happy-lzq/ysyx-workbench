@@ -25,6 +25,7 @@
 #define MAX_CYCLE 1000000
 #define INTR_EMPTY ((word_t)-1)
 #define MUXDEF(macro, val1, val2) ((macro) ? (val1) : (val2))
+#define MAP(c, f) c(f)
 // ==================== 定义 CSR 地址宏（与 Verilog 保持一致）
 #define CSR_MSTATUS   0x300
 #define CSR_MTVEC     0x305

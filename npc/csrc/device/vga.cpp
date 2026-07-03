@@ -2,8 +2,13 @@
 #include <npc.h>
 #include <device.h>
 
-#define SCREEN_W (MUXDEF(CONFIG_VGA_SIZE_800x600, 800, 400))
-#define SCREEN_H (MUXDEF(CONFIG_VGA_SIZE_800x600, 600, 300))
+#ifdef CONFIG_VGA_SIZE_800x600
+#define SCREEN_W 800
+#define SCREEN_H 600
+#else
+#define SCREEN_W 400
+#define SCREEN_H 300
+#endif
 
 static uint32_t screen_width()  { return SCREEN_W; }
 static uint32_t screen_height() { return SCREEN_H; }
@@ -27,10 +32,11 @@ static void init_screen() {
   char title[128];
   sprintf(title, "NPC");
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_CreateWindowAndRenderer(
-      SCREEN_W * (MUXDEF(CONFIG_VGA_SIZE_400x300, 2, 1)),
-      SCREEN_H * (MUXDEF(CONFIG_VGA_SIZE_400x300, 2, 1)),
-      0, &window, &renderer);
+#ifdef CONFIG_VGA_SIZE_400x300
+  SDL_CreateWindowAndRenderer(SCREEN_W * 2, SCREEN_H * 2, 0, &window, &renderer);
+#else
+  SDL_CreateWindowAndRenderer(SCREEN_W, SCREEN_H, 0, &window, &renderer);
+#endif
   SDL_SetWindowTitle(window, title);
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
       SDL_TEXTUREACCESS_STATIC, SCREEN_W, SCREEN_H);

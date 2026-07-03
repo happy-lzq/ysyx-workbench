@@ -37,17 +37,19 @@ VM_PREFIX = Vcore_top
 VM_MODPREFIX = Vcore_top
 # User CFLAGS (from -CFLAGS on Verilator command line)
 VM_USER_CFLAGS = \
-  -g -O0 -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated -I/home/luo/ysyx/ysyx-workbench/npc/tools/capstone/repo/include \
+  -g -O0 -I/home/luo/ysyx/ysyx-workbench/npc/csrc -I/home/luo/ysyx/ysyx-workbench/npc/include -I/home/luo/ysyx/ysyx-workbench/npc/obj_dir -I/home/luo/ysyx/ysyx-workbench/npc/include/generated -I/home/luo/ysyx/ysyx-workbench/npc/tools/capstone/repo/include -D_REENTRANT -I/usr/include/SDL2 \
 
 # User LDLIBS (from -LDFLAGS on Verilator command line)
 VM_USER_LDLIBS = \
-  -ldl -lreadline    \
+  -ldl -lreadline -lSDL2 \
 
 # User .cpp files (from .cpp's on Verilator command line)
 VM_USER_CLASSES = \
+  keyboard \
   mmio \
   rtc \
   serial \
+  vga \
   dut \
   main \
   memory \
@@ -80,11 +82,15 @@ include $(VERILATOR_ROOT)/include/verilated.mk
 ### Executable rules... (from --exe)
 VPATH += $(VM_USER_DIR)
 
+keyboard.o: csrc/device/keyboard.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 mmio.o: csrc/device/mmio.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 rtc.o: csrc/device/rtc.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 serial.o: csrc/device/serial.cpp 
+	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
+vga.o: csrc/device/vga.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
 dut.o: csrc/difftest/dut.cpp 
 	$(OBJCACHE) $(CXX) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST)  -c -o $@ $<
