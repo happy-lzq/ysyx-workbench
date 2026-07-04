@@ -107,11 +107,11 @@ static int decode_exec(Decode *s) {
       INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
       INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
       INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
-                                                                            ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
+                                                                            ((src1 == 0x80000000u && src2 == 0xffffffffu) ? 0x80000000u :
                                                                             (int32_t) src1 / (int32_t) src2 )));  
       INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
       INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
-                                                                            ((src1 == 0x80000000 && src2 == -1) ? 0x00000000 : 
+                                                                            ((src1 == 0x80000000u && src2 == 0xffffffffu) ? 0x00000000u :
                                                                             (int32_t) src1 % (int32_t) src2 ))) ;  
       INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
       break;
