@@ -33,7 +33,7 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
       uint32_t *dst = fb + (j + y) * W + x;
       uint32_t *src = pixels + j * w;
       for (int i = 0; i < copy_w; i++) {
-        dst[i] = src[i];
+        dst[i] = src[i] | 0xFF000000;  // 强制 alpha=0xFF，兼容 ARGB8888
       }
     }
   }

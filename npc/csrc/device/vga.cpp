@@ -78,6 +78,8 @@ void init_vga() {
 
   #ifdef CONFIG_VGA_SHOW_SCREEN
     init_screen();
-    memset(vmem, 0, screen_size());
+    // 填充不透明黑色 (ARGB: 0xFF000000)
+    uint32_t *p = (uint32_t*)vmem;
+    for (int i = 0; i < (int)(screen_size() / 4); i++) p[i] = 0xFF000000;
   #endif
 }
