@@ -15,7 +15,7 @@ void __am_gpu_init() {
   int h = cfg & _16_bits;
 
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  for (i = 0; i < w * h; i ++) fb[i] = 0x00FF0000;  // 红色测试
+  for (i = 0; i < w * h; i ++) fb[i] = 0xFF000000;  // 不透明黑色
   outl(SYNC_ADDR, 1);
 }
 
@@ -56,7 +56,7 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
       uint32_t *src = pixels + j*w ;
       for (int i = 0; i < copy_w; i++)
       {
-        dst[i] = src[i];
+        dst[i] = src[i] | 0xFF000000;  // 强制 alpha=0xFF，兼容 ARGB8888
       }
     }
   }
