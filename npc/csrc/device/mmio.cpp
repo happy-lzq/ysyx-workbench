@@ -121,6 +121,17 @@ void init_mmio(){
     add_mmio_device("rtc", new_space(8), CONFIG_RTC_MMIO, 8,
                     0xF, rtc_read_handler, NULL);   // 读有回调，写无回调(space直写)
     #endif
-
+    // 3. VGA：控制寄存器 8 字节 + 帧缓冲区
+    #ifdef CONFIG_HAS_VGA
+    init_vga();
+    #endif
+    // 4. 键盘：4 字节 space（读回调返回键码）
+    #ifdef CONFIG_HAS_KEYBOARD
+    init_i8042();
+    #endif
+    // 5. 声卡：控制寄存器 + 流缓冲区
+    #ifdef CONFIG_HAS_AUDIO
+    init_audio();
+    #endif
 }
 

@@ -36,6 +36,7 @@ static uint8_t *sbuf = NULL;            // 流缓冲区指针
 static uint32_t *audio_base = NULL;     // 寄存器数组基址
 static size_t read_pos = 0;             // SDL 线程下一次读取sbuf的起始位置（硬件内部维护，软件不可见）
 static uint32_t pending_count = 0;      // 真正被SDL读取给宿主声卡播放的数据大小
+static bool audio_active = false;
 // 全局设备真实写入缓冲区待SDL读写字节,要与设备寄存器reg_count分离处理，保证缓冲区待读字节的正确性
 // 原因：MMIO 写操作：先 host_write(已经更改了reg_count当前值)，再 invoke_callback。
 
@@ -58,9 +59,6 @@ static void sdl_audio_callback(void *userdata,Uint8 *stream,int len){
 // 4、更新读指针和缓冲计数
   read_pos = (read_pos + able_copy) %audio_base[reg_sbuf_size];
   pending_count -= able_copy;
-// 5、同步到reg_count抽象寄存器更新
-  audio_base[reg_count] = pending_count;
-  
 }
 
 
@@ -69,9 +67,17 @@ static void audio_open_device(){
   // 1、如果之前打开过，先关闭
   if (audio_dev !=0){
     SDL_CloseAudioDevice(audio_dev);
+    audio_dev = 0;
   }
+  audio_active = false;
+  read_pos = 0;
+  pending_count = 0;
+  audio_base[reg_count] = 0;
+
   // 2、设置音频参数   音频协议
   SDL_AudioSpec want,have;
+  SDL_zero(want);
+  SDL_zero(have);
   want.freq     = audio_base[reg_freq];
   want.format   = AUDIO_S16SYS;
   want.channels = audio_base[reg_channels];
@@ -82,11 +88,12 @@ static void audio_open_device(){
   // 3、打开外设获得实际参数
   audio_dev = SDL_OpenAudioDevice(NULL,0,&want,&have,0);
   if (audio_dev == 0){
-    printf("SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+    printf("SDL_OpenAudioDevice failed: %s; audio output is disabled\n", SDL_GetError());
     return;
   }
   // 4、播放
-    SDL_PauseAudioDevice(audio_dev,0);
+  audio_active = true;
+  SDL_PauseAudioDevice(audio_dev,0);
 }
 
 
@@ -108,19 +115,22 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
         audio_open_device();
     // 重置逻辑的本质是“丢弃旧格式脏数据，为新格式建立干净起点”
         audio_base[reg_init] = 0;
-        read_pos = 0;
-        pending_count = 0;
-        audio_base[reg_count] = 0;
       }
       break;
     case reg_count:
       uint32_t delta = audio_base[reg_count];
+      if (!audio_active) {
+        audio_base[reg_count] = 0;
+        break;
+      }
+      SDL_LockAudioDevice(audio_dev);
       // reg_count 完善被SDL读走之后剩余容量的动态保护
       if (delta > audio_base[reg_sbuf_size] - pending_count){
         delta = audio_base[reg_sbuf_size] - pending_count;      // 防止溢出
       }
       pending_count += delta; 
-      // audio_base[reg_count] = pending_count;                    
+      audio_base[reg_count] = pending_count;
+      SDL_UnlockAudioDevice(audio_dev);
       break;
     default:
       break;
@@ -128,7 +138,13 @@ static void audio_io_handler(uint32_t offset, int len, bool is_write) {
   } else {
     switch (reg_idx){
       case reg_count:
-        audio_base[reg_count] = pending_count;    // 软件层读取时，反正实际已缓冲未SDL读取容量，用于流控处理
+        if (audio_active) {
+          SDL_LockAudioDevice(audio_dev);
+          audio_base[reg_count] = pending_count;    // 软件层读取时，反正实际已缓冲未SDL读取容量，用于流控处理
+          SDL_UnlockAudioDevice(audio_dev);
+        } else {
+          audio_base[reg_count] = 0;
+        }
         break;
       case reg_sbuf_size:
         audio_base[reg_sbuf_size] = CONFIG_SB_SIZE;

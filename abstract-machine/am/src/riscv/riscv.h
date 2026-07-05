@@ -19,8 +19,13 @@ static inline void outl(uintptr_t addr, uint32_t data) { *(volatile uint32_t *)a
 #define PTE_A 0x40
 #define PTE_D 0x80
 // ==================== npc ===========================
-#define NPC_SERIAL_PORT 0xa00003f8    // NEMU 兼容 UART 地址
-#define NPC_RTC_ADDR    0xa0000048    // NEMU 兼容 RTC 地址
+#define NPC_SERIAL_PORT    0xa00003f8    // NEMU 兼容 UART 地址
+#define NPC_RTC_ADDR       0xa0000048    // NEMU 兼容 RTC 地址
+#define NPC_VGA_CTL_ADDR   0xa0000100    // VGA 控制寄存器
+#define NPC_FB_ADDR        0xa1000000    // 帧缓冲区基址
+#define NPC_KBD_ADDR       0xa0000060    // 键盘 MMIO 地址
+#define NPC_AUDIO_ADDR     0xa0000200    // 声卡控制寄存器
+#define NPC_AUDIO_SBUF_ADDR 0xa1200000   // 声卡流缓冲区
 
 
 

@@ -4,6 +4,7 @@
 #include <interrupt.h>
 #include <device.h>
 #include <memory.h>
+#include <SDL2/SDL.h>
 
 Vcore_top *top = NULL;
 VerilatedVcdC* tfp = NULL;
@@ -58,10 +59,37 @@ void single_cycle(){
 }
 
 void npc_exec(){
+    int vga_skip = 0;
     while (npc_sim_state.state != NPC_QUIT) {
         switch (npc_sim_state.state) {
         case NPC_RUNNING:
             single_cycle();
+            #ifdef CONFIG_HAS_VGA
+            if (++vga_skip >= 1000) {
+                vga_update_screen();
+                vga_skip = 0;
+            }
+            #endif
+            #ifdef CONFIG_HAS_KEYBOARD
+            if (vga_skip == 0) {
+              SDL_Event event;
+              while (SDL_PollEvent(&event)) {
+                switch (event.type) {
+                  case SDL_QUIT:
+                    npc_sim_state.state = NPC_QUIT;
+                    break;
+                  case SDL_KEYDOWN:
+                  case SDL_KEYUP: {
+                    uint8_t k = event.key.keysym.scancode;
+                    bool is_keydown = (event.key.type == SDL_KEYDOWN);
+                    send_key(k, is_keydown);
+                    break;
+                  }
+                  default: break;
+                }
+              }
+            }
+            #endif
             cycle++;
             break;
         case NPC_STOP:

@@ -5,7 +5,7 @@
 #define _16_bits 0xffff
 
 
-// 硬件初始化 + 早期测试，确保 GPU 子系统正常工作
+// 硬件初始化：清空 framebuffer，避免应用只绘制局部区域时残留旧画面。
 void __am_gpu_init() {
   int i;
   // 宽高数据存放在硬件中定义在外设的设备寄存器：VGACTL_ADDR
@@ -15,7 +15,7 @@ void __am_gpu_init() {
   int h = cfg & _16_bits;
 
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  for (i = 0; i < w * h; i ++) fb[i] = i;
+  for (i = 0; i < w * h; i ++) fb[i] = 0;
   outl(SYNC_ADDR, 1);
 }
 
@@ -23,12 +23,14 @@ void __am_gpu_init() {
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
 
   uint32_t cfg_val = inl(VGACTL_ADDR);
+  int w = (cfg_val >> 16) & _16_bits;
+  int h = cfg_val & _16_bits;
   *cfg = (AM_GPU_CONFIG_T) {
     .present   = true, 
     .has_accel = false,
-    .width  = (cfg_val >> 16) & _16_bits, 
-    .height = cfg_val & _16_bits,
-    .vmemsz = cfg->width * cfg->height * sizeof(uint32_t)
+    .width  = w,
+    .height = h,
+    .vmemsz = w * h * sizeof(uint32_t)
     // Vmemsz 属于像素的显存总大小，按字节存储 
     // 宽高代表像素点个数，每个像素点4字节=32位
   };
@@ -56,7 +58,7 @@ void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
       uint32_t *src = pixels + j*w ;
       for (int i = 0; i < copy_w; i++)
       {
-        dst[i] = src[i];
+        dst[i] = src[i] | 0xFF000000;  // 强制 alpha=0xFF，兼容 ARGB8888
       }
     }
   }

@@ -8,14 +8,15 @@ VSRCS=$(shell find vsrc/ -name "*.v")
 CSRCS=$(shell find csrc/ -name "*.cpp")
 TOP=core_top
 WAVE_FILE=build/wave.vcd
-SIM_CFLAGS = -g -O0 \
+SIM_CFLAGS = -g -O2 \
 			 -I$(NPC_HOME)/csrc \
 			 -I$(NPC_HOME)/include \
 			 -I$(NPC_HOME)/obj_dir \
 			 -I$(NPC_HOME)/include/generated \
 			 -I$(NPC_HOME)/tools/capstone/repo/include
 
-LDFLAGS = -ldl -lreadline   # ← 加 -lreadline
+LDFLAGS = -ldl -lreadline -lSDL2
+SIM_CFLAGS += $(shell pkg-config --cflags sdl2)
 
 # ==================== run-vcd 执行逻辑 ====================
 
