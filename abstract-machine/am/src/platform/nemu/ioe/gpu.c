@@ -5,7 +5,7 @@
 #define _16_bits 0xffff
 
 
-// 硬件初始化 + 早期测试，确保 GPU 子系统正常工作
+// 硬件初始化：清空 framebuffer，避免应用只绘制局部区域时残留旧画面。
 void __am_gpu_init() {
   int i;
   // 宽高数据存放在硬件中定义在外设的设备寄存器：VGACTL_ADDR
@@ -15,7 +15,7 @@ void __am_gpu_init() {
   int h = cfg & _16_bits;
 
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  for (i = 0; i < w * h; i ++) fb[i] = i;
+  for (i = 0; i < w * h; i ++) fb[i] = 0;
   outl(SYNC_ADDR, 1);
 }
 
