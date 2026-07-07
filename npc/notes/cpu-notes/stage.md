@@ -97,7 +97,7 @@ funct7 ──────────→│  逻辑    │──→ alu_src_b[1:
 | `alu_src_b` | 2 | 00 = rdata2, 01 = imm, 10 = 4 |
 | `reg_wdata_src` | 2 | 00 = ALU 结果, 01 = MEM 数据, 10 = PC+4 |
 | `pc_sel` | 2 | 00 = PC+4, 01 = jal, 10 = jalr, 11 = branch |
-| `br_type` | 3 | 000 = NOP, 001 = BEQ, 010 = BNE, 011 = BLT, 100 = BGE, 101 = BLTU, 110 = BGEU |
+| `br_type` | 3 | 000 = BEQ, 001 = BNE, 010 = BLT, 011 = BGE, 100 = BLTU, 101 = BGEU |
 | `lsu_type` | 3 | 000 = LW, 001 = LH, 010 = LB, 011 = LHU, 100 = LBU, 101 = SW, 110 = SH, 111 = SB |
 
 ## 五、判断依据的本质：如何确定每个控制信号的取值？
@@ -165,7 +165,7 @@ Q4: 查 MUX 输入选项 → 确定 sel 值
 | `mem_read = 0` | 不读内存 | load 指令 |
 | `mem_write = 0` | 不写内存 | store 指令 |
 | `pc_sel = 00` | 下一条 = PC+4 | 跳转/分支指令 |
-| `br_type = 000` | 不分支 | B 型指令 |
+| `br_type = 000` | 默认比较类型为 BEQ；在 `pc_sel=00` 时不会走分支路径 | B 型指令会改写为对应比较类型，并设置 `pc_sel=11` |
 
 **一句话总结**：控制信号 = 数据通路中所有 MUX 选择端 + 模块使能端，对照 ISA 伪代码逐条判断即可。
 
