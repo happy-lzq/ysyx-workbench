@@ -3,7 +3,7 @@
 
 extern "C" void npc_serial_putc(unsigned char ch) {
   fputc(ch, stderr);
-  fflush(stderr);
+  // fflush(stderr);
 }
 
 void serial_write_handler(MMIODevice *dev, uint32_t offset,
