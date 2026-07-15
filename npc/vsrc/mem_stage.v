@@ -1,22 +1,26 @@
 `include "dpi_imports.vh"
-
+`include "ctrl_defs.vh"
 module mem_stage (
     clk
-    ,lsu_type
-    ,mem_read
-    ,mem_write
+    ,mem_ctrl
+    ,interrupt_valid
     ,mem_addr
     ,mem_wdata_raw
     ,mem_rdata
 );
-    input   wire [0 :0] clk;
-    input   wire [0 :0] mem_read;
-    input   wire [0 :0 ]mem_write;
-    input   wire [2 :0] lsu_type;
-    input   wire [31:0] mem_addr;        
-    input   wire [31:0] mem_wdata_raw; 
-    output  wire [31:0] mem_rdata ;
-
+    // 控制流
+    input   wire [0 :0] clk                     ;
+    input   wire [0 :0] interrupt_valid         ;
+    input   wire [`MEM_CTRL_WIDTH-1:0] mem_ctrl ;
+    // 数据流
+    input   wire [31:0] mem_addr                ;        
+    input   wire [31:0] mem_wdata_raw           ; 
+    output  wire [31:0] mem_rdata               ;
+    // 控制总线拆包
+    wire [0 :0] mem_read    = interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_READ]                        ;
+    wire [0 :0 ]mem_write   = interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_WRITE]                       ;
+    wire [2 :0] lsu_type    = mem_ctrl[`MEM_CTRL_LSU_MSB : `MEM_CTRL_LSU_LSB] ;
+    // interrupt 门控
     wire [3 :0] mem_wmask; 
     wire [31:0] mem_rdata_raw, mem_wdata;
 

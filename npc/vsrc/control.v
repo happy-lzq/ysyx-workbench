@@ -1,64 +1,53 @@
+`include "ctrl_defs.vh"
 module control (
     inst
     ,opcode
     ,funct3
     ,funct7
-    ,alu_op          
-    ,alu_src_a       
-    ,alu_src_b       
-    ,br_type         
-    ,mem_read        
-    ,mem_write       
-    ,lsu_type        
-    ,reg_write       
-    ,reg_wdata_src   
-    ,pc_sel          
-    ,csr_op          
-    ,csr_read        
-    ,csr_write       
-    ,csr_addr        
-    ,csr_zimm        
-    ,csr_imm
-    ,trap_enter
-    ,trap_code    
-    ,is_ebreak     
-    ,mret  
+    ,ex_ctrl
+    ,mem_ctrl
+    ,wb_ctrl
+    ,csr_ctrl
+    ,sys_ctrl
+    ,pc_sel
 );
 
-
+    input       [31:0] inst  ;
     input       [6 :0] opcode;
     input       [2 :0] funct3;
     input       [6 :0] funct7;
-    input       [31:0] inst  ;
-    output reg  [4 :0] alu_op;
-    output reg  [0 :0] alu_src_a;
-    output reg  [1 :0] alu_src_b;
-    output reg  [2 :0] br_type;
-    output reg  [0 :0] mem_read;
-    output reg  [0 :0] mem_write;
-    output reg  [0 :0] reg_write;
-    output reg  [2 :0] lsu_type;
-    output reg  [1 :0] reg_wdata_src;
-    output reg  [1 :0] pc_sel;
-  // CSR output data stream
-    output reg  [0 :0] csr_read;
-    output reg  [0 :0] csr_write;
-    output reg  [0 :0] csr_imm;
-    output reg  [0 :0] is_ebreak;
-    output reg  [1 :0] csr_op;
-    output wire [11:0] csr_addr;
-    output wire [31:0] csr_zimm;
-  // system output data ctream
-    output reg  [0 :0] trap_enter;
-    output reg  [0 :0] mret;    
-    output reg  [31:0] trap_code;     // 11=ecall, 3=ebreak
-  
+
+  // == 打包总线端口（wire assign 驱动）==
+    output wire [`EX_CTRL_WIDTH-1  : 0] ex_ctrl   ;
+    output wire [`MEM_CTRL_WIDTH-1 : 0] mem_ctrl  ;
+    output wire [`WB_CTRL_WIDTH-1  : 0] wb_ctrl   ;
+    output wire [`CSR_CTRL_WIDTH-1 : 0] csr_ctrl  ;  
+    output wire [`SYS_CTRL_WIDTH-1 : 0] sys_ctrl  ;    
+    output wire [1:0] pc_sel                      ;    // 保留独立
+
+
+
+  // === 内部 reg：always 块里赋值，末尾打包进总线 ===
+    reg [4:0]  alu_op;
+    reg [0:0]  alu_src_a;
+    reg [1:0]  alu_src_b;
+    reg [2:0]  br_type;
+    reg [0:0]  mem_read, mem_write;
+    reg [2:0]  lsu_type;
+    reg [0:0]  reg_write;
+    reg [1:0]  reg_wdata_src;
+    reg [0:0]  csr_read, csr_write, csr_imm;
+    reg [1:0]  csr_op;
+    // 用 _int 后缀避免与端口 pc_sel_int 冲突
+    reg [1:0]  pc_sel_int;        
+    reg [0:0]  trap_enter_int, is_ebreak_int, mret_int;
+    reg [31:0] trap_code_int;
+
     wire [4 :0] rs1_addr = inst[19:15];
     wire [11:0] funct12  = inst[31:20] ;
-    assign csr_addr      = inst[31:20] ;
-    assign csr_zimm      = {{27{1'b0}},inst[19:15]};
-    
-
+    wire [4 :0] rd_addr  = inst[11:7];
+    wire [11:0] csr_addr = inst[31:20] ;
+    wire [31:0] csr_zimm = {{27{1'b0}},inst[19:15]};
 // ============== 常规指令 ========================//
     always@(*)begin
     // 第一步：给所有信号设默认值（非分支、不访存、不写回）
@@ -71,17 +60,17 @@ module control (
         lsu_type      = 3'b000;
         reg_write     = 1'b0;
         reg_wdata_src = 2'b00;
-        pc_sel        = 2'b00;
+        pc_sel_int        = 2'b00;
         // csr 
         csr_op        = 2'b00;
         csr_read      = 1'b0;
         csr_write     = 1'b0;
         csr_imm       = 1'b0;
         // system
-        is_ebreak     = 1'b0;
-        trap_enter    = 1'b0;
-        trap_code     = 32'b0;
-        mret          = 1'b0;
+        is_ebreak_int     = 1'b0;
+        trap_enter_int    = 1'b0;
+        trap_code_int     = 32'b0;
+        mret_int          = 1'b0;
 
         case (opcode)
 // ================  system inst  ======================== //
@@ -90,16 +79,16 @@ module control (
               3'b000 : begin
               case (funct12) 
               12'b0000_0000_0001 : begin                  // ebreak
-                // trap_enter = 1'b1;        后续进入trap使用
-                // trap_code  = 32'b1011;          
-                is_ebreak  = 1'b1;                 
+                // trap_enter_int = 1'b1;        后续进入trap使用
+                // trap_code_int  = 32'b1011;          
+                is_ebreak_int  = 1'b1;                 
               end
               12'b0000_0000_0000 : begin                  // ecall
-                trap_enter = 1'b1;
-                trap_code  = 32'd11; 
+                trap_enter_int = 1'b1;
+                trap_code_int  = 32'd11; 
               end
-              12'b0011_0000_0010 : begin                  // mret
-                mret = 1'b1;
+              12'b0011_0000_0010 : begin                  // mret_int
+                mret_int = 1'b1;
               end
               default : ;
               endcase
@@ -225,7 +214,7 @@ module control (
             alu_op        = 5'b0_0001;
             reg_write     = 1'b1;
             reg_wdata_src = 2'b10;
-            pc_sel        = 2'b10;
+            pc_sel_int        = 2'b10;
           end
 
 // ============================ S-Store ===========================
@@ -242,7 +231,7 @@ module control (
           end
           7'b1100011 : begin
             br_type       = 3'b000;
-            pc_sel        = 2'b11 ;
+            pc_sel_int        = 2'b11 ;
             case (funct3)
               3'b000 : br_type = 3'b000;  // beq
               3'b001 : br_type = 3'b001;  // bne
@@ -269,9 +258,17 @@ module control (
           7'b1101111 : begin // jal
             reg_write     = 1'b1;
             reg_wdata_src = 2'b10;
-            pc_sel        = 2'b01;
+            pc_sel_int        = 2'b01;
           end
         default : ;
       endcase
     end
+
+    // === 打包：内部 reg → 总线端口 ===
+    assign ex_ctrl  = {alu_op, alu_src_a, alu_src_b, br_type};
+    assign mem_ctrl = {mem_read, mem_write, lsu_type};
+    assign wb_ctrl  = {reg_write, reg_wdata_src, rd_addr};
+    assign csr_ctrl = {csr_read, csr_write, csr_op, csr_imm, csr_addr, csr_zimm};
+    assign sys_ctrl = {trap_enter_int, mret_int, is_ebreak_int, trap_code_int};
+    assign pc_sel      = pc_sel_int;
 endmodule

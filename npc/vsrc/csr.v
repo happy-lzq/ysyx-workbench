@@ -1,29 +1,46 @@
+`include "ctrl_defs.vh"
+
 module csr (
     clk
     ,rst
-    ,csr_addr
-    ,csr_write
+    ,csr_ctrl
+    ,sys_ctrl
+    ,interrupt_valid
+    ,interrupt_cause
     ,csr_wdata
-    ,csr_read
-    ,csr_rdata
-    ,mret
     ,trap_pc
-    ,trap_code         
-    ,trap_enter
     ,trap_target
+    ,csr_rdata
 );
+    // 控制流
     input  wire [0 :0] clk;
     input  wire [0 :0] rst;
-    input  wire [0 :0] csr_write;
-    input  wire [0 :0] csr_read;
-    input  wire [0 :0] mret;
-    input  wire [0 :0] trap_enter;
-    input  wire [11:0] csr_addr;
-    input  wire [31:0] trap_pc;
+    input  wire [`CSR_CTRL_WIDTH-1:0] csr_ctrl;
+    input  wire [`SYS_CTRL_WIDTH-1:0] sys_ctrl;
+    input  wire [0:0]  interrupt_valid;
+    input  wire [31:0] interrupt_cause;
+    // 数据流
     input  wire [31:0] csr_wdata;
-    input  wire [31:0] trap_code;
+    input  wire [31:0] trap_pc;
+    // 输出
     output wire [31:0] csr_rdata;
     output wire [31:0] trap_target;
+
+    // === 从 csr_ctrl 拆包 ===
+    wire [11:0] csr_addr       = csr_ctrl[`CSR_CTRL_ADDR_MSB:`CSR_CTRL_ADDR_LSB];
+    wire        csr_write_raw  = csr_ctrl[`CSR_CTRL_WRITE];
+    wire        csr_read       = csr_ctrl[`CSR_CTRL_READ];
+
+    // === 从 sys_ctrl 拆包 ===
+    wire        trap_enter_raw = sys_ctrl[`SYS_CTRL_TRAP_ENTER];
+    wire        mret_raw       = sys_ctrl[`SYS_CTRL_MRET];
+    wire [31:0] trap_code_raw  = sys_ctrl[`SYS_CTRL_TRAP_CODE_MSB:`SYS_CTRL_TRAP_CODE_LSB];
+
+    // === interrupt 门控 ===
+    wire        csr_write  = interrupt_valid ? 1'b0  : csr_write_raw;
+    wire        mret       = interrupt_valid ? 1'b0  : mret_raw;
+    wire        trap_enter = trap_enter_raw | interrupt_valid;
+    wire [31:0] trap_code  = interrupt_valid ? interrupt_cause : trap_code_raw;
 
     parameter mstatus   = 12'h300;
     parameter mtvec     = 12'h305;

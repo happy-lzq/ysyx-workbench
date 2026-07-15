@@ -1,37 +1,43 @@
+`include "ctrl_defs.vh"
 module ex_stage (
     pc 
     ,rs1_rdata          
-    ,rs2_rdata         
-    ,br_type           
-    ,imm_out           
-    ,alu_op            
-    ,alu_src_a         
-    ,alu_src_b                        
-    ,csr_op
-    ,csr_imm
-    ,csr_zimm
+    ,rs2_rdata                 
+    ,imm_out    
     ,csr_rdata
+    ,ex_ctrl
+    ,csr_ctrl
     ,alu_result         
     ,br_taken           
     ,csr_wdata          
 
 );
+    // 数据流
     input  wire [31:0] pc;
-    input  wire [4 :0] alu_op;
-    input  wire [0 :0] alu_src_a;
-    input  wire [1 :0] alu_src_b;
-    input  wire [2 :0] br_type;
-    input  wire [31:0] imm_out;
     input  wire [31:0] rs1_rdata;
     input  wire [31:0] rs2_rdata;
-    input  wire [1 :0] csr_op;
+    input  wire [31:0] imm_out;
     input  wire [31:0] csr_rdata;
-    input  wire [31:0] csr_zimm;
-    input  wire [0 :0] csr_imm;
-
+    // 控制流
+    input  wire [`EX_CTRL_WIDTH-1:0]  ex_ctrl;
+    input  wire [`CSR_CTRL_WIDTH-1:0] csr_ctrl;
+    // 输出
     output wire [31:0] alu_result;
     output wire [0 :0] br_taken  ;
     output reg  [31:0] csr_wdata ;
+
+    // === 从 ex_ctrl 拆包 ===
+    wire [4:0] alu_op    = ex_ctrl[`EX_CTRL_ALU_OP_MSB:`EX_CTRL_ALU_OP_LSB];
+    wire       alu_src_a = ex_ctrl[`EX_CTRL_ALU_SRC_A];
+    wire [1:0] alu_src_b = ex_ctrl[`EX_CTRL_ALU_SRC_B_MSB:`EX_CTRL_ALU_SRC_B_LSB];
+    wire [2:0] br_type   = ex_ctrl[`EX_CTRL_BR_TYPE_MSB:`EX_CTRL_BR_TYPE_LSB];
+
+    // === 从 csr_ctrl 拆包 ===
+    wire [1:0]  csr_op   = csr_ctrl[`CSR_CTRL_OP_MSB:`CSR_CTRL_OP_LSB];
+    wire        csr_imm  = csr_ctrl[`CSR_CTRL_IMM];
+    wire [31:0] csr_zimm = csr_ctrl[`CSR_CTRL_ZIMM_MSB:`CSR_CTRL_ZIMM_LSB];
+
+
     wire        [31:0] src1,src2;
     
     assign src1 = (alu_src_a == 1'b0 ) ? rs1_rdata : pc;

@@ -1,20 +1,20 @@
 module imm_gen (
-    instr
+    inst
     ,imm_out
 );
-    input wire [31:0] instr;
+    input wire [31:0] inst;
     output reg [31:0] imm_out;
 
     wire [31:0] imm_i,imm_s,imm_b,imm_u,imm_j;
-    assign imm_i = {{20{instr[31]}}, instr[31:20]};
-    assign imm_s = {{20{instr[31]}}, instr[31:25], instr[11:7] };
-    assign imm_b = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
-    assign imm_u = {instr[31:12], 12'b0};
-    assign imm_j = {{11{instr[31]}}, instr[31], instr[19:12], instr[20],instr[30:21], 1'b0};
+    assign imm_i = {{20{inst[31]}}, inst[31:20]};
+    assign imm_s = {{20{inst[31]}}, inst[31:25], inst[11:7] };
+    assign imm_b = {{19{inst[31]}}, inst[31], inst[7], inst[30:25], inst[11:8], 1'b0};
+    assign imm_u = {inst[31:12], 12'b0};
+    assign imm_j = {{11{inst[31]}}, inst[31], inst[19:12], inst[20],inst[30:21], 1'b0};
   
  
     always @(*) begin
-        case (instr[6:0])
+        case (inst[6:0])
         //    7'b0110011 : R类型: 无立即数
         // I 
            7'b0010011 , // 算术

@@ -1,3 +1,5 @@
+`include "ctrl_defs.vh"
+
 module core_top (
     clk
     ,rst
@@ -10,52 +12,40 @@ module core_top (
 );
     input  wire [0 :0]                 clk,rst,interrupt_valid;
     input  wire [31:0]                         interrupt_cause;
-    output wire [0 :0]                               halt;
-    output wire [31:0]             instr,halt_pc,halt_ret;
-    wire [4 :0]                 rs1_addr,rs2_addr,rd_addr;
-    wire [0 :0]     mem_read,mem_write,reg_write,br_taken;
-    wire [31:0]              rd_wdata,rs1_rdata,rs2_rdata;
-    wire [1 :0]                                    pc_sel;
-    wire [31:0]                  jump_jalr,imm_jal,imm_br;
-    wire [31:0]                                        pc;
-    wire [31:0]                                  pc_plus4;
-    wire [4 :0]                                    alu_op;
-    wire [0 :0]                       is_ebreak,alu_src_a;
-    wire [1 :0]                                 alu_src_b;
-    wire [2 :0]                                   br_type;
-    wire [2 :0]                                  lsu_type;
-    wire [1 :0]                             reg_wdata_src;
-    wire [31:0]                        alu_result,imm_out;
-    wire [31:0]                                  mem_addr;        
-    wire [31:0]               mem_rdata_raw,mem_wdata_raw; 
-    wire [31:0]                                 mem_rdata;
-    wire [1 :0]                                    csr_op; 
-    wire [4 :0]                                   csr_rs1;
-    wire [11:0]                                  csr_addr;
-    wire [31:0]                         trap_pc,csr_wdata;
-    wire [0: 0]csr_imm,csr_write,csr_read,mret,trap_enter;
-    wire [31:0]            csr_rdata,trap_target,csr_zimm;
-    wire [31:0]                                 trap_code;
-    wire [31:0]                                     rs_a0;
-    wire [0 :0] mem_read_eff,mem_write_eff,reg_write_eff,csr_write_eff,mret_eff,trap_enter_eff,is_ebreak_eff;
-    wire [31:0] trap_code_eff;
+    output wire [0 :0]                                    halt;
+    output wire [31:0]                   instr,halt_pc,halt_ret;
+
+    // ========== 数据通路 ==========
+    wire [31:0] pc, pc_plus4;
+    wire [31:0] rs1_rdata, rs2_rdata, rd_wdata;
+    wire [31:0] alu_result, imm_out;
+    wire [31:0] mem_addr, mem_wdata_raw, mem_rdata;
+    wire [31:0] jump_jalr, imm_jal, imm_br;
+    wire [31:0] csr_rdata, csr_wdata, trap_target, trap_pc;
+    wire [31:0] rs_a0;
+    wire [0:0]  br_taken;
+    wire [4:0] rs1_addr, rs2_addr;
+    // ========== 控制总线（id_stage → 各模块）==========
+    wire [`EX_CTRL_WIDTH-1:0]  ex_ctrl;
+    wire [`MEM_CTRL_WIDTH-1:0] mem_ctrl;
+    wire [`WB_CTRL_WIDTH-1:0]  wb_ctrl;
+    wire [`CSR_CTRL_WIDTH-1:0] csr_ctrl;
+    wire [`SYS_CTRL_WIDTH-1:0] sys_ctrl;
+    wire [1:0] pc_sel;
     
+    // ========== 从总线提取 + 门控（简单模块用）==========
+    wire [4:0] rd_addr = wb_ctrl[`WB_CTRL_RD_ADDR_MSB:`WB_CTRL_RD_ADDR_LSB];
+    wire reg_write_raw  = wb_ctrl[`WB_CTRL_REG_WRITE];
+    wire is_ebreak_raw  = sys_ctrl[`SYS_CTRL_IS_EBREAK];
+    wire reg_write_eff  = interrupt_valid ? 1'b0 : reg_write_raw;
+    wire is_ebreak_eff  = interrupt_valid ? 1'b0 : is_ebreak_raw;
 
-
-    assign jump_jalr        = alu_result;
-    assign imm_jal          = imm_out;
-    assign imm_br           = imm_out;
-    assign mem_addr         = alu_result;
-    assign mem_wdata_raw    = rs2_rdata;    
-    assign trap_pc          = pc;
-    assign mem_read_eff     = interrupt_valid ? 1'b0 : mem_read;
-    assign mem_write_eff    = interrupt_valid ? 1'b0 : mem_write;
-    assign reg_write_eff    = interrupt_valid ? 1'b0 : reg_write;
-    assign csr_write_eff    = interrupt_valid ? 1'b0 : csr_write;
-    assign mret_eff         = interrupt_valid ? 1'b0 : mret;
-    assign trap_enter_eff   = trap_enter      | interrupt_valid;
-    assign trap_code_eff    = interrupt_valid ? interrupt_cause : trap_code;
-    assign is_ebreak_eff    = interrupt_valid ? 1'b0 : is_ebreak;
+    assign jump_jalr     = alu_result;
+    assign imm_jal       = imm_out;
+    assign imm_br        = imm_out;
+    assign mem_addr      = alu_result;
+    assign mem_wdata_raw = rs2_rdata;
+    assign trap_pc       = pc;
 
 regfile u_regfile (
     .clk          (clk),
@@ -70,98 +60,76 @@ regfile u_regfile (
 );
 
 csr u_csr (
-    .clk            (clk),
-    .rst            (rst),
-    .csr_addr       (csr_addr),
-    .csr_write      (csr_write_eff),
-    .csr_wdata      (csr_wdata),
-    .csr_read       (csr_read),
-    .csr_rdata      (csr_rdata),
-    .mret           (mret_eff),
-    .trap_pc        (trap_pc),
-    .trap_code      (trap_code_eff),
-    .trap_enter     (trap_enter_eff),
-    .trap_target    (trap_target)
+    .clk                (clk),
+    .rst                (rst),
+    .csr_ctrl           (csr_ctrl),
+    .sys_ctrl           (sys_ctrl),
+    .interrupt_valid    (interrupt_valid),
+    .interrupt_cause    (interrupt_cause),
+    .csr_wdata          (csr_wdata),
+    .trap_pc            (trap_pc),
+    .trap_target        (trap_target),
+    .csr_rdata          (csr_rdata)
 );
 
 if_stage u_if_stage (
-    .clk            (clk),
-    .rst            (rst),
-    .trap_enter     (trap_enter_eff),
-    .trap_target    (trap_target),
-    .mret           (mret_eff),
-    .pc_sel         (pc_sel),
-    .br_taken       (br_taken),
-    .jump_jalr      (jump_jalr),
-    .imm_jal        (imm_jal),
-    .imm_br         (imm_br),
-    .pc             (pc),
-    .pc_plus4       (pc_plus4),
-    .instr          (instr)
+    .clk                (clk),
+    .rst                (rst),
+    .sys_ctrl           (sys_ctrl),
+    .interrupt_valid    (interrupt_valid),
+    .trap_target        (trap_target),
+    .pc_sel             (pc_sel),
+    .br_taken           (br_taken),
+    .jump_jalr          (jump_jalr),
+    .imm_jal            (imm_jal),
+    .imm_br             (imm_br),
+    .pc                 (pc),
+    .pc_plus4           (pc_plus4),
+    .inst               (instr)
 );
 
 id_stage u_id_stage (
-    .instr            (instr),
-    .rs1_addr         (rs1_addr),
-    .rs2_addr         (rs2_addr),
-    .rd_addr          (rd_addr),
-    .alu_op           (alu_op),
-    .alu_src_a        (alu_src_a),
-    .alu_src_b        (alu_src_b),
-    .br_type          (br_type),
-    .mem_read         (mem_read),
-    .mem_write        (mem_write),
-    .lsu_type         (lsu_type),
-    .reg_write        (reg_write),
-    .reg_wdata_src    (reg_wdata_src),
-    .pc_sel           (pc_sel),
-    .imm_out          (imm_out),
-    .csr_op           (csr_op),
-    .csr_read         (csr_read),
-    .csr_write        (csr_write),
-    .csr_addr         (csr_addr),
-    .csr_zimm         (csr_zimm),
-    .csr_imm          (csr_imm),
-    .mret             (mret),
-    .trap_enter       (trap_enter),
-    .trap_code        (trap_code),
-    .is_ebreak        (is_ebreak)
+    .inst       (instr),
+    .rs1_addr    (rs1_addr),
+    .rs2_addr    (rs2_addr),
+    .imm_out     (imm_out),
+    .ex_ctrl     (ex_ctrl),
+    .mem_ctrl    (mem_ctrl),
+    .wb_ctrl     (wb_ctrl),
+    .csr_ctrl    (csr_ctrl),
+    .sys_ctrl    (sys_ctrl),
+    .pc_sel      (pc_sel)
 );
+
 ex_stage u_ex_stage (
+    .pc            (pc),
     .rs1_rdata     (rs1_rdata),
     .rs2_rdata     (rs2_rdata),
-    .br_type       (br_type),
     .imm_out       (imm_out),
-    .alu_op        (alu_op),
-    .alu_src_a     (alu_src_a),
-    .alu_src_b     (alu_src_b),
-    .pc            (pc),
-    .csr_op        (csr_op),
-    .csr_imm       (csr_imm),
-    .csr_zimm      (csr_zimm),
     .csr_rdata     (csr_rdata),
+    .ex_ctrl       (ex_ctrl),
+    .csr_ctrl      (csr_ctrl),
     .alu_result    (alu_result),
     .br_taken      (br_taken),
     .csr_wdata     (csr_wdata)
 );
 
 mem_stage u_mem_stage (
-    .clk              (clk),
-    .lsu_type         (lsu_type),
-    .mem_read         (mem_read_eff),
-    .mem_write        (mem_write_eff),
-    .mem_addr         (mem_addr),
-    .mem_wdata_raw    (mem_wdata_raw),
-    .mem_rdata        (mem_rdata)
+    .clk                (clk),
+    .mem_ctrl           (mem_ctrl),
+    .interrupt_valid    (interrupt_valid),
+    .mem_addr           (mem_addr),
+    .mem_wdata_raw      (mem_wdata_raw),
+    .mem_rdata          (mem_rdata)
 );
 
 wb_stage u_wb_stage (
-    .reg_wdata_src    (reg_wdata_src),
-    .mem_rdata        (mem_rdata),
-    .alu_result       (alu_result),
-    .pc_plus4         (pc_plus4),
-    .csr_rdata        (csr_rdata),
-    .reg_wdata        (rd_wdata)
+    .wb_ctrl       (wb_ctrl),
+    .mem_rdata     (mem_rdata),
+    .alu_result    (alu_result),
+    .pc_plus4      (pc_plus4),
+    .csr_rdata     (csr_rdata),
+    .rd_wdata      (rd_wdata)
 );
 
 halt u_halt (
