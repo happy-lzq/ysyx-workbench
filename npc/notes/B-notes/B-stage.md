@@ -1,8 +1,8 @@
-# B-Stage: 控制信号分组（集中控制 → 分布式控制第一步）
+# B-Stage: 控制信号分组——集中控制 → 分布式控制
 
-> 状态：🚧 进行中（已完成：`ctrl_defs.vh`, `control.v`, `id_stage.v`, `wb_stage.v`）  
-> 日期：2026-07-15  
-> 关联文件：`ctrl_defs.vh`, `control.v`, `id_stage.v`, `core_top.v`, `ex_stage.v`, `mem_stage.v`, `wb_stage.v`, `if_stage.v`, `csr.v`
+> 状态：✅ 已完成并通过测试  
+> 日期：2026-07-15 ~ 2026-07-16  
+> 分支：`b-stage`
 
 ---
 
@@ -52,45 +52,46 @@ control.v       │                                      │
 | 原则 | 说明 |
 |------|------|
 | **数据与控制分离** | 数据通路（pc, rs_data, alu_result...）不走总线，照旧直连 |
-| **控制按功能域打包** | 译码产生的控制信号按目标阶段/功能域分组，每组一根总线 |
-| **一根总线多消费者** | `csr_ctrl` 同时服务 ex_stage（生成 csr_wdata）和 csr 模块（读写 CSR）；`wb_ctrl` 同时服务 wb_stage（选回写源）和 regfile（写使能）——各取所需字段 |
-| **谁用谁拆包** | 复杂模块（ex/mem/wb/if/csr）收到总线后自行拆包；简单模块（regfile/halt）由 core_top 代拆所需信号 |
-| **门控下放** | `interrupt_valid` 传入需要的模块（mem_stage, csr, if_stage），内部自行门控 |
-| **core_top 只接线** | 顶层不译码，只负责：声明总线、连接生产者和消费者、为简单模块代拆少量信号 |
+| **控制按功能域打包** | 译码信号按目标阶段/功能域分组，5 组总线 + 1 独立信号 |
+| **一根总线多消费者** | `csr_ctrl` → ex_stage + csr；`wb_ctrl` → wb_stage + regfile；`sys_ctrl` → csr + if_stage + halt |
+| **谁用谁拆包** | 复杂模块收总线自行拆包；简单模块（regfile/halt）由 core_top 代拆 |
+| **门控下放** | `interrupt_valid` 传入 mem_stage/csr/if_stage，各模块内部自行门控 |
+| **core_top 只接线** | 顶层不译码：声明总线、连接生产者消费者、为简单模块代拆少量信号 |
 
 ---
 
 ## 1. 设计动机
 
-### 改前（单周期 / 集中控制）
+### 1.1 改前：单周期集中控制
 
 ```
-control.v 输出 20+ 根散线 → id_stage.v 透传 → core_top.v 扇出到所有阶段
+control.v ──alu_op──┬──→ id_stage ──→ core_top ──→ ex_stage
+           ──mem_read─┤
+           ──reg_write┘  20+ 根散线，"谁要谁拿走"
 ```
 
-- 控制信号从 ID 阶段"广播"到 EX/MEM/WB，所有阶段实时可见
-- 每新增/修改一个控制信号，需要在 3+ 个文件里改端口声明和连线
-- 引入流水线后，ID/EX 寄存器需要逐根存储，代码膨胀严重
+**痛点**：
+- 新增控制信号需要改 3+ 个文件的端口声明和连线
+- 引入流水线后 ID/EX 寄存器需逐信号声明，代码膨胀
+- 控制信号从 ID "广播"到所有阶段，各阶段之间的依赖关系不清晰
 
-### 改后（分布式控制第一步：分组打包）
+### 1.2 改后：分布式控制
 
 ```
-control.v 输出 5 根总线 + 1 根独立线 → id_stage.v 透传 → core_top.v 拆包连到各阶段
+control.v ──ex_ctrl──→ id_stage ──→ core_top ──→ ex_stage（拆包）
+           ──mem_ctrl─→           ──→           ──→ mem_stage（拆包）
+           ──wb_ctrl──→           ──→           ──→ wb_stage（拆包）
+           ──csr_ctrl─→           ──→           ──→ ex_stage + csr
+           ──sys_ctrl─→           ──→           ──→ csr + if_stage + halt
+           ──pc_sel───→           ──→           ──→ if_stage
 
-ex_ctrl[10:0]   → EX 阶段用
-mem_ctrl[4:0]   → MEM 阶段用
-wb_ctrl[7:0]    → WB 阶段用
-csr_ctrl[48:0]  → CSR 模块用（控制 + csr_zimm 数据合入）
-sys_ctrl[34:0]  → 异常/系统控制
-pc_sel[1:0]     → 独立：ID→IF 前馈，不随流水线传递
+           5 根集装箱 + 1 根快递单，"你的包裹请签收"
 ```
 
-- 控制信号按**目标阶段/功能域**分组，每组一根总线
-- `csr_zimm`（32 位数据）合入 `csr_ctrl`：CSR 相关全部在一根总线里走
-- `trap_enter`/`mret`/`is_ebreak`/`trap_code` 打包为 `sys_ctrl`：异常信息整体传递
-- 仅 `pc_sel` 保留独立：它是 ID→IF 前馈，不走流水线
-- 新增信号只需改 `ctrl_defs.vh` 和 `control.v` 内的拼接，不影响接口
-- 为流水线寄存器"整存整取"做好数据类型准备
+**优势**：
+- 控制信号按目标阶段打包，依赖关系一目了然
+- 流水线寄存器"整存整取"：`reg [EX_CTRL_WIDTH-1:0] ex_ctrl_q;` 一行搞定
+- 新增信号只改 `.vh` 和 `control.v` 内部拼接，接口不变
 
 ---
 
@@ -266,52 +267,137 @@ assign pc_sel = pc_sel_int;
 
 ---
 
-## 4. 译码逻辑：一行不动
+## 4. interrupt 门控分发策略
 
-```
-always @(*) begin
-    // 默认值 + case(opcode) ... 完全不变
-    // 唯一变化：_int 后缀的信号名
-end
-```
+### 4.1 设计决策：分布式门控
 
-核心原则：**控制信号的"产生逻辑"与"传递方式"解耦**。
+`interrupt_valid` 从 DPI-C 仿真环境传入，作用是"取消当前指令副作用 + 注入 trap"。选择**分布式门控**：各模块自行处理，而非 core_top 集中门控。
 
----
+| 模块 | 收什么 | 内部门控逻辑 |
+|------|--------|-------------|
+| `mem_stage` | `mem_ctrl` + `interrupt_valid` | `mem_read`/`mem_write` 清零（阻止访存） |
+| `csr` | `csr_ctrl` + `sys_ctrl` + `interrupt_valid` + `interrupt_cause` | `csr_write`/`mret` 清零，`trap_enter = raw \| interrupt`，`trap_code` 替换为 `interrupt_cause` |
+| `if_stage` | `sys_ctrl` + `interrupt_valid` | `trap_enter = raw \| interrupt`，`mret` 清零 |
+| **core_top 代劳** | `wb_ctrl` / `sys_ctrl` | `reg_write_eff`（给 regfile）、`is_ebreak_eff`（给 halt） |
 
-## 5. 文件修改清单
+### 4.2 两种门控模式
 
-### 已完成 ✅
+| 模式 | 含义 | 示例 |
+|------|------|------|
+| **清零** | 中断时取消操作 | `mem_write = interrupt_valid ? 1'b0 : raw` |
+| **OR** | 中断时强制注入 | `trap_enter = raw | interrupt_valid` |
 
-| 文件 | 改动内容 | 关键点 |
-|------|----------|--------|
-| `ctrl_defs.vh` | 扩展 `CSR_CTRL` 为 49 bits（+`csr_zimm` 位段）；新增 `SYS_CTRL` 35 bits；`WB_CTRL` 加入 `rd_addr` | 位宽算术需逐组验证 |
-| `control.v` | 端口：5 总线（ex/mem/wb/csr/sys）+ 1 独立（pc_sel）；内部 reg 降级；末尾 assign 打包 | `always @(*)` 逻辑不动；`_int` 后缀一致性；`csr_zimm` 必须 `wire`+`assign` 而非 `reg` 初始化 |
-| `id_stage.v` | 端口声明从散线改总线；`control` 例化对应修改；`imm_gen` 保持不动 | `rd_addr` 提取移到 `control.v` 内部；数据信号（rs1/rs2_addr, imm_out）原样保留 |
-| `wb_stage.v` | 端口 `reg_wdata_src` → `wb_ctrl` 总线；内部一行拆包 | 改动最小（1 行拆包），验证总线方案可行性 |
+### 4.3 `csr.v` 需额外接收 `interrupt_cause`
 
-### 待完成 🚧
-
-| 文件 | 改动内容 | 复杂度 |
-|------|----------|:------:|
-| `mem_stage.v` | 端口改 `mem_ctrl` 总线 + `interrupt_valid`；内部拆包 + `_eff` 门控 | ⭐⭐ |
-| `if_stage.v` | 端口加 `sys_ctrl` 总线 + `interrupt_valid`；拆包 + trap 门控 | ⭐⭐ |
-| `ex_stage.v` | 端口改 `ex_ctrl` + `csr_ctrl` 双总线；拆包 7 个控制信号 | ⭐⭐⭐ |
-| `csr.v` | 端口改 `csr_ctrl` + `sys_ctrl` 双总线 + `interrupt_valid`；内部拆包 + 门控 | ⭐⭐⭐ |
-| `core_top.v` | 清理旧散线声明；声明 5 总线 + pc_sel；各模块例化改总线连接；保留 `reg_write_eff`/`is_ebreak_eff` 两个简单门控 | ⭐⭐ |
-
-### 推荐修改顺序
-
-```
-wb_stage → mem_stage → if_stage → ex_stage → csr → core_top
- (最简单)   (门控)      (门控)     (最复杂)   (复杂)   (总装)
-```
-
-每改完一个文件就编译验证。
+中断时 `csr_mcause` 应写入 `interrupt_cause`（如 `0x80000007` 定时器中断），而非指令自身的 `trap_code`。因此 `csr` 需额外 `interrupt_cause` 输入端口。
 
 ---
 
-## 6. 设计思想总结
+## 5. 核心改造技巧
+
+### 5.1 "端口降级 + 末尾打包"（`control.v`）
+
+```
+原来：output reg [4:0] alu_op;   ← 既是端口又是 reg
+现在：reg [4:0] alu_op;          ← 降级为内部 reg
+     assign ex_ctrl = {alu_op, ...};  ← 末尾拼接打包成总线端口
+```
+
+### 5.2 端口与内部 reg 命名冲突
+
+`pc_sel` 等保留独立端口的信号，内部 reg 加 `_int` 后缀：
+
+```verilog
+output wire [1:0] pc_sel;       // 端口
+reg [1:0] pc_sel_int;           // 内部 reg（always 块赋值）
+assign pc_sel = pc_sel_int;     // 末尾桥接
+```
+
+涉及信号：`pc_sel_int`, `trap_enter_int`, `mret_int`, `is_ebreak_int`, `trap_code_int`
+
+### 5.3 译码逻辑：一行不动
+
+`always @(*)` 块内 case(opcode) 逻辑完全不变。核心原则：**控制信号的产生逻辑与传递方式解耦**。
+
+### 5.4 `csr_zimm` 的陷阱
+
+```verilog
+// ❌ 错误：reg 初始化只在 t=0 执行一次，inst 变化时不更新
+reg [31:0] csr_zimm = {{27{1'b0}}, inst[19:15]};
+
+// ✅ 正确：wire + assign 持续赋值
+wire [31:0] csr_zimm = {{27{1'b0}}, inst[19:15]};
+```
+
+---
+
+## 6. 文件修改全记录
+
+---
+
+### 6.1 控制总线定义
+
+| 文件 | 改动 | 复杂度 |
+|------|------|:--:|
+| `ctrl_defs.vh` | 扩展 `WB_CTRL` 加入 `rd_addr`；`CSR_CTRL` 扩至 49 bits（+csr_zimm）；新增 `SYS_CTRL` 35 bits | ⭐ |
+
+### 6.2 译码 + 打包（信号生产者）
+
+| 文件 | 改动 | 复杂度 |
+|------|------|:--:|
+| `control.v` | 输出从 ~20 根散线 → 5 总线 + pc_sel；内部 reg 降级；末尾打包；csr_zimm 改为 wire+assign | ⭐⭐⭐ |
+
+### 6.3 透传层
+
+| 文件 | 改动 | 复杂度 |
+|------|------|:--:|
+| `id_stage.v` | 端口从散线改总线；control 例化对应修改；数据信号不变 | ⭐ |
+
+### 6.4 阶段模块——收总线、拆包、门控
+
+| 顺序 | 文件 | 收什么总线 | 内部拆包 | 门控 | 复杂度 |
+|:--:|------|-----------|----------|:--:|:--:|
+| ① | `wb_stage.v` | `wb_ctrl` | `rd_wdata_src` | — | ⭐ |
+| ② | `mem_stage.v` | `mem_ctrl` | `mem_read/write/lsu_type` | 清零 | ⭐⭐ |
+| ③ | `if_stage.v` | `sys_ctrl` | `trap_enter/mret` | 清零+OR | ⭐⭐ |
+| ④ | `ex_stage.v` | `ex_ctrl` + `csr_ctrl` | 7 信号（4 EX + 3 CSR） | — | ⭐⭐⭐ |
+| ⑤ | `csr.v` | `csr_ctrl` + `sys_ctrl` | 6 信号（3 CSR + 3 SYS） | 清零+OR+替换 | ⭐⭐⭐ |
+
+### 6.5 顶层总装
+
+| 文件 | 改动 | 复杂度 |
+|------|------|:--:|
+| `core_top.v` | 清理所有旧散线声明；声明 5 总线 + pc_sel；各模块例化从散线改总线；补 6 条数据通路 assign；为 regfile/halt 代拆门控 | ⭐⭐ |
+
+### 6.6 不需改动的模块
+
+| 模块 | 原因 |
+|------|------|
+| `alu.v` | 收 `src1/src2/alu_op`，由 ex_stage 拆包传入 |
+| `br_cond.v` | 收 `rs1/rs2/br_type`，由 ex_stage 拆包传入 |
+| `halt.v` | 收 `is_ebreak`，由 core_top 代拆+门控传入 |
+| `lsu.v` | 收 `lsu_type/mem_read/mem_write`，由 mem_stage 拆包传入 |
+| `regfile.v` | 收 `reg_write/rd_addr`，由 core_top 代拆+门控传入 |
+| `imm_gen.v` | 收 `inst`，由 id_stage 直传 |
+
+---
+
+## 7. 常见错误与教训
+
+| 错误 | 原因 | 教训 |
+|------|------|------|
+| `` `WB_CTRL_WIDTH `` 未定义 | 忘记 `include "ctrl_defs.vh"` | 每个用到总线宏的文件都要 include |
+| `csr_zimm` 声明为 `reg` | reg 初始化只在 t=0 生效 | 需持续赋值的必须 `wire` + `assign` |
+| `pc_sel` 在 always 块直接赋值 | 端口改 output wire 后不能 always 赋值 | 内部 reg 加 `_int` 后缀 + 末尾 assign 桥接 |
+| `rs1_addr`/`rs2_addr` 未声明 | id_stage 新增输出但 core_top 忘声明 wire | 改模块端口时同步检查顶层连线 |
+| `mem_addr`/`mem_wdata_raw` 未赋值 | 清理旧散线时误删数据通路 assign | 数据通路 assign 不是控制信号，不能删 |
+| `.instr(inst)` 端口名不匹配 | id_stage/if_stage 改名 `inst` 但顶层未同步 | 改端口名要全局搜索引用 |
+
+---
+
+## 8. 设计思想总结
+
+## 8. 设计思想总结
 
 ### 从"广播"到"传递"
 
@@ -349,20 +435,28 @@ reg [`WB_CTRL_WIDTH-1:0]  wb_ctrl_id_ex;
 
 ---
 
-## 7. 下一步
+## 9. 当前进度与测试结果
 
-### 当前进度
+### 已完成全部文件 ✅
 
 - [x] `ctrl_defs.vh` — 控制总线位段宏定义
 - [x] `control.v` — 译码输出从散线改 5 总线 + pc_sel
 - [x] `id_stage.v` — 端口透传从散线改总线
 - [x] `wb_stage.v` — 接收 `wb_ctrl` 总线，内部拆包
-- [ ] `mem_stage.v` — 接收 `mem_ctrl` + `interrupt_valid`，内部拆包 + 门控
-- [ ] `if_stage.v` — 接收 `sys_ctrl` + `interrupt_valid`，内部拆包 + 门控
-- [ ] `ex_stage.v` — 接收 `ex_ctrl` + `csr_ctrl` 双总线，内部拆包
-- [ ] `csr.v` — 接收 `csr_ctrl` + `sys_ctrl` + `interrupt_valid`，内部拆包 + 门控
-- [ ] `core_top.v` — 清理旧散线 + 总线直连各模块
-- [ ] 引入流水线寄存器（ID/EX, EX/MEM, MEM/WB）
+- [x] `mem_stage.v` — 接收 `mem_ctrl` + `interrupt_valid`，内部拆包 + 门控
+- [x] `if_stage.v` — 接收 `sys_ctrl` + `interrupt_valid`，内部拆包 + 门控
+- [x] `ex_stage.v` — 接收 `ex_ctrl` + `csr_ctrl` 双总线，内部拆包
+- [x] `csr.v` — 接收 `csr_ctrl` + `sys_ctrl` + `interrupt_cause`，内部拆包 + 门控
+- [x] `core_top.v` — 清理旧散线 + 总线直连各模块
+
+### 测试结果
+
+✅ 编译通过，cpu-tests 全部通过。
+
+### 下一步展望
+
+- [ ] 引入流水线寄存器（IF/ID, ID/EX, EX/MEM, MEM/WB）
 - [ ] 引入 valid/allowin 握手
-- [ ] 处理数据冒险（forwarding / stalling）
-- [ ] 处理控制冒险（branch redirect / flushing）
+- [ ] 数据冒险：forwarding / stalling
+- [ ] 控制冒险：branch redirect / flushing
+- [ ] 精确异常：kill younger instruction
