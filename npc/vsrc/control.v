@@ -9,7 +9,7 @@ module control (
     ,wb_ctrl
     ,csr_ctrl
     ,sys_ctrl
-    ,pc_sel
+    ,pc_ctrl
 );
 
     input       [31:0] inst  ;
@@ -23,7 +23,7 @@ module control (
     output wire [`WB_CTRL_WIDTH-1  : 0] wb_ctrl   ;
     output wire [`CSR_CTRL_WIDTH-1 : 0] csr_ctrl  ;  
     output wire [`SYS_CTRL_WIDTH-1 : 0] sys_ctrl  ;    
-    output wire [1:0] pc_sel                      ;    // 保留独立
+    output wire [`PC_CTRL_WIDTH-1  : 0] pc_ctrl   ;
 
 
 
@@ -38,14 +38,14 @@ module control (
     reg [1:0]  reg_wdata_src;
     reg [0:0]  csr_read, csr_write, csr_imm;
     reg [1:0]  csr_op;
-    // 用 _int 后缀避免与端口 pc_sel_int 冲突
-    reg [1:0]  pc_sel_int;        
-    reg [0:0]  trap_enter_int, is_ebreak_int, mret_int;
+    reg [1:0]  pc_sel;
+
+    // 用 _int 后缀避免与端口 冲突
+    reg [0 :0]  trap_enter_int, is_ebreak_int, mret_int,is_jal_int,is_jalr_int;
     reg [31:0] trap_code_int;
 
     wire [4 :0] rs1_addr = inst[19:15];
     wire [11:0] funct12  = inst[31:20] ;
-    wire [4 :0] rd_addr  = inst[11:7];
     wire [11:0] csr_addr = inst[31:20] ;
     wire [31:0] csr_zimm = {{27{1'b0}},inst[19:15]};
 // ============== 常规指令 ========================//
@@ -60,7 +60,8 @@ module control (
         lsu_type      = 3'b000;
         reg_write     = 1'b0;
         reg_wdata_src = 2'b00;
-        pc_sel_int        = 2'b00;
+        pc_sel        = 2'b00;
+
         // csr 
         csr_op        = 2'b00;
         csr_read      = 1'b0;
@@ -71,6 +72,9 @@ module control (
         trap_enter_int    = 1'b0;
         trap_code_int     = 32'b0;
         mret_int          = 1'b0;
+        // br_type
+        is_jal_int  = 1'b0;
+        is_jalr_int = 1'b0;
 
         case (opcode)
 // ================  system inst  ======================== //
@@ -214,7 +218,8 @@ module control (
             alu_op        = 5'b0_0001;
             reg_write     = 1'b1;
             reg_wdata_src = 2'b10;
-            pc_sel_int        = 2'b10;
+            pc_sel        = 2'b10;
+            is_jalr_int   = 1'b1;
           end
 
 // ============================ S-Store ===========================
@@ -231,7 +236,7 @@ module control (
           end
           7'b1100011 : begin
             br_type       = 3'b000;
-            pc_sel_int        = 2'b11 ;
+            pc_sel    = 2'b11 ;
             case (funct3)
               3'b000 : br_type = 3'b000;  // beq
               3'b001 : br_type = 3'b001;  // bne
@@ -258,17 +263,18 @@ module control (
           7'b1101111 : begin // jal
             reg_write     = 1'b1;
             reg_wdata_src = 2'b10;
-            pc_sel_int        = 2'b01;
+            pc_sel        = 2'b01;
+            is_jal_int    = 1'b1;
           end
         default : ;
       endcase
     end
-
     // === 打包：内部 reg → 总线端口 ===
-    assign ex_ctrl  = {alu_op, alu_src_a, alu_src_b, br_type};
+    assign ex_ctrl  = {alu_op, alu_src_a, alu_src_b};
     assign mem_ctrl = {mem_read, mem_write, lsu_type};
-    assign wb_ctrl  = {reg_write, reg_wdata_src, rd_addr};
+    assign wb_ctrl  = {reg_write, reg_wdata_src};
     assign csr_ctrl = {csr_read, csr_write, csr_op, csr_imm, csr_addr, csr_zimm};
     assign sys_ctrl = {trap_enter_int, mret_int, is_ebreak_int, trap_code_int};
-    assign pc_sel      = pc_sel_int;
+    assign pc_ctrl  = {pc_sel, 1'b0, br_type, is_jal_int, is_jalr_int, trap_code_int};
+
 endmodule

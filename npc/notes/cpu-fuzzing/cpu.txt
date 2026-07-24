@@ -1,0 +1,33 @@
+1、流水线骨架设计
+    1、明确每个流水线阶段的输入输出数据，核心功能责任
+        IF  ：根据 PC 取指，输出 pc、pc_plus4、inst
+        ID  ：译码，读寄存器，生成 imm，生成控制包
+        EX  ：ALU 运算，分支判断，CSR 写数据计算
+        MEM ：访存
+        WB  ：选择写回数据，写 regfile
+    2、确定每个流水线寄存器保存的核心数据
+        1. 信号在哪个阶段产生？
+        2. 最后在哪个阶段使用？
+        3. 中间需要跨过哪些流水线边界？
+        产生点进寄存器，每过一级锁一拍，消费点用完就扔。不跳过、不绕路、不飞线。
+
+        1、IF/ID
+            pc、pc_plus4、inst
+        2、ID/EX
+            来自 id_stage:
+              id_rs1_addr
+              id_rs2_addr
+              id_rd_addr
+              id_imm_out
+              id_ex_ctrl
+              id_mem_ctrl
+              id_wb_ctrl
+              id_csr_ctrl
+              id_sys_ctrl
+              id_pc_sel
+
+            来自 regfile:
+              id_rs1_rdata
+              id_rs2_rdata
+        3、EX/MEM
+            

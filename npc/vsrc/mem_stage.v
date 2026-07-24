@@ -4,21 +4,23 @@ module mem_stage (
     clk
     ,mem_ctrl
     ,interrupt_valid
+    ,mem_valid
     ,mem_addr
     ,mem_wdata_raw
     ,mem_rdata
 );
-    // 控制流
+
     input   wire [0 :0] clk                     ;
+    input   wire [0 :0] mem_valid               ;
     input   wire [0 :0] interrupt_valid         ;
-    input   wire [`MEM_CTRL_WIDTH-1:0] mem_ctrl ;
-    // 数据流
     input   wire [31:0] mem_addr                ;        
-    input   wire [31:0] mem_wdata_raw           ; 
+    input   wire [31:0] mem_wdata_raw           ;
+    input   wire [`MEM_CTRL_WIDTH-1:0] mem_ctrl ; 
+
     output  wire [31:0] mem_rdata               ;
     // 控制总线拆包
-    wire [0 :0] mem_read    = interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_READ]                        ;
-    wire [0 :0 ]mem_write   = interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_WRITE]                       ;
+    wire [0 :0] mem_read    = mem_valid ? (interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_READ]) : 1'b0;
+    wire [0 :0 ]mem_write   = mem_valid ? (interrupt_valid ? 1'b0 : mem_ctrl[`MEM_CTRL_WRITE]): 1'b0;
     wire [2 :0] lsu_type    = mem_ctrl[`MEM_CTRL_LSU_MSB : `MEM_CTRL_LSU_LSB] ;
     // interrupt 门控
     wire [3 :0] mem_wmask; 

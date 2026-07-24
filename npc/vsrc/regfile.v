@@ -30,5 +30,4 @@ module regfile (
             rf[rd_addr] <= rd_wdata;
         end
     end
-
 endmodule
