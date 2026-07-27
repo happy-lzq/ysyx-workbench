@@ -4,6 +4,7 @@
 module if_stage (
     clk
     ,rst
+    ,pc_enable
     ,pc_ctrl
     ,sys_ctrl
     ,interrupt_valid
@@ -16,6 +17,7 @@ module if_stage (
     // 控制流
     input   wire [0 :0]            clk          ;
     input   wire [0 :0]            rst          ;
+    input   wire [0 :0]            pc_enable    ;
     input   wire [`PC_CTRL_WIDTH-1:0] pc_ctrl   ;
     input   wire [`SYS_CTRL_WIDTH-1:0] sys_ctrl ;
     input   wire [0 :0]          interrupt_valid;
@@ -54,7 +56,7 @@ module if_stage (
     always @(posedge clk ) begin
         if (rst) 
             pc <= `RESET_VECTOR;
-        else
+        else if(pc_enable)
             pc <= pc_next;
     end
 endmodule

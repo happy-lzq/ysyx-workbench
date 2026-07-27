@@ -4,6 +4,30 @@
 
 ---
 
+## 目录
+
+- [0. 总目标](#0-总目标)
+- [1. 路线总览](#1-路线总览)
+  - [阶段 A：单周期基线固化](#阶段-a单周期基线固化)
+  - [阶段 B：控制包化单周期核](#阶段-b控制包化单周期核)
+  - [阶段 C：五级流水线骨架](#阶段-c五级流水线骨架)
+  - [阶段 D：流水线正确性](#阶段-d流水线正确性)
+    - [D.1 流水线冒险总览](#d1-流水线冒险总览)
+    - [D.2 已完成：GPR RAW、Store 与 load-use](#d2-已完成gpr-rawstore-与-load-use)
+    - [D.3 待完成：Branch-in-ID 与控制冒险](#d3-待完成branch-in-id-与控制冒险)
+    - [D.4 待完成：CSR 数据冒险](#d4-待完成csr-数据冒险)
+    - [D.5 待完成：统一存储端口结构冒险](#d5-待完成统一存储端口结构冒险)
+  - [阶段 D 正确性待办](#阶段-d-正确性待办)
+  - [阶段 E：同步访存接口](#阶段-e同步访存接口)
+  - [阶段 F：AXI4-Lite / AXI 总线](#阶段-faxi4-lite--axi-总线)
+  - [阶段 G：SoC 接入](#阶段-gsoc-接入)
+  - [阶段 H：cache 与性能优化](#阶段-hcache-与性能优化)
+  - [阶段 I：CPU fuzzing 基础设施](#阶段-icpu-fuzzing-基础设施)
+  - [阶段 J：乱序 / 超标量路线](#阶段-j乱序--超标量路线)
+- [2. 当前阶段定位](#2-当前阶段定位)
+
+---
+
 ## 0. 总目标
 
 这条路线不以完成一生一芯考核为最终目的，而是把一生一芯 B 阶段中的总线、SoC、时序优化和流水线内容作为参考材料，建立一条更偏长期工程和研究的 CPU 微结构路线。
@@ -247,7 +271,7 @@ MEM/WB:
   wb_ctrl,csr_ctrl, sys_ctrl
 ```
 
-这说明“顺向流水线骨架”已经完成，但还不能等同于“可正确执行任意程序的五级流水线”。当前仍缺少 forwarding、stall、flush、commit-level difftest 和精确中断。实际运行最小 `dummy` 测试时，由于数据冒险把 store 地址算成 `0x00000008`，触发非法 MMIO 写，证明正确性阶段尚未完成。
+这说明“顺向流水线骨架”已经完成，但还不能等同于“可正确执行任意程序的五级流水线”。刚完成骨架时，最小 `dummy` 曾因 `auipc/addi` RAW 把 Store 地址算成 `0x00000008`；该问题后来通过 EX forwarding、WB→ID bypass 和 load-use stall 解决。当前仍缺少 Branch-in-ID、flush、CSR 冒险、commit-level difftest 和精确中断。
 
 #### 理解读写周期的本质：模块不等于流水级
 
@@ -315,23 +339,26 @@ reg_write_eff =
 
 REGFILE 模块本身不一定需要接收整条 `wb_ctrl`。当前做法是在 `core_top` 从 MEM/WB 控制包拆出并用 `mem_wb_valid` 门控，再把最终写脉冲传给 REGFILE，这种职责划分是合理的。
 
-当前尚未解决的 REGFILE 数据冒险：
+当前 REGFILE 数据冒险处理状态：
 
 ```text
-EX/MEM 的结果尚未写回，年轻指令已经在 ID 读取旧值
-load 的数据直到 MEM 才产生，下一条指令不能直接使用
-branch/jalr 在 ID 解析，对 ID forwarding 的要求更高
-store data 同样可能读取旧值
-WB 与 ID 同周期访问同一寄存器时，需要定义写后读语义或增加 WB->ID bypass
+已经解决：
+  EX/MEM/MEM-WB -> 普通 EX 消费者 forwarding
+  Load -> 普通 EX 消费者的一拍 stall
+  Store 地址和写数据 RAW
+  WB -> ID 同周期 bypass
+
+尚未解决：
+  branch/jalr 在 ID 解析时对 ID/EX、EX/MEM 生产者的依赖
+  CSR 结果紧邻写 GPR
 ```
 
-因此后续需要：
+因此下一步仍需要：
 
 ```text
+ID/EX 生产者 -> Branch/JALR interlock
 EX/MEM -> ID forwarding
-MEM/WB -> ID forwarding
-load-use stall
-WB -> ID bypass
+EX/MEM Load -> ID 继续 stall
 ```
 
 #### CSR：EX 组合读，WB 时序写
@@ -591,13 +618,16 @@ mepc 保存中断返回后应继续执行的 PC
 
 ```text
 已通过：
-  Verilator RTL lint
-  当前 RTL + C++ 全量构建
+  Verilator RTL lint（仅剩未使用信号、文件末尾换行等告警）
+  ALU rs1/rs2：紧邻、间隔一条、间隔两条 RAW 定向测试
+  Store 写数据：紧邻、间隔一条、间隔两条 RAW 定向测试
+  Load -> ALU、Load -> Store 的立即 load-use 定向测试
 
-未通过：
-  当前流水线运行最小 dummy 程序
-  失败现象：向 0x00000008 发起非法写
-  根本原因：auipc sp 后的 addi sp 读取旧值，缺少 forwarding/stall
+尚未完成：
+  Branch/JALR 在 ID 阶段读取操作数时的 forwarding/stall
+  redirect 后的 IF/ID flush
+  CSR 结果写 GPR 与 CSR 状态写后读冒险
+  接入单端口存储器/AXI 后的结构冒险和反压
 ```
 
 因此当前状态应准确描述为：
@@ -605,41 +635,773 @@ mepc 保存中断返回后应继续执行的 PC
 ```text
 五级流水线顺向骨架：完成
 阶段读写端口对齐：REGFILE / CSR / SYS / HALT 已完成基础改造
-流水线功能正确性：未完成
+普通 GPR/ALU RAW、Store RAW、普通 EX 消费者 load-use：完成
+Branch-in-ID、控制 flush、CSR 冒险、精确异常/中断：未完成
 ```
 
 ### 阶段 D：流水线正确性
 
 顺向五级骨架完成之后，再逐步处理真实流水线问题。
 
-必须完成：
+---
+
+## D.1 流水线冒险总览
+
+流水线的根本矛盾是：**多条指令重叠执行，但年轻指令可能依赖老指令尚未完成的结果，也可能与其他阶段争用资源。**
+
+| 冒险类型 | 本质 | 核心解法 |
+|------|------|------|
+| 数据冒险 | 生产者的新值还没有到达，消费者已经需要使用 | 数据可用时 forwarding；尚不可用时 stall |
+| 控制冒险 | IF 尚不知道下一条应取顺序 PC 还是跳转目标 | redirect + flush |
+| 结构冒险 | IF、MEM 等阶段同时请求同一个物理硬件端口 | 仲裁 + stall/backpressure，或增加物理端口 |
+
+当前核是顺序、定长五级流水线。GPR 的读发生在前部，写回按程序顺序发生，因此当前重点是 RAW；WAR 和 WAW 在当前结构下不会出现。以后引入乱序执行、多周期执行单元或非顺序写回后，才需要重新处理 WAR/WAW。
+
+分析一个冒险时必须同时回答两个问题：
+
+| 观察维度 | 需要回答的问题 |
+|------|------|
+| 生产者 | 最终结果是什么？在哪个阶段产生？当前阶段是否已经可用？ |
+| 消费者 | 在 ID、EX 还是 MEM 阶段真正需要该值？ |
+
+不能只按指令名称分类。更准确的分类方法是“**写回数据来源 × 消费位置**”：
+
+| 生产者最终结果 | 最早可用位置 | 当前处理状态 |
+|------|------|------|
+| ALU/LUI/AUIPC 结果，`wdata_src=00` | EX 结束，进入 EX/MEM | EX/MEM、MEM/WB forwarding 已完成 |
+| Load 数据，`wdata_src=01` | MEM 结束，进入 MEM/WB | 普通 EX 消费者采用 stall 1 拍 + MEM/WB forwarding |
+| JAL/JALR 的 `pc+4`，`wdata_src=10` | 指令自身已有 `pc_plus4` | MEM/WB 最终写回路径已存在；仍依赖正确的控制 flush |
+| CSR 旧值，`wdata_src=11` | CSR 在 EX 组合读出 | 相邻 CSR→GPR forwarding 尚未完成 |
+
+| 消费位置 | 典型用途 | 当前处理状态 |
+|------|------|------|
+| ID | Branch 比较、JALR 目标计算 | 只有 WB→ID，ID/EX 与 EX/MEM 依赖尚未完成 |
+| EX | ALU 两个操作数、Load/Store 地址、CSR 寄存器源 | 普通 GPR RAW 已完成 |
+| MEM | Store 写入内存的数据 | 在 EX 先修正 rs2，再通过 EX/MEM 携带，已完成 |
+
+> Store 不是寄存器结果生产者，而是 rs1/rs2 的消费者。它可以和 ALU 共用 EX forwarding 网络，但不应与 ALU、Load、CSR 并列为“写回数据来源”。
+
+---
+
+## D.2 已完成：GPR RAW、Store 与 load-use
+
+### D.2.1 为什么会产生 GPR RAW
+
+ID 从 Regfile 组合读出的 `rs1_rdata/rs2_rdata` 会进入 ID/EX。生产者尚未到 WB 时，Regfile 中仍是旧值。如果 EX 直接使用 ID/EX 中的旧值，计算、地址或 Store 数据都会错误。
 
 ```text
-数据冒险：
-  EX -> ID/EX forwarding
-  MEM -> ID/EX forwarding
-  WB -> ID/EX forwarding
-  load-use stall
-
-控制冒险：
-  branch / jal / jalr redirect
-  flush younger instruction
-  PC redirect 优先级
-
-CSR 与系统控制：
-  ecall
-  mret
-  ebreak
-  interrupt kill
-  mepc/mcause/mstatus 更新
-
-精确异常：
-  older instruction 可以提交
-  faulting instruction 记录异常
-  younger instruction 被 flush
+生产者新值：ALU/访存已经得到，但尚未写回 Regfile
+消费者旧值：Regfile -> ID/EX.rs1_rdata/rs2_rdata -> EX
 ```
 
-建议同步建立流水线 trace：
+解决原则不是等待所有生产者写回，而是：
+
+```text
+结果已经可用  -> 从最近的流水线级 forwarding
+结果尚不可用  -> stall，等它到达可转发位置
+```
+
+### D.2.2 EX 统一 forwarding 网络
+
+`ex_stage.v` 在真正产生 `src1/src2` 之前，先生成 `rs1_real/rs2_real`：
+
+```verilog
+ex_mem_reg_write =
+    ex_mem_valid &&
+    ex_mem_wb_ctrl[`WB_CTRL_REG_WRITE] &&
+    (ex_mem_rd_addr != 5'b0);
+
+ex_mem_alu_ready =
+    ex_mem_wdata_src == 2'b00;
+
+ex_mem_can_forwading =
+    ex_mem_reg_write && ex_mem_alu_ready;
+
+mem_wb_reg_write =
+    mem_wb_valid &&
+    mem_wb_wb_ctrl[`WB_CTRL_REG_WRITE] &&
+    (mem_wb_rd_addr != 5'b0);
+
+rs1_from_ex =
+    ex_mem_can_forwading &&
+    (rs1_addr == ex_mem_rd_addr);
+
+rs2_from_ex =
+    ex_mem_can_forwading &&
+    (rs2_addr == ex_mem_rd_addr);
+
+rs1_from_mem =
+    mem_wb_reg_write &&
+    (rs1_addr == mem_wb_rd_addr) &&
+    !rs1_from_ex;
+
+rs2_from_mem =
+    mem_wb_reg_write &&
+    (rs2_addr == mem_wb_rd_addr) &&
+    !rs2_from_ex;
+
+rs1_real = rs1_from_ex  ? ex_mem_alu_result :
+           rs1_from_mem ? wb_rd_wdata        : rs1_rdata;
+
+rs2_real = rs2_from_ex  ? ex_mem_alu_result :
+           rs2_from_mem ? wb_rd_wdata        : rs2_rdata;
+```
+
+| 条件 | 为什么必须存在 |
+|------|------|
+| `valid` | bubble 中可能残留地址和控制位，不能成为生产者 |
+| `reg_write` | 只有真正写 GPR 的指令才能产生依赖 |
+| `rd != x0` | x0 永远为零，不能被 forwarding 覆盖 |
+| `rd == rs1/rs2` | 判断生产者和消费者是否访问同一个寄存器 |
+| EX/MEM 的 `wdata_src==00` | 防止把 Load 的地址误当作加载数据 |
+| EX/MEM 优先于 MEM/WB | 两级同时命中时，EX/MEM 是更新、更年轻的生产者 |
+
+MEM/WB 使用 `wb_rd_wdata`，而不是固定使用 `mem_wb_alu_result`。因为 `wb_stage` 已经组合选择出 ALU、Load、PC+4、CSR 中的最终写回值，它与 MEM/WB 属于同一个周期，并没有额外延迟一拍。
+
+### D.2.3 ALU 结果 RAW：三种指令距离
+
+#### 类型 A：生产者与消费者紧邻
+
+```asm
+add  x1, x2, x3       # 生产者
+sub  x5, x1, x4       # 消费者通过 rs1 使用 x1
+```
+
+也可能通过 rs2 使用：
+
+```asm
+add  x1, x2, x3
+sub  x5, x4, x1       # 消费者通过 rs2 使用 x1
+```
+
+消费者进入 EX 时，生产者位于 EX/MEM：
+
+```text
+ex_mem_valid + ex_mem_reg_write + rd匹配 + ALU结果就绪
+        -> ex_mem_alu_result
+        -> EX.rs1_real/rs2_real
+        -> ALU.src1/src2
+```
+
+#### 类型 B：中间间隔一条指令
+
+```asm
+add  x1, x2, x3
+addi x6, x0, 1
+sub  x5, x1, x4
+```
+
+消费者进入 EX 时，生产者位于 MEM/WB：
+
+```text
+mem_wb_valid + mem_wb_reg_write + rd匹配
+        -> wb_stage 组合选择 wb_rd_wdata
+        -> EX.rs1_real/rs2_real
+```
+
+#### 类型 C：中间间隔两条指令
+
+```asm
+add  x1, x2, x3
+addi x6, x0, 1
+addi x7, x0, 2
+sub  x5, x1, x4
+```
+
+此时生产者在 WB，消费者在 ID。Regfile 写回和 ID/EX 锁存发生在同一个上升沿：
+
+```text
+生产者：Regfile[x1] <= wb_rd_wdata
+消费者：ID/EX.rs1_rdata <= Regfile[x1] 的沿前旧值
+```
+
+因此在 `core_top.v` 增加 WB→ID bypass：
+
+```text
+mem_wb_valid + reg_write_eff + rd匹配 + id_uses_rs1/rs2
+        -> id_rs1_rdata/id_rs2_rdata 选择 wb_rd_wdata
+        -> 上升沿锁存进 ID/EX
+        -> 后续 EX 使用正确值
+```
+
+| 指令距离 | 消费者在 EX 时生产者位置 | 转发路径 | 状态 |
+|------|------|------|------|
+| 紧邻 | EX/MEM | `ex_mem_alu_result -> EX` | 已完成 |
+| 间隔一条 | MEM/WB | `wb_rd_wdata -> EX` | 已完成 |
+| 间隔两条 | 生产者在 WB、消费者在 ID | `wb_rd_wdata -> ID -> ID/EX` | 已完成 |
+
+相同网络还覆盖其他 EX 阶段消费者：
+
+| 消费类型 | 指令示例 | 用途 |
+|------|------|------|
+| ALU→Load 地址 | `addi x1, x2, 16`；`lw x3, 0(x1)` | rs1 参与地址计算 |
+| ALU→Store 地址 | `addi x1, x2, 16`；`sw x3, 0(x1)` | rs1 参与地址计算 |
+| ALU→Store 数据 | `addi x1, x2, 5`；`sw x1, 0(x3)` | rs2 作为写入数据 |
+| ALU→CSR 源 | `addi x1, x0, 8`；`csrrw x0, mie, x1` | rs1 参与 CSR 新值计算 |
+
+### D.2.4 ALU 与 Store 共用 EX forwarding
+
+Store 不产生 GPR 结果，但它需要两个源寄存器：
+
+| Store 源 | 用途 | 消费位置 | 当前数据链 |
+|------|------|------|------|
+| rs1 | 基地址，计算 `rs1 + imm` | EX | `rs1_real -> ALU -> ex_mem_alu_result` |
+| rs2 | 实际写入内存的数据 | MEM | `rs2_real -> ex_rs2_value -> EX/MEM.rs2_rdata -> MEM` |
+
+因此 ALU 与 Store 的统一点不是“它们都是生产者”，而是它们都在 EX 使用修正后的 `rs1_real/rs2_real`。
+
+#### Store 基地址 rs1 冒险
+
+```asm
+addi x3, x2, 16       # 产生新的基地址 x3
+sw   x1, 0(x3)        # EX 需要新 x3 计算地址
+```
+
+这与普通 ALU 的 rs1 RAW 完全相同：
+
+```text
+ex_mem_alu_result/wb_rd_wdata
+        -> EX.rs1_real
+        -> ALU 计算 Store 地址
+        -> EX/MEM.alu_result
+        -> mem_stage.mem_addr
+```
+
+#### Store 写数据 rs2：紧邻
+
+```asm
+addi x1, x2, 5
+sw   x1, 0(x3)
+```
+
+```text
+ex_mem_alu_result
+        -> EX.rs2_real
+        -> ex_rs2_value
+        -> EX/MEM.ex_mem_rs2_rdata
+        -> mem_stage.mem_wdata_raw
+```
+
+#### Store 写数据 rs2：间隔一条
+
+```asm
+addi x1, x2, 5
+addi x6, x0, 1
+sw   x1, 0(x3)
+```
+
+生产者已经位于 MEM/WB，使用：
+
+```text
+wb_rd_wdata -> EX.rs2_real -> ex_rs2_value -> EX/MEM -> MEM
+```
+
+#### Store 写数据 rs2：间隔两条
+
+```asm
+addi x1, x2, 5
+addi x6, x0, 1
+addi x7, x0, 2
+sw   x1, 0(x3)
+```
+
+生产者 WB 与 Store ID 同周期，先通过 WB→ID bypass 把正确值锁入 ID/EX。Store 到 EX 后，`rs2_real` 默认选择的 `id_ex_rs2_rdata` 已经正确。
+
+> 最终采用的方案是在 `ex_stage` 统一修正 rs2，再输出 `ex_rs2_value`。不是在 ID/EX 输入端为 Store 单独建立三路 MUX，也不是等到 MEM 再修正。
+
+### D.2.5 Load-use：stall 1 拍 + forwarding
+
+#### 为什么 forwarding 不能单独解决
+
+```asm
+lw   x1, 0(x2)
+addi x3, x1, 7
+```
+
+消费者即将进入 EX 时，Load 正在 EX，`alu_result` 只是访存地址。下一周期 Load 在 MEM 才得到 `mem_rdata`，与消费者原本需要该值的 EX 周期重合，尚未进入 MEM/WB。
+
+#### 当前检测条件
+
+```verilog
+load_use_stall =
+    if_id_valid &&
+    id_ex_valid &&
+    id_ex_mem_ctrl[`MEM_CTRL_READ] &&
+    (id_ex_rd_addr != 5'b0) &&
+    ((id_uses_rs1 && id_rs1_addr == id_ex_rd_addr) ||
+     (id_uses_rs2 && id_rs2_addr == id_ex_rd_addr));
+```
+
+#### stall 的三项同步动作
+
+| 控制动作 | 当前信号 | 目的 |
+|------|------|------|
+| 冻结 IF 的 PC | `pc_enable = 0` | 防止取指地址继续前进 |
+| 保持 IF/ID | IF/ID 输入选择自身旧值 | 消费者继续停留在 ID |
+| ID/EX 插入 bubble | `id_ex_valid_in = 0` | 防止消费者带旧值进入 EX |
+
+时序链：
+
+```text
+周期 N：
+  Load 在 EX，消费者在 ID，load_use_stall=1
+
+上升沿 N：
+  Load 正常进入 EX/MEM
+  ID/EX 锁存 valid=0
+  IF/ID 保持消费者
+
+周期 N+1：
+  Load 在 MEM，消费者仍在 ID，EX 是 bubble
+
+上升沿 N+1：
+  Load 数据进入 MEM/WB
+  消费者进入 ID/EX
+
+周期 N+2：
+  消费者进入 EX
+  wb_rd_wdata -> rs1_real/rs2_real
+```
+
+#### Load-use 指令示例
+
+| 消费类型 | 指令示例 | 使用的源 |
+|------|------|------|
+| Load→ALU rs1 | `lw x1, 0(x2)`；`addi x3, x1, 1` | rs1 |
+| Load→ALU rs2 | `lw x1, 0(x2)`；`add x3, x4, x1` | rs2 |
+| Load→Load 地址 | `lw x1, 0(x2)`；`lw x3, 0(x1)` | Load.rs1 |
+| Load→Store 地址 | `lw x3, 0(x2)`；`sw x1, 0(x3)` | Store.rs1 |
+| Load→Store 数据 | `lw x1, 0(x2)`；`sw x1, 0(x3)` | Store.rs2 |
+| Load→CSR 寄存器源 | `lw x1, 0(x2)`；`csrrw x0, mscratch, x1` | CSR.rs1 |
+
+上述消费者都在 EX 使用寄存器，因此当前的一拍 stall + MEM/WB forwarding 可以覆盖。
+
+有间隔时不再属于“必须 stall 的立即 load-use”：
+
+```asm
+lw   x1, 0(x2)
+addi x6, x0, 1
+add  x3, x1, x4       # MEM/WB -> EX
+```
+
+```asm
+lw   x1, 0(x2)
+addi x6, x0, 1
+addi x7, x0, 2
+add  x3, x1, x4       # WB -> ID bypass
+```
+
+### D.2.6 `id_uses_rs1/id_uses_rs2` 与假 stall
+
+指令编码中的 `[19:15]`、`[24:20]` 不一定真的是源寄存器。如果只比较位段，JAL、LUI、CSR 立即数等可能产生假命中。因此 `id_stage` 已经输出真实使用分类：
+
+| 指令类型 | opcode | funct3 | uses_rs1 | uses_rs2 |
+|------|------|------|:--:|:--:|
+| R 型 ALU / M | `0110011` | 任意 | 是 | 是 |
+| I 型 ALU | `0010011` | 任意 | 是 | 否 |
+| Load | `0000011` | 任意 | 是 | 否 |
+| Store | `0100011` | 任意 | 是 | 是 |
+| Branch | `1100011` | 任意 | 是 | 是 |
+| JALR | `1100111` | 任意 | 是 | 否 |
+| JAL | `1101111` | 任意 | 否 | 否 |
+| LUI | `0110111` | 任意 | 否 | 否 |
+| AUIPC | `0010111` | 任意 | 否 | 否 |
+| CSR 寄存器型 | `1110011` | `001/010/011` | 是 | 否 |
+| CSR 立即数型 | `1110011` | `101/110/111` | 否 | 否 |
+| ECALL/MRET/EBREAK | `1110011` | `000` | 否 | 否 |
+
+这些信号当前用于 load-use 检测和 WB→ID bypass。以后实现 Branch-in-ID interlock 时也必须复用它们。
+
+### D.2.7 已完成设计中的关键纠偏
+
+| 设计过程中出现的疑问 | 正确认识 | 最终代码位置 |
+|------|------|------|
+| Store 的 rs2 是地址 | rs1 是基地址，rs2 是写入数据 | `ex_stage`、`mem_stage` |
+| forwarding 全部放在 ID/EX 输入 | 紧邻和间隔一条统一在 EX 选择；只有同沿 WB→ID 在 ID 输入旁路 | `ex_stage`、`core_top` |
+| `wb_rd_wdata` 已经晚一拍 | WB 是 MEM/WB 后的组合选择，与 MEM/WB 属于同周期 | `wb_stage` |
+| Store 需要 MEM 阶段再做一套 forwarding | EX 已生成 `rs2_real`，通过 `ex_rs2_value` 随 Store 传到 MEM | `ex_stage`、`ex_mem_reg` |
+| EX/MEM 的 `reg_write` 足以证明数据可转发 | 还必须检查数据来源；Load 的 ALU 结果只是地址 | `ex_mem_wdata_src` |
+| Load 可以直接 EX/MEM→EX | EX/MEM 中没有最终 Load 数据 | `load_use_stall` |
+| 任意 rs 位段相等都应 stall | 必须结合 `id_uses_rs1/id_uses_rs2` | `id_stage` |
+
+### D.2.8 当前已完成范围
+
+```text
+已完成：
+  ALU -> ALU/地址/CSR源：紧邻、间隔一条、间隔两条
+  ALU -> Store 地址和写数据：紧邻、间隔一条、间隔两条
+  Load -> 普通 EX 消费者：立即依赖的一拍 stall + forwarding
+  Load -> Store 地址/写数据：立即依赖的一拍 stall + forwarding
+  x0 排除、valid 门控、EX/MEM 最新值优先、假 stall 分类
+
+不属于本节“已完成”范围：
+  Branch/JALR 在 ID 阶段消费数据
+  CSR 结果紧邻写 GPR、CSR 状态写后读
+  redirect/flush
+  真实单端口存储器或 AXI 反压
+```
+
+---
+
+## D.3 待完成：Branch-in-ID 与控制冒险
+
+Branch-in-ID 必须拆成两个独立问题：
+
+| 问题 | 本质 | 需要的机制 |
+|------|------|------|
+| 分支/JALR 操作数数据冒险 | ID 当场使用 rs1/rs2，但新值仍在 ID/EX 或 EX/MEM | ID forwarding + interlock/stall |
+| redirect 后错误路径冒险 | redirect 时顺序 PC 指令已经在 IF | IF/ID flush |
+
+### D.3.1 Branch/JALR 的 ID 数据冒险
+
+`id_stage` 中：
+
+```text
+Branch：br_cond(rs1_data, rs2_data)
+JALR：redirect_pc = rs1_data + imm
+```
+
+它们不等到 EX，因此现有 EX forwarding 无法帮助它们。
+
+#### 紧邻 ALU→Branch
+
+```asm
+addi x1, x0, 1
+beq  x1, x0, target
+```
+
+Branch 在 ID 时，生产者仍在 EX/ID-EX，`ex_mem_alu_result` 还没有越过上升沿。推荐先 stall Branch 一拍，再从 EX/MEM→ID forwarding；也可以建立 EX→ID 组合旁路，但会拉长组合路径。
+
+#### 间隔一条 ALU→Branch
+
+```asm
+addi x1, x0, 1
+addi x6, x0, 2
+bne  x1, x0, target
+```
+
+生产者位于 EX/MEM，数据已经可用，应增加：
+
+```text
+ex_mem_alu_result -> ID.rs1_data/rs2_data -> br_cond
+```
+
+#### 间隔两条 ALU→Branch
+
+```asm
+addi x1, x0, 1
+addi x6, x0, 2
+addi x7, x0, 3
+bne  x1, x0, target
+```
+
+生产者位于 WB，当前 `wb_rd_wdata -> ID` bypass 已能提供正确值。
+
+#### Load→Branch
+
+```asm
+lw   x1, 0(x2)
+beq  x1, x0, target
+```
+
+当前普通 load-use stall 只暂停一拍。第二周期 Branch 仍停在 ID，而 Load 位于 MEM，结果尚未进入 MEM/WB。因为 Branch 在 ID 当场消费，所以还需要二选一：
+
+```text
+方案 1：Load 位于 EX/MEM 时继续 stall，等 WB→ID
+方案 2：增加 mem_rdata→ID 旁路
+```
+
+第一版推荐方案 1，控制更清楚，也更接近未来同步存储器/AXI 的数据就绪语义。
+
+#### ALU/Load→JALR
+
+```asm
+addi x1, x0, 32
+jalr x5, 0(x1)
+```
+
+```asm
+lw   x1, 0(x2)
+jalr x5, 0(x1)
+```
+
+JALR 只使用 rs1，但与 Branch 具有相同的 ID 消费时点，必须复用同一套 ID forwarding/stall。
+
+### D.3.2 redirect 与 IF/ID flush
+
+当前已经存在以下 redirect 来源，其中前五项由 ID 译码/判断产生，interrupt 来自外部：
+
+```text
+JAL
+JALR
+taken Branch
+ECALL
+MRET
+interrupt
+```
+
+但 redirect 发生时，IF 已经取到了顺序下一条指令：
+
+```asm
+jal  x0, target
+addi x10, x0, 1       # 错误路径，必须被 flush
+target:
+ebreak
+```
+
+当前定向测试中，这条错误路径 `addi` 仍然提交，最终得到 BAD TRAP。
+
+正确时序应为：
+
+```text
+周期 N：
+  ID = redirect 指令
+  IF = 顺序路径指令
+
+上升沿 N：
+  PC 接收 redirect_pc
+  redirect 指令正常进入 ID/EX
+  IF/ID.valid 写入 0，丢弃顺序路径指令
+
+周期 N+1：
+  IF 从正确目标取指
+  ID 是 bubble
+```
+
+最终触发条件不能只看指令编码：
+
+```text
+redirect_fire =
+    if_id_valid &&
+    !id_operand_stall &&
+    redirect_request;
+```
+
+这是因为未来 flush 后 IF/ID 的数据位可以保留旧指令，只有 `valid=0` 才表示它不再具有语义。如果不使用 `if_id_valid` 门控，残留的 Branch/ECALL/MRET 编码可能再次触发跳转。
+
+### D.3.3 Branch-in-ID 待实现矩阵
+
+| ID 消费者依赖的生产者位置 | ALU结果 | Load结果 | 第一版处理 |
+|------|------|------|------|
+| ID/EX | 当前 EX 正在产生 | 尚未访存 | stall |
+| EX/MEM | 可用 | MEM 周期才产生 | ALU→ID forwarding；Load 继续 stall |
+| MEM/WB | `wb_rd_wdata` 可用 | `wb_rd_wdata` 可用 | 复用当前 WB→ID bypass |
+
+---
+
+## D.4 待完成：CSR 数据冒险
+
+CSR 指令同时涉及两套状态：
+
+```text
+GPR 结果：
+  CSR 旧值 -> csr_rdata -> EX/MEM -> MEM/WB -> wb_stage -> rd
+
+CSR 状态更新：
+  rs1/zimm 与 CSR 旧值运算 -> csr_wdata -> EX/MEM -> MEM/WB -> CSR 在 WB 提交
+```
+
+所以必须把 CSR 冒险拆成两类，不能统称为一个“CSR forwarding”问题。
+
+### D.4.1 CSR 结果→GPR RAW
+
+#### 紧邻 CSR→ALU
+
+```asm
+csrrw x1, mscratch, x2   # x1 得到 mscratch 的旧值
+addi  x3, x1, 1          # 紧接着使用 x1
+```
+
+消费者进入 EX 时，生产者位于 EX/MEM。最终 GPR 结果位于 `ex_mem_csr_rdata`，但当前 EX/MEM forwarding 只允许 `wdata_src==00` 的 ALU 结果，所以该序列当前会失败。
+
+可选方案：
+
+```text
+方案 A：
+  根据 ex_mem_wdata_src 建立 EX/MEM 最终结果 MUX
+  00 -> ex_mem_alu_result
+  10 -> ex_mem_pc_plus4
+  11 -> ex_mem_csr_rdata
+  01 -> Load 未就绪，禁止 EX/MEM forwarding
+
+方案 B：
+  CSR→GPR 紧邻依赖 stall 一拍
+  然后复用 MEM/WB.wb_rd_wdata
+```
+
+推荐方案 A，使 forwarding 网络按“最终写回来源”统一扩展。
+
+#### 间隔一条 CSR→ALU
+
+```asm
+csrrw x1, mscratch, x2
+addi  x6, x0, 1
+addi  x3, x1, 1
+```
+
+生产者位于 MEM/WB，`wb_rd_wdata` 已经选择 CSR 旧值，当前 MEM/WB→EX forwarding 可以覆盖。
+
+#### 间隔两条 CSR→ALU
+
+```asm
+csrrw x1, mscratch, x2
+addi  x6, x0, 1
+addi  x7, x0, 2
+addi  x3, x1, 1
+```
+
+当前 WB→ID bypass 可以覆盖。
+
+同类消费者还包括：
+
+```asm
+csrrw x1, mscratch, x2
+sw    x1, 0(x3)          # CSR结果→Store数据
+```
+
+```asm
+csrrw x1, mscratch, x2
+beq   x1, x0, target     # CSR结果→Branch-in-ID，同时受两类未完成机制影响
+```
+
+### D.4.2 CSR 状态写后读 RAW
+
+```asm
+csrrw x0, mstatus, x2
+csrrs x3, mstatus, x0
+```
+
+第一条在 EX 计算 `csr_wdata`，但要到 WB 才真正修改 `csr_mstatus`；第二条下一周期就在 EX 组合读取 `csr_mstatus`，因此读到旧状态。
+
+```text
+老 CSR 写：ID/EX -> EX/MEM -> MEM/WB -> WB 时序提交
+新 CSR 读：                    ID/EX -> EX 组合读取
+```
+
+第一版推荐使用 interlock：
+
+```text
+年轻指令要读 CSR
+&& 流水线中存在更老的 CSR 写
+&& csr_read_addr == older_csr_write_addr
+    -> 冻结 PC
+    -> 保持 IF/ID
+    -> ID/EX 插入 bubble
+    -> 等老写到 WB 提交后再放行
+```
+
+需要检查的老写位置主要是 ID/EX 和 EX/MEM。老写已经处于 MEM/WB 时，会在消费者进入 EX 的上升沿提交；下一周期组合读可以看到新值，通常可以放行。
+
+更多 CSR 状态 RAW 示例：
+
+```asm
+csrrwi x0, mie, 8
+csrrs  x3, mie, x0
+```
+
+```asm
+csrrw x0, mcycle, x2
+csrrc x3, mcycle, x4
+```
+
+### D.4.3 CSR 与系统指令之间的依赖
+
+系统跳转目标也来自 CSR 状态，因此必须纳入 CSR interlock：
+
+```asm
+csrrw x0, mtvec, x2
+ecall                       # 必须使用新的 mtvec
+```
+
+```asm
+csrrw x0, mepc, x2
+mret                        # 必须跳到新的 mepc
+```
+
+```asm
+csrrw x0, mstatus, x2
+mret                        # mret 修改/恢复 mstatus，必须保持顺序
+```
+
+CSR/System 最终至少要保证：
+
+```text
+同一 CSR 地址写后读不越过
+mtvec/mepc/mstatus 等系统依赖不读取旧状态
+CSR 普通写、trap、mret、interrupt 在 WB 提交时有明确优先级
+无效槽和错误路径不能提交 CSR/System 副作用
+```
+
+---
+
+## D.5 待完成：统一存储端口结构冒险
+
+### D.5.1 当前 DPI 模型为什么没有实际冲突
+
+当前 IF 和 MEM 分别调用 `dpi_mem_read()`。虽然底层使用同一片软件内存，RTL 接口允许同周期发起两次组合调用，相当于提供了两个逻辑访问端口。
+
+因此当前不存在“两个阶段抢一个物理端口但无法同时完成”的结构冒险。不能简单表述为“因为 DPI 不阻塞所以隐藏了冲突”，更准确的说法是：**当前模型没有施加单端口资源约束。**
+
+### D.5.2 接入单端口 SRAM/AXI 后的冲突
+
+任意 Load/Store 位于 MEM 时，IF 仍要取下一条指令：
+
+```asm
+lw   x1, 0(x2)       # 到 MEM 后发起数据读
+addi x3, x4, 1       # 同周期 IF 还要取后续指令
+```
+
+```asm
+sw   x1, 0(x2)       # 到 MEM 后发起数据写
+addi x3, x4, 1       # IF 同样请求取指
+```
+
+若只有一个物理请求端口：
+
+```text
+IF 取指请求 ----\
+                >---- 仲裁器 ---- 单端口 SRAM / AXI master
+MEM 数据请求 ---/
+```
+
+第一版通常采用：
+
+| 情况 | 处理 |
+|------|------|
+| MEM 无请求 | 允许 IF 发起取指 |
+| MEM 有 Load/Store 请求 | MEM 优先，冻结 PC 和 IF/ID |
+| 请求未 ready | 保持请求字段稳定，相关流水线级不得前进 |
+| 响应未 valid | Load 及其后续消费者继续等待 |
+
+接入 AXI 后，问题不只是经典结构冒险，还包括可变延迟和 backpressure。届时需要把当前固定前进的流水线寄存器改造成具有 `valid/ready` 或 `allowin/ready_go` 语义的级间接口。
+
+---
+
+### 阶段 D 正确性待办
+
+```text
+已经完成：
+  [x] ALU -> EX forwarding（EX/MEM、MEM/WB）
+  [x] WB -> ID 同周期 bypass
+  [x] Store 地址和写数据复用 EX forwarding
+  [x] ex_rs2_value -> EX/MEM -> MEM Store 数据链
+  [x] 普通 EX 消费者的 load-use detection + stall
+  [x] id_uses_rs1/id_uses_rs2，排除假 stall
+  [x] EX/MEM 仅允许已就绪 ALU 结果 forwarding
+
+下一步必须完成：
+  [ ] Branch/JALR 的 ID forwarding + interlock
+  [ ] branch/jal/jalr/ecall/mret redirect + IF/ID flush
+  [ ] CSR 结果 -> GPR 的相邻 forwarding
+  [ ] CSR 状态同地址写后读 interlock
+  [ ] CSR 与 ecall/mret 的状态依赖
+  [ ] ecall/mret/ebreak 精确提交 + flush
+
+可选后延：
+  [ ] interrupt 精确注入
+  [ ] commit-level difftest
+  [ ] 单端口存储器仲裁和 AXI backpressure
+```
 
 ```text
 cycle
@@ -1403,15 +2165,18 @@ reg [`WB_CTRL_WIDTH-1:0]  wb_ctrl_id_ex;
 - [x] CSR 拆分 `csr_read_ctrl/csr_write_ctrl`
 - [x] SYS 拆分 `sys_redirect_ctrl/sys_commit_ctrl`
 - [x] 当前 RTL lint 通过
-- [x] 当前 RTL + C++ 全量构建通过
+- [x] ALU/Store 三种距离 RAW 与普通 load-use 定向测试通过
+- [ ] 正式 C++ 构建接口同步（`npc.h` 仍引用顶层旧信号名 `pc`，RTL 已改为 `if_pc`）
 - [ ] 当前流水线 cpu-tests 通过
-- [ ] 当前流水线最小 `dummy` 通过（现因数据冒险非法写 `0x00000008`）
+- [ ] 当前流水线完整 `dummy` 回归（原 `0x00000008` 数据冒险已经修复，仍需先完成 flush）
 
 ### 下一步展望
 
 - [ ] 增加 commit_valid/commit_pc/commit_inst，改造 difftest 为提交级比较
-- [ ] 数据冒险：forwarding / stalling
-- [ ] 控制冒险：branch redirect / flushing
+- [x] 普通 EX 消费者数据冒险：forwarding / load-use stall
+- [ ] Branch/JALR ID 数据冒险：ID forwarding / interlock
+- [ ] 控制冒险：redirect / IF-ID flush
+- [ ] CSR 结果与 CSR 状态冒险
 - [ ] 精确异常：kill younger instruction
 - [ ] 流水线正确后再引入 allowin/ready_go
 
@@ -1420,7 +2185,7 @@ reg [`WB_CTRL_WIDTH-1:0]  wb_ctrl_id_ex;
 
 # C-Stage 前置：PC_CTRL 整包 + 分支/跳转解析前移 ID
 
-> 状态：✅ RTL 重构与 core_top 接线完成；当前五级流水线仍需 forwarding/stall/flush 后再做功能回归
+> 状态：RTL 重构与 core_top 接线完成；普通 EX forwarding、WB→ID bypass、load-use stall 已完成，Branch-in-ID、CSR 冒险和 flush 尚待实现
 > 日期：2026-07-22
 > 前置：B-Stage 控制包化单周期核
 

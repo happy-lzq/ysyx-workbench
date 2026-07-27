@@ -19,7 +19,15 @@
 // WB ctrl
 `define WB_CTRL_WIDTH           3
 `define WB_CTRL_REG_WRITE       2
-`define WB_CTRL_WDATA_SRC_MSB   1
+`define WB_CTRL_WDATA_SRC_MSB   1       
+/*
+| `reg_wdata_src` | 写回数据      | 指令类型 |
+|-----------------|--------------|-----------------|
+| `2'b00`         | `alu_result` | ALU、LUI、AUIPC |
+| `2'b01`         | `mem_rdata`  | Load           |
+| `2'b10`         | `pc_plus4`   | JAL、JALR      |
+| `2'b11`         | `csr_rdata`  | CSR            |
+*/
 `define WB_CTRL_WDATA_SRC_LSB   0   
 
 // CSR ctrl（控制 + 数据）
