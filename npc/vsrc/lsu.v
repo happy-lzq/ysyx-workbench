@@ -32,7 +32,7 @@ module lsu (
     wire [7 :0] byte_selected = (sel_byte == 2'b00) ? rdata_byte_0 : 
                                 (sel_byte == 2'b01) ? rdata_byte_1 :
                                 (sel_byte == 2'b10) ? rdata_byte_2 : rdata_byte_3;
-    wire [15:0] half_selected = (sel_half == 1'b0) ? rdata_half_0 : rdata_half_1;
+    wire [15:0] half_selected = (sel_half == 1'b0 ) ? rdata_half_0 : rdata_half_1;
 
     // Load
     wire is_lw  = (lsu_type == 3'b000);

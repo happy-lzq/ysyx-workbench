@@ -71,7 +71,7 @@ void npc_exec(){
             }
             #endif
             #ifdef CONFIG_HAS_KEYBOARD
-            if (vga_skip == 0) {
+            {
               SDL_Event event;
               while (SDL_PollEvent(&event)) {
                 switch (event.type) {

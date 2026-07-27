@@ -1,29 +1,63 @@
+`include "ctrl_defs.vh"
+
 module csr (
     clk
     ,rst
-    ,csr_addr
-    ,csr_write
+    ,csr_commit_valid
+    ,csr_read_ctrl
+    ,csr_write_ctrl
+    ,sys_redirect_ctrl
+    ,sys_commit_ctrl
+    ,interrupt_valid
+    ,interrupt_cause
     ,csr_wdata
-    ,csr_read
-    ,csr_rdata
-    ,mret
     ,trap_pc
-    ,trap_code         
-    ,trap_enter
+    ,csr_rdata
     ,trap_target
 );
+    // 控制流
     input  wire [0 :0] clk;
     input  wire [0 :0] rst;
-    input  wire [0 :0] csr_write;
-    input  wire [0 :0] csr_read;
-    input  wire [0 :0] mret;
-    input  wire [0 :0] trap_enter;
-    input  wire [11:0] csr_addr;
-    input  wire [31:0] trap_pc;
+    input  wire [0 :0] csr_commit_valid;
+    input  wire [`CSR_CTRL_WIDTH-1:0] csr_read_ctrl;
+    input  wire [`CSR_CTRL_WIDTH-1:0] csr_write_ctrl;
+    input  wire [`SYS_CTRL_WIDTH-1:0] sys_redirect_ctrl;
+    input  wire [`SYS_CTRL_WIDTH-1:0] sys_commit_ctrl;
+    input  wire [0:0]  interrupt_valid;
+    input  wire [31:0] interrupt_cause;
+    // 数据流
     input  wire [31:0] csr_wdata;
-    input  wire [31:0] trap_code;
+    input  wire [31:0] trap_pc;
+    // 输出
     output wire [31:0] csr_rdata;
     output wire [31:0] trap_target;
+
+    // === 从 csr_ctrl 拆包 ===
+    // csr_rdata
+    wire [11:0] csr_read_addr  = csr_read_ctrl[`CSR_CTRL_ADDR_MSB:`CSR_CTRL_ADDR_LSB];
+    wire        csr_read       = csr_read_ctrl[`CSR_CTRL_READ];
+    // csr_wdata
+    wire [11:0] csr_write_addr  = csr_write_ctrl[`CSR_CTRL_ADDR_MSB:`CSR_CTRL_ADDR_LSB];
+    wire        csr_write_raw  = csr_write_ctrl[`CSR_CTRL_WRITE];
+
+    // === ID系统跳转控制：只负责产生trap_target ===
+    wire redirect_trap = sys_redirect_ctrl[`SYS_CTRL_TRAP_ENTER];
+    wire redirect_mret = sys_redirect_ctrl[`SYS_CTRL_MRET];
+
+    // === WB系统提交控制：只负责修改CSR状态 ===
+    wire commit_trap_raw = sys_commit_ctrl[`SYS_CTRL_TRAP_ENTER];
+    wire commit_mret_raw = sys_commit_ctrl[`SYS_CTRL_MRET];
+    wire [31:0] commit_trap_code_raw = sys_commit_ctrl[`SYS_CTRL_TRAP_CODE_MSB:`SYS_CTRL_TRAP_CODE_LSB];
+
+    // === WB提交许可 ===
+    wire csr_write = csr_commit_valid && !interrupt_valid && csr_write_raw;
+    wire trap_enter = interrupt_valid || (csr_commit_valid && commit_trap_raw);
+    wire mret =csr_commit_valid && !interrupt_valid && commit_mret_raw;
+    wire [31:0] trap_code = interrupt_valid ? interrupt_cause : commit_trap_code_raw;
+
+    // === ID阶段跳转目标查询 ===
+    assign trap_target = (redirect_trap || interrupt_valid) ? csr_mtvec :
+                         redirect_mret                      ? csr_mepc  : 32'b0;
 
     parameter mstatus   = 12'h300;
     parameter mtvec     = 12'h305;
@@ -49,20 +83,16 @@ module csr (
     reg [31:0] csr_mscratch ;  // 机器暂存寄存器
     reg [63:0] mcycle_64 ;
 
-    assign csr_rdata = csr_read ? ((csr_addr == mstatus) ? csr_mstatus      : 
-                                   (csr_addr == mtvec)   ? csr_mtvec        : 
-                                   (csr_addr == mepc)    ? csr_mepc         : 
-                                   (csr_addr == mcause)  ? csr_mcause       : 
-                                   (csr_addr == mip)     ? csr_mip          :
-                                   (csr_addr == mie)     ? csr_mie          :
-                                   (csr_addr == mtval)   ? csr_mtval        :
-                                   (csr_addr == mscratch)? csr_mscratch     :
-                                   (csr_addr == mcyclel) ? mcycle_64[31:0]  :
-                                   (csr_addr == mcycleh) ? mcycle_64[63:32] :32'h0 ) : 32'h0;
-
-
-    assign trap_target = trap_enter ? csr_mtvec :               // ecall 保存返回地址
-                         mret       ? csr_mepc  : 32'b0;        // mret  进入返回地址
+    assign csr_rdata = csr_read ? ((csr_read_addr == mstatus) ? csr_mstatus      : 
+                                   (csr_read_addr == mtvec)   ? csr_mtvec        : 
+                                   (csr_read_addr == mepc)    ? csr_mepc         : 
+                                   (csr_read_addr == mcause)  ? csr_mcause       : 
+                                   (csr_read_addr == mip)     ? csr_mip          :
+                                   (csr_read_addr == mie)     ? csr_mie          :
+                                   (csr_read_addr == mtval)   ? csr_mtval        :
+                                   (csr_read_addr == mscratch)? csr_mscratch     :
+                                   (csr_read_addr == mcyclel) ? mcycle_64[31:0]  :
+                                   (csr_read_addr == mcycleh) ? mcycle_64[63:32] :32'h0 ) : 32'h0;
 
     always @(posedge clk ) begin
         if (rst) begin
@@ -78,7 +108,6 @@ module csr (
         end else begin
             mcycle_64       <= mcycle_64 + 64'd1           ;     // 每个周期自增
             if (trap_enter) begin
-            // 轮询之前优先清理
                 case (trap_code)
                     IRQ_M_TIMER : csr_mip <= {csr_mip[31:8],  1'b0, csr_mip[6:0]};     // clear MTIP (bit 7)
                     IRQ_M_EXT   : csr_mip <= {csr_mip[31:12], 1'b0, csr_mip[10:0]};    // clear MEIP (bit 11)
@@ -104,7 +133,7 @@ module csr (
                                  csr_mstatus[7]       ,           // MIE ← MPIE(bit7→bit3)
                                  csr_mstatus[2:0]}    ;
              end else if (csr_write) begin
-                    case (csr_addr)
+                    case (csr_write_addr)
                         mstatus : csr_mstatus      <= csr_wdata;
                         mtvec   : csr_mtvec        <= csr_wdata;
                         mepc    : csr_mepc         <= csr_wdata;
