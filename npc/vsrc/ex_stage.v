@@ -1,6 +1,7 @@
 `include "ctrl_defs.vh"
 module ex_stage (
     pc 
+    ,ex_valid
     ,rs1_rdata          
     ,rs2_rdata
     ,rs1_addr
@@ -9,6 +10,7 @@ module ex_stage (
     ,csr_rdata
     ,ex_ctrl
     ,csr_ctrl
+    ,pc_ctrl
     // forwarding 输入
     ,ex_mem_rd_addr
     ,ex_mem_alu_result
@@ -21,10 +23,13 @@ module ex_stage (
     // 输出
     ,alu_result                   
     ,csr_wdata   
-    ,ex_rs2_value       
+    ,ex_rs2_value
+    ,redirect_valid
+    ,redirect_pc
 );
     // === 数据流 ===
     input  wire [31:0] pc;
+    input  wire        ex_valid;
     input  wire [31:0] rs1_rdata;
     input  wire [31:0] rs2_rdata;
     input  wire [4 :0] rs1_addr;
@@ -35,6 +40,7 @@ module ex_stage (
     // === 控制流 ===
     input  wire [`EX_CTRL_WIDTH-1:0]  ex_ctrl;
     input  wire [`CSR_CTRL_WIDTH-1:0] csr_ctrl;
+    input  wire [`PC_CTRL_WIDTH-1:0]  pc_ctrl;
 
     // === forwarding 源 ===
     // EX/MEM
@@ -52,6 +58,8 @@ module ex_stage (
     output wire [31:0] alu_result;
     output reg  [31:0] csr_wdata;
     output wire [31:0] ex_rs2_value;
+    output wire        redirect_valid;
+    output wire [31:0] redirect_pc;
 
     // ============================================================
     //  拆包
@@ -63,6 +71,9 @@ module ex_stage (
     wire [1:0]  csr_op   = csr_ctrl[`CSR_CTRL_OP_MSB:`CSR_CTRL_OP_LSB];
     wire        csr_imm  = csr_ctrl[`CSR_CTRL_IMM];
     wire [31:0] csr_zimm = csr_ctrl[`CSR_CTRL_ZIMM_MSB:`CSR_CTRL_ZIMM_LSB];
+    wire [1:0]  pc_sel   = pc_ctrl[`PC_SEL_MSB:`PC_SEL_LSB];
+    wire [2:0]  br_type  = pc_ctrl[`BR_TYPE_MSB:`BR_TYPE_LSB];
+    wire        is_jalr  = pc_ctrl[`IS_JALR];
     wire [31:0] src1,src2 ;
 
     // ===========================================================
@@ -87,6 +98,14 @@ module ex_stage (
                            
     wire [31:0] rs2_real = rs2_from_ex   ? ex_mem_alu_result :
                            rs2_from_mem  ? wb_rd_wdata   : rs2_rdata;
+
+    // Branch/JALR 在 EX 消费经过 forwarding 选择后的真实寄存器值。
+    wire branch_taken;
+    wire is_branch = (pc_sel == 2'b11);
+    wire [31:0] redirect_sum = (is_jalr ? rs1_real : pc) + imm_out;
+    assign redirect_pc = is_jalr ? {redirect_sum[31:1], 1'b0} : redirect_sum;
+    assign redirect_valid = ex_valid &&
+                            (is_jalr || (is_branch && branch_taken));
     
     assign src1 = (alu_src_a == 1'b0 ) ? rs1_real : pc;
     assign src2 = (alu_src_b == 2'b00) ? rs2_real :
@@ -103,6 +122,13 @@ module ex_stage (
     endcase
     end
 
+
+    br_cond u_br_cond (
+        .rs1_data    (rs1_real),
+        .rs2_data    (rs2_real),
+        .br_type     (br_type),
+        .br_taken    (branch_taken)
+    );
 
     alu alu_pic(
         .src1           (src1      )

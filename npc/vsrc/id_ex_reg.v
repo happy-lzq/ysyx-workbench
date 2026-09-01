@@ -17,6 +17,7 @@ module id_ex_reg (
     ,id_ex_wb_ctrl_in
     ,id_ex_csr_ctrl_in
     ,id_ex_sys_ctrl_in
+    ,id_ex_pc_ctrl_in
     ,id_ex_valid
     ,id_ex_pc
     ,id_ex_pc_plus4
@@ -32,6 +33,7 @@ module id_ex_reg (
     ,id_ex_wb_ctrl
     ,id_ex_csr_ctrl
     ,id_ex_sys_ctrl
+    ,id_ex_pc_ctrl
 
 );
     input wire                          clk;
@@ -51,6 +53,7 @@ module id_ex_reg (
     input wire  [`WB_CTRL_WIDTH-1 :0]   id_ex_wb_ctrl_in;
     input wire  [`CSR_CTRL_WIDTH-1:0]   id_ex_csr_ctrl_in;
     input wire  [`SYS_CTRL_WIDTH-1:0]   id_ex_sys_ctrl_in;
+    input wire  [`PC_CTRL_WIDTH-1:0]    id_ex_pc_ctrl_in;
 
     output reg                          id_ex_valid     ;
     output reg  [31:0]                  id_ex_pc ;
@@ -67,6 +70,7 @@ module id_ex_reg (
     output reg  [`WB_CTRL_WIDTH-1 :0]   id_ex_wb_ctrl;
     output reg  [`CSR_CTRL_WIDTH-1:0]   id_ex_csr_ctrl;
     output reg  [`SYS_CTRL_WIDTH-1:0]   id_ex_sys_ctrl;
+    output reg  [`PC_CTRL_WIDTH-1:0]    id_ex_pc_ctrl;
 
     always @(posedge clk) begin
         if (rst) begin
@@ -85,6 +89,7 @@ module id_ex_reg (
             id_ex_wb_ctrl   <= {`WB_CTRL_WIDTH{1'b0}};
             id_ex_csr_ctrl  <= {`CSR_CTRL_WIDTH{1'b0}};
             id_ex_sys_ctrl  <= {`SYS_CTRL_WIDTH{1'b0}};
+            id_ex_pc_ctrl   <= {`PC_CTRL_WIDTH{1'b0}};
         end else begin
             id_ex_valid     <= id_ex_valid_in;
             id_ex_pc        <= id_ex_pc_in;
@@ -101,6 +106,7 @@ module id_ex_reg (
             id_ex_wb_ctrl   <= id_ex_wb_ctrl_in;
             id_ex_csr_ctrl  <= id_ex_csr_ctrl_in;
             id_ex_sys_ctrl  <= id_ex_sys_ctrl_in;
+            id_ex_pc_ctrl   <= id_ex_pc_ctrl_in;
         end
     end
 

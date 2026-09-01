@@ -5,7 +5,7 @@ module if_stage (
     clk
     ,rst
     ,pc_enable
-    ,pc_ctrl
+    ,redirect_valid
     ,sys_ctrl
     ,interrupt_valid
     ,trap_target
@@ -18,7 +18,7 @@ module if_stage (
     input   wire [0 :0]            clk          ;
     input   wire [0 :0]            rst          ;
     input   wire [0 :0]            pc_enable    ;
-    input   wire [`PC_CTRL_WIDTH-1:0] pc_ctrl   ;
+    input   wire [0 :0]            redirect_valid;
     input   wire [`SYS_CTRL_WIDTH-1:0] sys_ctrl ;
     input   wire [0 :0]          interrupt_valid;
     input   wire [31:0]              redirect_pc;
@@ -29,12 +29,6 @@ module if_stage (
     output  wire [31:0]            inst         ;
     wire [31:0] pc_next;
 
-   // === 从 pc_ctrl 拆包 ===
-    wire [1:0] pc_sel   = pc_ctrl[`PC_SEL_MSB:`PC_SEL_LSB];
-    wire       br_taken = pc_ctrl[`BR_TAKEN];
-    wire       is_jal   = pc_ctrl[`IS_JAL];
-    wire       is_jalr  = pc_ctrl[`IS_JALR];
-    
     // 从 sys_ctrl 拆包
     wire trap_enter_raw = sys_ctrl[`SYS_CTRL_TRAP_ENTER];
     wire mret_raw       = sys_ctrl[`SYS_CTRL_MRET];
@@ -43,8 +37,6 @@ module if_stage (
     wire trap_enter = trap_enter_raw | interrupt_valid;
     wire mret       = interrupt_valid ? 1'b0 : mret_raw;
 
-    // === redirect 判定 ===
-    wire redirect_valid = is_jal | is_jalr | ((pc_sel == 2'b11) & br_taken);
     assign pc_next = (trap_enter | mret) ? trap_target :
                      redirect_valid      ? redirect_pc : pc + 32'd4;
 
@@ -60,4 +52,3 @@ module if_stage (
             pc <= pc_next;
     end
 endmodule
-    

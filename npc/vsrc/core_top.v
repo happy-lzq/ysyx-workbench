@@ -26,14 +26,14 @@ module core_top (
     wire [31:0] mem_addr;
     wire [31:0] mem_wdata_raw;
     wire [31:0] mem_rdata;
-    wire [31:0] jump_jalr;
-    wire [31:0] imm_jal;
-    wire [31:0] imm_br;
     wire [31:0] csr_rdata;
     wire [31:0] csr_wdata;
     wire [31:0] trap_target;
     wire [31:0] trap_pc;
     wire [31:0] rs_a0;
+    wire [31:0] id_jal_redirect_pc;
+    wire [31:0] ex_redirect_pc;
+    wire [31:0] redirect_pc;
 
 
     // ========== 控制总线（id_stage → 各模块）==========
@@ -57,26 +57,9 @@ module core_top (
     // 寄存器写回信号必须由mem/wb当前有效作为总控来决定
     wire reg_write_eff  = mem_wb_valid && !interrupt_valid && reg_write_raw;
     wire is_ebreak_eff  = mem_wb_valid && !interrupt_valid && is_ebreak_raw;
-    wire [31:0] redirect_pc ;
 
     wire id_uses_rs1;
     wire id_uses_rs2;
-
-    // ============= 数据冒险：ALU 生产者 -> ID 阶段 branch/jalr =============
-    // ALU-ID 冒险检查
-    wire id_is_branch = (if_id_inst[6:0] == 7'b1100011);
-    wire id_is_jalr   = (if_id_inst[6:0] == 7'b1100111);
-    wire id_early_gpr_consumer = if_id_valid && (id_is_branch || id_is_jalr);
-    wire [1:0] id_ex_wdata_src = id_ex_wb_ctrl[`WB_CTRL_WDATA_SRC_MSB:`WB_CTRL_WDATA_SRC_LSB];
-    wire id_ex_alu_producer = id_ex_valid &&
-                              id_ex_wb_ctrl[`WB_CTRL_REG_WRITE] &&
-                              (id_ex_rd_addr != 5'b0) &&
-                              (id_ex_wdata_src == 2'b00);
-    // 消费者与生产者匹配，产生 ALU -> ID 冒险请求。
-    wire alu_to_id_hazard = id_early_gpr_consumer &&
-                            id_ex_alu_producer &&
-                            ((id_uses_rs1 && (id_rs1_addr == id_ex_rd_addr)) ||
-                             (id_uses_rs2 && (id_rs2_addr == id_ex_rd_addr)));
 
     // ============= 数据冒险 load-use load -> EX 冒险请求 ==============
     wire load_use_hazard = if_id_valid &&
@@ -86,39 +69,35 @@ module core_top (
                            ((id_uses_rs1 && (id_rs1_addr == id_ex_rd_addr)) ||
                             (id_uses_rs2 && (id_rs2_addr == id_ex_rd_addr)));
 
-    // 后续可在这里追加 csr_to_id_hazard 和 other_id_hazard。
-    wire id_stall_req = alu_to_id_hazard || load_use_hazard;
+    // Branch/JALR 已移到 EX，当前 ID 只保留已经完成的 load-use 等待请求。
+    wire id_stall_req = load_use_hazard;
+
+    // JAL 仍在 ID 重定向；Branch/JALR 在 EX 重定向，年老的 EX 请求优先。
+    wire id_jal_redirect_valid = if_id_valid &&
+                                 pc_ctrl[`IS_JAL] &&
+                                 !id_stall_req;
+    wire ex_redirect_valid;
+    wire redirect_valid = ex_redirect_valid || id_jal_redirect_valid;
+    assign redirect_pc = ex_redirect_valid ? ex_redirect_pc :
+                                             id_jal_redirect_pc;
+
+    // ID redirect 清除 IF 中一条年轻指令；EX redirect 清除 IF、ID 两条年轻指令。
+    wire if_id_flush = redirect_valid;
+    wire id_ex_flush = ex_redirect_valid;
 
     // if/id stall 设计
-    wire if_id_valid_sel            = id_stall_req ? if_id_valid : 1'b1;
+    wire if_id_valid_sel            = if_id_flush  ? 1'b0 :
+                                      id_stall_req ? if_id_valid : 1'b1;
     wire [31:0] if_id_pc_sel        = id_stall_req ? if_id_pc         : if_pc;
     wire [31:0] if_id_pc_plus4_sel  = id_stall_req ? if_id_pc_plus4   : if_pc_plus4;
     wire [31:0] if_id_inst_sel      = id_stall_req ? if_id_inst       : instr;
 
-    // ============= stall 时 ID/EX 插入bubble ========
-    wire [0 :0]  id_ex_valid_sel = id_stall_req ? 1'b0 : if_id_valid;
+    // stall 插入 bubble；EX redirect 额外清除当前 ID 中的年轻指令。
+    wire [0 :0] id_ex_valid_sel = (id_stall_req || id_ex_flush) ?
+                                  1'b0 : if_id_valid;
 
-    // ============= stall 时 IF阶段插入pc_enable 规避pc跳跃 ========
-    wire [0 :0]  pc_enable = !id_stall_req;
-
-    // 暂停后的下一拍，生产者位于 EX/MEM，ALU 结果可直接前递给 ID。
-    wire [1:0] ex_mem_wdata_src = ex_mem_wb_ctrl[`WB_CTRL_WDATA_SRC_MSB:`WB_CTRL_WDATA_SRC_LSB];
-    wire ex_mem_alu_producer = ex_mem_valid &&
-                               ex_mem_wb_ctrl[`WB_CTRL_REG_WRITE] &&
-                               (ex_mem_rd_addr != 5'b0) &&
-                               (ex_mem_wdata_src == 2'b00);
-
-    wire ex_mem_id_rs1_hit = id_early_gpr_consumer &&
-                             id_uses_rs1 &&
-                             ex_mem_alu_producer &&
-                             (id_rs1_addr == ex_mem_rd_addr);
-
-    wire ex_mem_id_rs2_hit = id_early_gpr_consumer &&
-                             id_uses_rs2 &&
-                             ex_mem_alu_producer &&
-                             (id_rs2_addr == ex_mem_rd_addr);
-
-
+    // stall 冻结 PC；任意有效 redirect 必须允许 PC 更新。
+    wire [0 :0] pc_enable = redirect_valid || !id_stall_req;
 
     // ============= 数据冒险：WB -> ID 同周期 bypass =============
     // 生产者在 WB 写 regfile，消费者在 ID 读 regfile。
@@ -134,11 +113,10 @@ module core_top (
                          (mem_wb_rd_addr != 5'b0) &&
                          (id_rs2_addr == mem_wb_rd_addr);
 
-    // 同时命中时，距离消费者更近的 EX/MEM 生产者拥有最高优先级。
-    wire [31:0] id_rs1_rdata = ex_mem_id_rs1_hit ? ex_mem_alu_result : 
-                               wb_id_rs1_hit     ? wb_rd_wdata       : reg_rs1_rdata;
-    wire [31:0] id_rs2_rdata = ex_mem_id_rs2_hit ? ex_mem_alu_result : 
-                               wb_id_rs2_hit     ? wb_rd_wdata       : reg_rs2_rdata;
+    wire [31:0] id_rs1_rdata = wb_id_rs1_hit ? wb_rd_wdata :
+                                               reg_rs1_rdata;
+    wire [31:0] id_rs2_rdata = wb_id_rs2_hit ? wb_rd_wdata :
+                                               reg_rs2_rdata;
 
     // ================= 数据冒险 store RAW 紧挨着/相隔一条指令 =============
     wire [31:0] ex_rs2_value;
@@ -166,6 +144,7 @@ module core_top (
     wire  [`WB_CTRL_WIDTH-1 :0]   id_ex_wb_ctrl;
     wire  [`CSR_CTRL_WIDTH-1:0]   id_ex_csr_ctrl;
     wire  [`SYS_CTRL_WIDTH-1:0]   id_ex_sys_ctrl;
+    wire  [`PC_CTRL_WIDTH-1:0]    id_ex_pc_ctrl;
     // ex/mem
     wire                          ex_mem_valid     ;
     wire  [31:0]                  ex_mem_pc ;
@@ -195,15 +174,11 @@ module core_top (
     wire  [`CSR_CTRL_WIDTH-1:0]   mem_wb_csr_ctrl;
     wire  [`SYS_CTRL_WIDTH-1:0]   mem_wb_sys_ctrl;
 
-    assign jump_jalr     = alu_result;
-    assign imm_jal       = imm_out;
-    assign imm_br        = imm_out;
-
 if_stage u_if_stage (
     .clk                (clk            ),
     .rst                (rst            ),
     .pc_enable          (pc_enable      ),
-    .pc_ctrl            (pc_ctrl        ),
+    .redirect_valid     (redirect_valid ),
     .sys_ctrl           (sys_ctrl       ),
     .interrupt_valid    (interrupt_valid),
     .trap_target        (trap_target    ),
@@ -228,15 +203,13 @@ if_id_reg u_if_id_reg (
 id_stage u_id_stage (
     .inst           (if_id_inst ),
     .if_id_pc       (if_id_pc   ),
-    .rs1_data       (id_rs1_rdata),
-    .rs2_data       (id_rs2_rdata),
     .rs1_addr       (id_rs1_addr),
     .rs2_addr       (id_rs2_addr),
     .rd_addr        (id_rd_addr ),
     .id_uses_rs1    (id_uses_rs1),
     .id_uses_rs2    (id_uses_rs2),
     .imm_out        (imm_out    ),
-    .redirect_pc    (redirect_pc),
+    .jal_redirect_pc(id_jal_redirect_pc),
     .ex_ctrl        (ex_ctrl    ),
     .mem_ctrl       (mem_ctrl   ),
     .wb_ctrl        (wb_ctrl    ),
@@ -262,6 +235,7 @@ id_ex_reg u_id_ex_reg (
     .id_ex_wb_ctrl_in      (wb_ctrl         ),
     .id_ex_csr_ctrl_in     (csr_ctrl        ),
     .id_ex_sys_ctrl_in     (sys_ctrl        ),
+    .id_ex_pc_ctrl_in      (pc_ctrl         ),
     .id_ex_valid           (id_ex_valid     ),
     .id_ex_pc              (id_ex_pc        ),
     .id_ex_pc_plus4        (id_ex_pc_plus4  ),
@@ -276,11 +250,13 @@ id_ex_reg u_id_ex_reg (
     .id_ex_mem_ctrl        (id_ex_mem_ctrl  ),
     .id_ex_wb_ctrl         (id_ex_wb_ctrl   ),
     .id_ex_csr_ctrl        (id_ex_csr_ctrl  ),
-    .id_ex_sys_ctrl        (id_ex_sys_ctrl  )
+    .id_ex_sys_ctrl        (id_ex_sys_ctrl  ),
+    .id_ex_pc_ctrl         (id_ex_pc_ctrl   )
 );
 
 ex_stage u_ex_stage (
     .pc                   (id_ex_pc         ),
+    .ex_valid             (id_ex_valid      ),
     .rs1_rdata            (id_ex_rs1_rdata  ),
     .rs2_rdata            (id_ex_rs2_rdata  ),
     .rs1_addr             (id_ex_rs1_addr   ),
@@ -289,6 +265,7 @@ ex_stage u_ex_stage (
     .csr_rdata            (csr_rdata        ),
     .ex_ctrl              (id_ex_ex_ctrl    ),
     .csr_ctrl             (id_ex_csr_ctrl   ),
+    .pc_ctrl              (id_ex_pc_ctrl    ),
     // forwarding 输入
     .ex_mem_rd_addr       (ex_mem_rd_addr   ),
     .ex_mem_alu_result    (ex_mem_alu_result),
@@ -301,7 +278,9 @@ ex_stage u_ex_stage (
     .mem_wb_valid         (mem_wb_valid     ),
     .alu_result           (alu_result       ),
     .csr_wdata            (csr_wdata        ),
-    .ex_rs2_value         (ex_rs2_value     )
+    .ex_rs2_value         (ex_rs2_value     ),
+    .redirect_valid       (ex_redirect_valid),
+    .redirect_pc          (ex_redirect_pc   )
 );
 
 ex_mem_reg u_ex_mem_reg (
@@ -420,5 +399,4 @@ halt u_halt (
     .halt_pc      (halt_pc),
     .halt_ret     (halt_ret)
 );
-
 endmodule

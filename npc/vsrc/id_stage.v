@@ -2,15 +2,13 @@
 module id_stage (
     inst
     ,if_id_pc
-    ,rs1_data
-    ,rs2_data
     ,rs1_addr
     ,rs2_addr
     ,rd_addr
     ,id_uses_rs1
     ,id_uses_rs2
     ,imm_out
-    ,redirect_pc
+    ,jal_redirect_pc
     ,ex_ctrl
     ,mem_ctrl
     ,wb_ctrl
@@ -21,8 +19,6 @@ module id_stage (
     
     input  wire [31:0] inst;
     input  wire [31:0] if_id_pc;
-    input  wire [31:0] rs1_data;
-    input  wire [31:0] rs2_data;
     // 输出数据
     output wire [4 :0] rs1_addr;
     output wire [4 :0] rs2_addr;
@@ -30,7 +26,7 @@ module id_stage (
     output wire id_uses_rs1;
     output wire id_uses_rs2;
     output wire [31:0] imm_out;
-    output wire [31:0] redirect_pc;
+    output wire [31:0] jal_redirect_pc;
     // 控制总线端口
     output wire [`EX_CTRL_WIDTH-1:0]  ex_ctrl;
     output wire [`MEM_CTRL_WIDTH-1:0] mem_ctrl;
@@ -46,17 +42,8 @@ module id_stage (
     wire [6:0] opcode   = inst[6:0];
     wire [2:0] funct3   = inst[14:12];
     wire [6:0] funct7   = inst[31:25];
-    wire [0:0] br_taken;
-    wire [`PC_CTRL_WIDTH-1:0] pc_ctrl_int;
-    wire [2:0] br_type  = pc_ctrl_int[`BR_TYPE_MSB : `BR_TYPE_LSB] ;
-    wire [0:0] is_jalr = pc_ctrl_int[`IS_JALR];  
-    wire [31:0] target_sum = (is_jalr ? rs1_data : if_id_pc) + imm_out;
-    // jalr         next_pc = rs1_data + imm_out 且 需要低位清零。
-    // jal + branch next_pc = pc + imm_out 
-    assign redirect_pc = is_jalr ? {target_sum[31:1], 1'b0} : target_sum;
-    assign pc_ctrl = {pc_ctrl_int[`PC_CTRL_WIDTH-1:`BR_TAKEN+1],
-                      br_taken,
-                      pc_ctrl_int[`BR_TAKEN-1:0]};
+    // JAL 不依赖寄存器数据，仍可在 ID 阶段直接生成跳转目标。
+    assign jal_redirect_pc = if_id_pc + imm_out;
                       
     // =============== 指令分类输出，防止假stall ================
     wire is_r_type  = (opcode == 7'b0110011);
@@ -86,12 +73,6 @@ imm_gen u_imm_gen (
     .imm_out    (imm_out)
 );
 
-br_cond u_br_cond (
-    .rs1_data    (rs1_data),
-    .rs2_data    (rs2_data),
-    .br_type     (br_type),
-    .br_taken    (br_taken)
-);
 control u_control (
     .inst        (inst),
     .opcode      (opcode),
@@ -102,6 +83,6 @@ control u_control (
     .wb_ctrl     (wb_ctrl),
     .csr_ctrl    (csr_ctrl),
     .sys_ctrl    (sys_ctrl),
-    .pc_ctrl     (pc_ctrl_int)
+    .pc_ctrl     (pc_ctrl)
 );
 endmodule
