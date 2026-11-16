@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Run the VS Code SSH extension's Verilator lint in the NPC image.
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+source "$repo_dir/npc/scripts/source_paths.sh"
+source_file="${*: -1}"
+# Archived evidence and generated models are not the active RTL project.
+# In particular, an archived testbench must not resolve active RTL modules.
+case "$source_file" in
+    "$repo_dir"/npc/build/*|"$repo_dir"/npc/obj_dir/*)
+        exit 0
+        ;;
+esac
+
+image=ysyx-npc:local
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "NPC lint image is missing: $image" >&2
+    exit 127
+fi
+
+extra=(-I"$npc_rtl_include_dir")
+if [[ "$source_file" == "$npc_rtl_dir"/*.v ]]; then
+    top="${source_file##*/}"
+    top="${top%.v}"
+    for rtl in "${npc_rtl_sources[@]}"; do
+        [[ "$rtl" == "$source_file" ]] || extra+=("$rtl")
+    done
+    extra+=(--top-module "$top")
+elif [[ "$source_file" == "$repo_dir"/npc/tests/*.sv ]]; then
+    top="${source_file##*/}"
+    top="${top%.sv}"
+    extra+=(--timing -Wno-TIMESCALEMOD --top-module "$top" "${npc_rtl_sources[@]}")
+fi
+
+exec docker run --rm --user "$(id -u):$(id -g)" \
+    --mount "type=bind,src=$repo_dir,dst=$repo_dir,readonly" \
+    --workdir "$repo_dir" \
+    "$image" verilator "$@" "${extra[@]}"

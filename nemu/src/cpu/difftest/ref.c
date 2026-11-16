@@ -36,11 +36,27 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 }
 
 __EXPORT void difftest_exec(uint64_t n) {
+  extern bool difftest_exec_mode;
+  difftest_exec_mode = true;
   cpu_exec(n);
+  difftest_exec_mode = false;
 }
 
 __EXPORT void difftest_raise_intr(word_t NO) {
-  assert(0);
+  cpu.pc = isa_raise_intr(NO, cpu.pc);
+}
+
+__EXPORT void difftest_set_intr_pending(word_t NO) {
+  switch (NO) {
+    case 0x80000007:
+      cpu.csr[CSR_IDX_mip] |= (1 << 7);
+      break;
+    case 0x8000000b:
+      cpu.csr[CSR_IDX_mip] |= (1 << 11);
+      break;
+    default:
+      panic("Unsupported interrupt cause: " FMT_WORD, NO);
+  }
 }
 
 __EXPORT void difftest_init(int port) {
@@ -49,4 +65,3 @@ __EXPORT void difftest_init(int port) {
   init_isa();   // 初始化cpu结构体--核心GPR+PC
   nemu_state.state = NEMU_RUNNING; 
 }
-

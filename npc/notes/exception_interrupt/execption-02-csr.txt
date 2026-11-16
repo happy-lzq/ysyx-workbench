@@ -1,0 +1,152 @@
+整理版 Markdown：exception-csr-design-summary.md
+本文件保留原始学习过程；当前实现范围、源码关系和后续边界以整理版及专项进度记录核对。
+
+一、精准同步异常处理过程
+ ================= 当前五级流水线：精确同步异常完善范围 =================
+ 当前目标为 M-only、无 C/无 MMU 的已有指令支持集，优先收敛 cause=0~7、11。
+ 以下是实现路线，不表示这些异常均已完成；具体通过范围以验收笔记为准。
+
+ 接下来依次完善：
+   1) cause=2，CSR 访问合法性：先确定 CSR 支持表，再检查真实读写许可。
+      本项目对未支持 CSR 选择报非法；只读 CSR 写入/权限不足也需检查。
+      CSR 字段的 WARL 取值约束与访问非法分开处理，不能一律转成异常。
+   2) cause=0，跳转目标未对齐：无 C 时检查实际采用目标的 4 字节对齐；
+      未 taken 的分支不报错，JALR 先清 bit0，再检查剩余对齐条件。
+   3) cause=4/6，Load/Store 未对齐：按首版策略在请求发出前检查；
+      Device 的非法宽度/对齐还需结合区域属性，不能透明拆成多次设备访问。
+   4) cause=1，取指访问错误：把错误附到原取指 PC；旧路径错误只排空。
+   5) cause=5/7，Load/Store 访问错误：把错误响应绑定原指令及有效地址，
+      禁止错误 Load 写 rd，并检查 Store/MMIO 已接受事务的副作用边界。
+      当前 IF/D 错误仍走 faulted/dpi_mem_fault 停机，尚未接入精确 WB trap。
+   6) cause=11，统一 M-mode ECALL：复用异常路径，故障指令不普通退休。
+   7) cause=3，架构 EBREAK：先迁移现有 EBREAK 仿真 HALT/测试退出合同，
+      再让普通 EBREAK 产生 breakpoint 异常，不能直接破坏既有测试出口。
+
+ 所有新增异常共用：有效指令的 PC/inst + exc_valid/cause/tval 随流水线传递；
+ WB 按年龄处理最老故障，抑制普通 GPR/CSR 写，保存现场并 redirect/kill。
+ Store/MMIO 的不可撤销许可必须在请求呈现前满足，不能仅靠 WB 禁止写回。
+ REF 独立处理相同故障；同时验收错误路径取消、停顿、IRQ 碰撞及软件恢复。
+ 合法 MRET 是正常退休/返回操作，没有单独异常编号；非法使用归 cause=2。
+
+ 后续能力再启用：8/9 随 U/S；12/13/15 随 MMU；H 类随虚拟化扩展；
+ 16/18/19 随对应扩展或错误机制。IRQ_* 属于异步中断，另按中断源/SoC 完善。
+ 路线：npc/notes/design-process/cpu-design-roadmap-e-to-linux-dualissue.md 第 5 节。
+ 已验收范围：npc/notes/cpu-fuzzing/nemu-illegal-difftest-acceptance.md。
+
+1、处理cause = 2 ；非法指令的检测 译码阶段出现的非法指令
+    1、 在模块control中进行指令译码是根据opcode + funct3 来进行指令当前INT-32bit 分类译码 
+        ID：control 检测非法指令
+            │
+            ▼
+        id_exc_valid=1
+        cause=2，tval=指令编码
+        PC 使用该指令自己的 PC
+            │
+            ▼
+        异常载荷随指令经过 ID/EX → EX/MEM → MEM/WB
+            │
+            ▼
+        WB：wb_fire=1，mem_wb_exc_valid=1
+            │
+            ├─ wb_retire_fire=0
+            │      ├─ 禁止普通 GPR 写
+            │      └─ 禁止故障指令的普通 CSR 写
+            │
+            └─ wb_trap_fire=1
+                   ├─ 保存 mepc/mcause/mtval/mstatus
+                   ├─ redirect 到 mtvec
+                   ├─ flush / 阻止年轻指令推进
+                   ├─ 阻止年轻 MEM 新请求
+                   └─ 当前拍不接受 IRQ
+
+    2、CSR 访问合理性处理
+        IF：取出 CSR 指令
+            │
+            ▼
+        ID：control.v 译码
+            │
+            ├─ ① 检查 opcode + funct3
+            │      ├─ 识别为合法 CSR 指令 → 继续
+            │      └─ 不合法 → illegal_inst
+            │
+            ├─ ② 取得 csr_addr = inst[31:20]
+            │      ├─ 当前核支持该地址 → 继续
+            │      └─ 不支持 → illegal_inst
+            │
+            ├─ ③ 根据指令和 rd/rs1/zimm 生成读写意图
+            │      ├─ csr_read
+            │      └─ csr_write
+            │
+            ├─ ④ 检查当前模式能否访问目标 CSR【后续 M/S/U】
+            │      ├─ 权限满足 → 继续
+            │      └─ 权限不足 → illegal_inst
+            │
+            └─ ⑤ 检查目标 CSR 的整体访问属性【待完善】
+                   ├─ 本次访问被允许 → 指令继续正常执行
+                   └─ 尝试写只读 CSR → illegal_inst
+    // =================== 根据各个csr 寄存器在不同模式下的读写特权进行字段处理 csr 读写逻辑模块内处理 ============================//
+    1、mstatus 管理机器模式下的中断开关 保存进入 trap 之前的部分状态、在执行 MRET 时恢复部分状态
+        字段    位号        作用
+        MIE     bit3        M模式中断使能
+        MPIE    bit7        保存进入trap前的MIE
+        MPP     bit12:11    保存进入trap前的特权级模式
+        MPRV    bit17       控制数据访问采用的有效特权模式
+    
+    2、mtvec trap 入口配置 cpu接受异常或者中断时从哪里开始执行处理程序，这个地址地址入口寄存器
+        发生 trap
+            ↓
+        取得 mtvec 配置
+            ↓
+        PC 跳转到 trap 处理入口
+        BASE：入口基地址
+        MODE：入口模式
+            0 ：direct 所欲trap都进BASE地址         ：BASE
+            1 ：异步中断可以根基异常号选择入口地址    ：BASE + 4 × 中断号
+    
+    3、mepc trap 返回或者故障指令地址 mepc 保存与trap对应的指令地址，供异常处理和MRET使用。
+        处理中断后：原程序应该继续执行的那条指令的地址。
+        同步异常：mepc = 非法指令pc 同步流水线异常对应的指令pc地址
+        异步中断：mepc = 中断处理结束后需要恢复执行的地址
+
+        情况                    irq_take            trap_pc
+        WB是非法指令                0                非法指令的 mem_wb_pc
+        WB是ECALL                  0                ECALL 的  mem_wb_pc
+        本拍接受中断                1                irq_resume_pc
+
+        路径 A：硬件进入 trap               CPU 自动保存异常现场
+            trap_enter = 1
+            csr_mepc ← trap_pc
+
+        路径 B：软件执行 CSR 指令写 mepc    处理程序主动修改返回地址
+            csr_write = 1 且地址为 mepc
+            csr_mepc ← csr_wdata
+
+    4、mcause trap的原因记录 保存最近一次进入M模式trap的原因
+        mcause[31]  ：中断类型        0 表示同步异常；1 表示异步中断
+                    异常原因本身就是规范逻辑写好的，在npc/src/vsrc/include/exception.vh 
+        mcause[30:0]：原因编号   
+
+    5、mip 机器中断挂起状态  表示：哪些中断源当前处于挂起状态
+        字段            位号            含义
+        MTIP            7               M模式时钟timer 中断挂起
+        MEIP            11              M模式external intterupt 外部中断挂起
+        只读字段进行旧值保留即可。
+
+        | 寄存器    | 问题                      | 定时器对应字段             
+        |---        |---                       |---                       
+        | `mip`     | 有没有中断在等待？         | `MTIP`         
+        | `mie`     | 允不允许这一类中断？       | `MTIE`
+        | `mstatus` | 全局中断是否允许？         | `MIE` 
+        | `mcause`  | 已进入的 trap 是什么原因？ | 中断位 + 原因编号 
+
+
+    
+    6、mie 机器中断源使能    决定如那件是否使能各种M模式中断源
+        目前只实现了这两个中断写入
+        字段            位号            含义
+        MTIE            7               M模式时钟timer 中断使能
+        MEIE            11              M模式external intterupt 外部中断使能    
+    
+    7、mtval    trap的附加信息  mcause 告诉软件“发生了什么类型的异常”，mtval 可以进一步提供相关数据
+
+    8、mscratch M 模式软件暂存寄存器

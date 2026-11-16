@@ -26,6 +26,8 @@ enum {
   CSR_IDX_mtval,
   CSR_IDX_mepc,
   CSR_IDX_mscratch,
+  CSR_IDX_mcyclel,
+  CSR_IDX_mcycleh,
   CSR_NUM_MAX   // 用于表示数组长度
 };
 

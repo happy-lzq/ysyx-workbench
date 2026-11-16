@@ -2,7 +2,8 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
-#define MSTATUS 0x1888
+// Initial Context is restored with interrupts masked; MRET enables MIE via MPIE.
+#define MSTATUS 0x1880
 
 // 全局静态上下文结构体函数指针
 static Context* (*user_handler)(Event, Context*) = NULL;
@@ -57,7 +58,7 @@ Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context* ctx = kstack.end - sizeof(Context);     
   *ctx = (Context){0};
   ctx->mepc = (uintptr_t)entry;
-  ctx->mstatus = MSTATUS;                       // mstatus设置，MMP MPIE MIE 置位处理
+  ctx->mstatus = MSTATUS;                       // MPP=M, MPIE=1, MIE=0 until MRET
   ctx->gpr[2]  = (uintptr_t)kstack.end;         // 每一个pcb模块的栈指针指向栈顶sp
   ctx->gpr[10] = (uintptr_t)arg;                // 函数参数接受寄存器从a0(gpr[10])开始
   return ctx;

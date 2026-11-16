@@ -18,6 +18,7 @@
 #define IRQ_M_EXT    0x8000000b
 #define M_TIME_MASK (1 << 7)
 #define M_MEIP_MASK (1 << 11)
+bool difftest_exec_mode = false;
 
 // 同步异常传 s->pc，外部中断传 s.dnpc 
 // 处理csr寄存器：mepc mcause mstatus 
@@ -35,6 +36,9 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   }
   cpu.csr[CSR_IDX_mepc]   = epc;
   cpu.csr[CSR_IDX_mcause] = NO;
+  // ECALL/IRQ carry no trap value. An instruction-specific exception may
+  // replace this with its own value after entering the common trap path.
+  cpu.csr[CSR_IDX_mtval]  = 0;
   word_t mstatus = cpu.csr[CSR_IDX_mstatus];
   mstatus = (mstatus & ~(1 << 7)) | (((mstatus >> 3) & 1) << 7);  // MPIE = MIE 保存进入trap前的MIE
   mstatus &= ~(1 << 3) ;                                          // MIE=0 关闭中断，防止被打扰
@@ -45,6 +49,8 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
 }
 
 word_t isa_query_intr() {
+    if (difftest_exec_mode)
+        return INTR_EMPTY;
     // 1. 全局中断使能未开，直接返回空
     if ((cpu.csr[CSR_IDX_mstatus] & 0x8) == 0)
         return INTR_EMPTY;
@@ -52,7 +58,6 @@ word_t isa_query_intr() {
     // 2. 定时器中断：mip.MTIP 和 mie.MTIE 同时为 1
     if ((cpu.csr[CSR_IDX_mip] & (M_TIME_MASK)) &&               // mip寄存器中 MTIP(bit=7) 中断挂起位
         (cpu.csr[CSR_IDX_mie] & (M_TIME_MASK))) {               // mie寄存器中 MTIE(bit=7) 中断是能位
-         cpu.csr[CSR_IDX_mip] &= ~M_TIME_MASK;
         return 0x80000007;                                      // M-mode 时钟中断号 7  最高位 = 1 表示中断，低 30 位 = 7 表示定时器
     }
 

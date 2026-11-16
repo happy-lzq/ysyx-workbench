@@ -18,6 +18,7 @@
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
+#include <memory/paddr.h>
 
 #define R(i) gpr(i)     // 宏定义利用R(i) 替换gpr(i)
 #define Mr vaddr_read   // Mr 内存读
@@ -73,6 +74,52 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
   }
 }
 
+/* Current M-only platform: naturally aligned RAM accesses are supported;
+ * misaligned RAM accesses trap instead of being transparently emulated.
+ * Check the whole interval before any host access. A boundary/access fault
+ * takes priority over misalignment, so no out-of-range byte is touched.
+ */
+static bool data_access_ok(Decode *s, vaddr_t addr, int len, bool is_store) {
+  const bool starts_in_ram = in_pmem(addr);
+  const uint64_t last = (uint64_t)addr + (unsigned)len - 1;
+  word_t cause;
+
+  if (starts_in_ram && last <= (uint64_t)PMEM_RIGHT) {
+    if ((addr & (unsigned)(len - 1)) == 0) return true;
+    cause = is_store ? 6 : 4;
+  } else {
+#ifdef CONFIG_DEVICE
+    /* Keep the existing standalone device model when it is configured.
+     * The current Difftest REF has no devices: successful NPC MMIO accesses
+     * are synchronized by the existing commit protocol, not executed here.
+     * Device-specific error validation for CONFIG_DEVICE is separate work.
+     */
+    if (!starts_in_ram) return true;
+#endif
+    cause = is_store ? 7 : 5;
+  }
+
+  s->dnpc = isa_raise_intr(cause, s->pc);
+  cpu.csr[CSR_IDX_mtval] = addr;
+  return false;
+}
+
+static void execute_load(Decode *s, vaddr_t addr, int rd, int len,
+                         bool sign_extend) {
+  if (!data_access_ok(s, addr, len, false)) return;
+
+  /* rd=x0 discards only the value, never the access or its exception. */
+  word_t value = Mr(addr, len);
+  if (sign_extend && len == 1) value = (int8_t)value;
+  if (sign_extend && len == 2) value = (int16_t)value;
+  if (rd != 0) R(rd) = value;
+}
+
+static void execute_store(Decode *s, vaddr_t addr, int len, word_t value) {
+  if (!data_access_ok(s, addr, len, true)) return;
+  Mw(addr, len, value);
+}
+
 static int decode_exec(Decode *s) {
   s->dnpc = s->snpc;
 
@@ -122,16 +169,27 @@ static int decode_exec(Decode *s) {
     case 0x67: // jalr
       // I-Type 按照 最常用内存读和立即数算数排序
       INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);                      // x[rd] = x[rs1] + sext(immediate)
-      INSTPAT("??????? ????? ????? 010 ????? 00000 11", lw     , I, R(rd) = Mr(src1 + imm, 4));               // x[rd] = sext(M[x[rs1] + sext(offset)][31:0])
-      INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1;       // ret伪指令实际被扩展为 jalr x0, 0(x1)
+      INSTPAT("??????? ????? ????? 010 ????? 00000 11", lw     , I, execute_load(s, src1 + imm, rd, 4, false));
+      INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I,
+        word_t target = (src1 + imm) & ~1u;
+      
+        if ((target & 3u) != 0) {
+          s->dnpc = isa_raise_intr(0, s->pc);
+          cpu.csr[CSR_IDX_mtval] = target;
+        } else {
+          R(rd) = s->snpc;
+          s->dnpc = target;
+        
           IFDEF(CONFIG_FTRACE,
-            int rs1_idx = BITS(s->isa.inst, 19, 15);                                                                    // src1 对应源寄存器索引
+            int rs1_idx = BITS(s->isa.inst, 19, 15);
+          
             if (rd == 1) {
               ftrace_call(s->pc, s->dnpc, s->snpc);
-            } else if (rd == 0 && rs1_idx == 1 && imm == 0) {       // ret 返程不需要返回地址。rd=x0,并且src1索引为返回寄存器，并且imm=0,说明执行返回栈 ret 伪指令
-              ftrace_ret(s->pc, s->dnpc);                           
+            } else if (rd == 0 && rs1_idx == 1 && imm == 0) {
+              ftrace_ret(s->pc, s->dnpc);
             }
-          );
+          )
+        }
       );
       INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
       INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
@@ -143,10 +201,10 @@ static int decode_exec(Decode *s) {
       INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                                                         // x[rd] = (x[rs1] <𝑢 sext(immediate))
       
       // 字寻址存储装载指令 (Sub-word Load)
-      INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));               // x[rd] = M[x[rs1] + sext(offset)][15:0]
-      INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));               // x[rd] = M[x[rs1] + sext(offset)][7:0]
-      INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
-      INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
+      INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, execute_load(s, src1 + imm, rd, 2, false));
+      INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, execute_load(s, src1 + imm, rd, 1, false));
+      INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, execute_load(s, src1 + imm, rd, 2, true));
+      INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, execute_load(s, src1 + imm, rd, 1, true));
       break;
 
       // ==================================== system 指令 (opcode = 0x73) ========================================
@@ -166,64 +224,177 @@ static int decode_exec(Decode *s) {
           word_t mpie = ((mstatus_val) >> 7  ) & 1;
           mstatus_val = (mstatus_val & ~(1 << 3)) | (mpie << 3) ;   // MIE=MPIE
           mstatus_val = mstatus_val | (1 << 7);                     // MPIE=1
-          mstatus_val = mstatus_val & ~(3 << 11);                   // 写回 mstatus 时把 MPP 域清零
+          mstatus_val = (mstatus_val & ~(3u << 11)) | (3u << 11);   // 写回 mstatus 时把 MPP 置11
           cpu.csr[CSR_IDX_mstatus] = mstatus_val;                   // 写回mstatus   
           s->dnpc = cpu.csr[CSR_IDX_mepc];
           ); 
+
       INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I, // 读后清零
           word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = t & ~src1;
-          R(rd) = t;
+          // 返回匹配地址为NULL 说明地址匹配失败，访问地址异常
+          if (t_ptr == NULL){
+          // 保存异常现场，并让下一条 PC 指向异常入口
+            s->dnpc = isa_raise_intr(2,s->pc);
+          //同步故障编码信息
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {
+            word_t t = *t_ptr;  // CSRRC 始终读取 CSR 旧值
+            if (BITS(s->isa.inst, 19, 15) != 0) {
+              csr_write(csr_num, t & ~src1);
+            }
+            if (rd != 0) R(rd) = t;
+          }
         ); 
       INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, // 读后置位
           word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = t | src1;
-          R(rd) = t;
+          if (t_ptr == NULL){
+            s->dnpc = isa_raise_intr(2,s->pc);
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {        
+            word_t t = *t_ptr;  // CSRRS 始终读取 CSR 旧值
+            if (BITS(s->isa.inst, 19, 15) != 0) {
+              csr_write(csr_num, t | src1);
+            }
+            if (rd != 0) R(rd) = t;
+          }
         ); 
       INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, // 读后写
           word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = src1;
-          R(rd) = t;
+          if (t_ptr == NULL){
+            s->dnpc = isa_raise_intr(2,s->pc);
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {     
+            if (rd != 0) {
+              word_t t = *t_ptr;
+              R(rd) = t;
+            }
+            csr_write(csr_num, src1);  // CSRRW 始终写 CSR
+          }
         ); 
       INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci  , I, 
-          word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = t & ~zimm;
-          R(rd) = t;
+          word_t *t_ptr  = csr_idx_addr(csr_num); 
+          if (t_ptr == NULL){
+            s->dnpc = isa_raise_intr(2,s->pc);
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {         
+            word_t t = *t_ptr;
+            if (zimm != 0) {
+              csr_write(csr_num, t & ~zimm);
+            }
+            if (rd != 0) R(rd) = t;
+          }
         ); 
       INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi  , I, 
           word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = t | zimm;
-          R(rd) = t;
+          if (t_ptr == NULL){
+            s->dnpc = isa_raise_intr(2,s->pc);
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {            
+            word_t t = *t_ptr;
+            if (zimm != 0) {
+              csr_write(csr_num, t | zimm);
+            }
+            if (rd != 0) R(rd) = t;
+          }
         ); 
       INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi  , I, 
           word_t *t_ptr  = csr_idx_addr(csr_num);
-          word_t t = *t_ptr;
-          *t_ptr = zimm;
-          R(rd) = t;
+          if (t_ptr == NULL){
+            s->dnpc = isa_raise_intr(2,s->pc);
+            cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+          } else {            
+            if (rd != 0) {
+              word_t t = *t_ptr;
+              R(rd) = t;
+            }
+            csr_write(csr_num, zimm);  // CSRRWI 始终写 CSR
+          }
         ); 
       break;
       }
 
+    // FENCE is legal RV32I. This sequential interpreter has no outstanding
+    // memory operations to drain, so no extra state change is needed.
+    case 0x0f:
+      INSTPAT("??????? ????? ????? 000 ????? 00011 11", fence, N, (void)0);
+      break;
+
     // =================================== S-Type (opcode = 0x23) ==================================================
     case 0x23:
-      INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));                 // M[x[rs1] + sext(offset) = x[rs2][31: 0]
-      INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));                 // M[x[rs1] + sext(offset) = x[rs2][15: 0]
-      INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));                 // M[x[rs1] + sext(offset) = x[rs2][7: 0]
+      INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, execute_store(s, src1 + imm, 4, src2));
+      INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, execute_store(s, src1 + imm, 2, src2));
+      INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, execute_store(s, src1 + imm, 1, src2));
       break;
 
     // =================================== B-Type (opcode = 0x63) ==================================================
     case 0x63:
-      INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
-      INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
-      INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
-      INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
-      INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
-      INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
+      // 当前无 C 扩展：只检查 taken 目标的四字节对齐，未 taken 保持 snpc。
+      INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne, B,
+        if (src1 != src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
+      INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq, B,
+        if (src1 == src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
+      INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt, B,
+        if ((int32_t)src1 < (int32_t)src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
+      INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge, B,
+        if ((int32_t)src1 >= (int32_t)src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
+      INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu, B,
+        if (src1 < src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
+      INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu, B,
+        if (src1 >= src2) {
+          word_t target = s->pc + imm;
+          if ((target & 3u) != 0) {
+            s->dnpc = isa_raise_intr(0, s->pc);
+            cpu.csr[CSR_IDX_mtval] = target;
+          } else {
+            s->dnpc = target;
+          }
+        }
+      );
       break;
 
     // =================================== U-Type (opcode = 0x37, 0x17) ============================================
@@ -234,102 +405,34 @@ static int decode_exec(Decode *s) {
       break;
 
     // =================================== J-Type (opcode = 0x6f) ==================================================
-    case 0x6f: // jal
-      INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;   // rd 默认为 x1(ra=返回寄存器)
-          IFDEF(CONFIG_FTRACE, 
-            if (rd == 1) {  // 约定：x1=ra返回寄存器在32个通用寄存器中的索引为：1 当该寄存器被写入数据时，说明存在函数调用。
-            ftrace_call(s->pc, s->dnpc, s->snpc);
+    case 0x6f: // JAL
+      INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal, J,
+        word_t target = s->pc + imm;
+      
+        if ((target & 3u) != 0) {
+          s->dnpc = isa_raise_intr(0, s->pc);
+          cpu.csr[CSR_IDX_mtval] = target;
+        } else {
+          R(rd) = s->snpc;
+          s->dnpc = target;
+        
+          IFDEF(CONFIG_FTRACE,
+            if (rd == 1) {
+              ftrace_call(s->pc, s->dnpc, s->snpc);
             }
           )
-        );
-      break;
-
-  }
-
-/*
-  // =================================== 末尾兜底无效指令 ==========================================================
-  INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
-
-// =================================== 2. 最常用算术指令 (I-Type ALU & Load/Store Word) ==================================================
-  INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi   , I, R(rd) = src1 + imm);                      // x[rd] = x[rs1] + sext(immediate)
-  INSTPAT("??????? ????? ????? 010 ????? 00000 11", lw     , I, R(rd) = Mr(src1 + imm, 4));               // x[rd] = sext(M[x[rs1] + sext(offset)][31:0])
-  INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw     , S, Mw(src1 + imm, 4, src2));                 // M[x[rs1] + sext(offset) = x[rs2][31: 0]
-
-// ==================================== 3. 分支跳转核心指令 (Branch & Jump) =================================================================
-  INSTPAT("??????? ????? ????? 001 ????? 11000 11", bne    , B, if (src1 != src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 000 ????? 11000 11", beq    , B, if (src1 == src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 100 ????? 11000 11", blt    , B, if ((int32_t)src1 < (int32_t)src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 101 ????? 11000 11", bge    , B, if ((int32_t)src1 >= (int32_t)src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 110 ????? 11000 11", bltu   , B, if (src1 < src2) s->dnpc = s->pc + imm);
-  INSTPAT("??????? ????? ????? 111 ????? 11000 11", bgeu   , B, if (src1 >= src2) s->dnpc = s->pc + imm);
-
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;              // rd 默认为 x1(ra=返回寄存器)
-      IFDEF(CONFIG_FTRACE, 
-        if (rd == 1) {  // 约定：x1=ra返回寄存器在32个通用寄存器中的索引为：1 当该寄存器被写入数据时，说明存在函数调用。
-        ftrace_call(s->pc, s->dnpc, s->snpc);
-        }
-      )
-    );
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1;       // ret伪指令实际被扩展为 jalr x0, 0(x1)
-      IFDEF(CONFIG_FTRACE,
-        int rs1_idx = BITS(s->isa.inst, 19, 15);                                                                    // src1 对应源寄存器索引
-        if (rd == 1) {
-          ftrace_call(s->pc, s->dnpc, s->snpc);
-        } else if (rd == 0 && rs1_idx == 1 && imm == 0) {       // ret 返程不需要返回地址。rd=x0,并且src1索引为返回寄存器，并且imm=0,说明执行返回栈 ret 伪指令
-          ftrace_ret(s->pc, s->dnpc);                           
         }
       );
-  );
+      break;
+  }
 
-// =================================== 4. 常见算术逻辑指令 (ALU R-type & I-Type Others) ==================================================
-  INSTPAT("0000000 ????? ????? 000 ????? 01100 11", add    , R, R(rd) = src1 + src2);                     // x[rd] = x[rs1] + x[rs2]
-  INSTPAT("0100000 ????? ????? 000 ????? 01100 11", sub    , R, R(rd) = src1 - src2);                     // x[rd] = x[rs1] - x[rs2]
-  INSTPAT("0000000 ????? ????? 001 ????? 00100 11", slli   , I, R(rd) = src1 << (imm & 0x1F));            // x[rd] = x[rs1] ≪ shamt 当且仅当shamt[5]=0,有效
-  INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1F));            // x[rd] = (x[rs1] ≫𝑢 shamt)
-  INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1F));   // x[rd] = (x[rs1] ≫𝑠 shamt)
-  INSTPAT("??????? ????? ????? 111 ????? 00100 11", andi   , I, R(rd) = src1 & imm);                      // x[rd] = x[rs1] & sext(immediate)
-  INSTPAT("??????? ????? ????? 110 ????? 00100 11", ori    , I, R(rd) = src1 | imm);                      // x[rd] = x[rs1] | sext(immediate)
-  INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(rd) = src1 ^ imm);                      // x[rd] = x[rs1] ^ sext(immediate)
-
-  INSTPAT("0000000 ????? ????? 111 ????? 01100 11", and    , R, R(rd) = src1 & src2);                                                        // x[rd] = x[rs1] & x[rs2]
-  INSTPAT("0000000 ????? ????? 110 ????? 01100 11", or     , R, R(rd) = src1 | src2);                                                        // x[rd] = x[rs1] | x[rs2]
-  INSTPAT("0000000 ????? ????? 100 ????? 01100 11", xor    , R, R(rd) = src1 ^ src2);                                                        // x[rd] = x[rs1] ^ x[rs2]
-  INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll    , R, R(rd) = src1 << (src2 & 0x1F));                                              // x[rd] = x[rs1] ≪ x[rs2]
-  INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl    , R, R(rd) = src1 >> (src2 & 0x1F));                                              // x[rd] = (x[rs1] ≫𝑢 x[rs2])
-  INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra    , R, R(rd) = (int32_t)src1 >> (src2 & 0x1F));                                     // x[rd] = (x[rs1] ≫𝑠 x[rs2])
-
-  INSTPAT("0000000 ????? ????? 010 ????? 01100 11", slt    , R, R(rd) = (int32_t)src1 < (int32_t)src2);                                      // x[rd] = (x[rs1] <𝑠 x[rs2])
-  INSTPAT("0000000 ????? ????? 011 ????? 01100 11", sltu   , R, R(rd) = src1 < src2);                                                        // x[rd] = (x[rs1] <𝑢 x[rs2])
-  INSTPAT("??????? ????? ????? 010 ????? 00100 11", slti   , I, R(rd) = (int32_t)src1 < (int32_t)imm) ;                                      // x[rd] = (x[rs1] <𝑠 sext(immediate))
-  INSTPAT("??????? ????? ????? 011 ????? 00100 11", sltiu  , I, R(rd) = src1 < imm);                                                         // x[rd] = (x[rs1] <𝑢 sext(immediate))
-
-// =================================== 5. 地址加载指令 (U-Type) ==================================================================
-  INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui    , U, R(rd) = imm);                             // x[rd] = sext(immediate[31:12] << 12)
-  INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);                     // x[rd] = pc + sext(immediate[31:12] << 12)
-
-// =================================== 6. 次寻址存储装载指令 (Sub-word Load/Store) ==================================================================
-  INSTPAT("??????? ????? ????? 101 ????? 00000 11", lhu    , I, R(rd) = Mr(src1 + imm, 2));               // x[rd] = M[x[rs1] + sext(offset)][15:0]
-  INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));               // x[rd] = M[x[rs1] + sext(offset)][7:0]
-  INSTPAT("??????? ????? ????? 001 ????? 00000 11", lh     , I, R(rd) = (int16_t)Mr(src1 + imm, 2));      // x[rd] = sext(M[x[rs1] + sext(offset)][15:0])
-  INSTPAT("??????? ????? ????? 000 ????? 00000 11", lb     , I, R(rd) = (int8_t)Mr(src1 + imm, 1));       // x[rd] = sext(M[x[rs1] + sext(offset)][7:0])
-  INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + imm, 2, src2));                 // M[x[rs1] + sext(offset) = x[rs2][15: 0]
-  INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));                 // M[x[rs1] + sext(offset) = x[rs2][7: 0]
-
-// ==================================== 7. 乘除法运算指令 (M-Extension) ==============================================================
-  INSTPAT("0000001 ????? ????? 000 ????? 01100 11", mul    , R, R(rd) = src1 * src2);                                                        // x[rd] = x[rs1] × x[rs2]
-  INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = ((int64_t)(int32_t)src1 * (int64_t)(int32_t)src2) >> 32);            // x[rd] = (x[rs1] 𝑠 ×𝑠 x[rs2]) ≫𝑠 XLEN
-  INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);                            // x[rd] = (x[rs1] 𝑢 ×𝑢 x[rs2]) ≫𝑢 XLEN
-  INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(int32_t)src1 * (uint64_t)src2) >> 32);                    // x[rd] = (x[rs1] 𝑠 ×𝑢 x[rs2]) ≫𝑠 XLEN
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = ((src2 == 0 ) ? ~0 :                                                 //  x[rd] = x[rs1] ÷s x[rs2]
-                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x80000000 :     
-                                                                        (int32_t) src1 / (int32_t) src2 )));  
-  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = (src2 == 0 ) ? ~0: src1 / src2);                                     // x[rd] = x[rs1] ÷u x[rs2]
-  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = ((src2 == 0 ) ? src1 :                                               // x[rd] = x[rs1] %𝑠 x[rs2]
-                                                                        ((src1 == 0x80000000 && src2 == -1) ? 0x00000000 : 
-                                                                        (int32_t) src1 % (int32_t) src2 ))) ;  
-  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = (src2 == 0 ) ? src1: src1 % src2);                                   // x[rd] = x[rs1] %𝑢 x[rs2]
-
-*/  
+  // A successful INSTPAT jumps to INSTPAT_END and skips this fallback.
+  // Reaching here means no implemented instruction matched: enter a real
+  // synchronous trap, preserving this instruction's PC and returning its bits.
+  INSTPAT("??????? ????? ????? ??? ????? ????? ??", illegal, N,
+      s->dnpc = isa_raise_intr(2, s->pc);
+      cpu.csr[CSR_IDX_mtval] = s->isa.inst;
+    );
   INSTPAT_END();
 
   R(0) = 0; // reset $zero to 0

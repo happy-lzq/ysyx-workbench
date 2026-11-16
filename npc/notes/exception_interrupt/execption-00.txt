@@ -1,0 +1,94 @@
+整理版 Markdown：exception-00-jalr_branch.md
+已有测试结果：本文件第 4 部分；验收汇总：npc/build/cause0-branch-20261103-pnwhkftw/final-summary.json
+本文件保留原始学习过程；当前实现采用顶层 EX final 请求/目标检查方案。
+
+mcause=0 表示“指令地址未对齐异常”，英文是 Instruction address misaligned。
+一条跳转指令准备改变 PC，但它实际采用的目标地址不满足指令对齐要求。异常应记在这条跳转指令身上，然后沿现有异常路径到 WB 处理。
+
+    正常情况需要对所有指令地址进行异常检查，但是目前的实现下pc+4属于严格对齐的，也就是只需要检查跳转部分的地址是否对齐
+1、指令地址未对齐的异常出现场景：
+    指令类别                    是否检查跳转目标            原因
+    JAL                         检查                        无条件跳转
+    JALR                        检查                        无条件间接跳转
+    BEQ/BNE等分支  条件成立      检查                        实际采用的分支地址
+    条件分支，分支不成立         不检查                       实际执行pc+4     
+
+2、各指令详解
+    1、JAL    x[rd] = pc+4; pc += sext(offset)
+        返回地址 ：x[rd]
+        跳转地址 ：pc += sext(offset)    跳转地址 = pc + 对应立即数(offset[20|10:1|11|19:12])
+        异常地址检查处理行为
+            1、id_stage 进行异常检查处理输出：id_jal_redirect_target 然后将其输出到顶层用于和exception_code=2的同步一异常号进入同一套流水线处理系统
+            2、在 ID 禁止故障 JAL 的正常跳转。
+                id_jal_redirect_fire : jal 指令重定向顶层握手信号增加jal地址未对齐检查用于最后的wb阶段的重定向信号，指令跳转之后清理年轻指令
+                wire id_jal_redirect_fire = if_id_valid     &&
+                                            !id_exc_valid   &&
+                                            !id_stall_req   && 
+                                            ex_allowin      && 
+                                            !sys_or_irq_redirect_fire   &&
+                                            !ex_branch_redirect_fire    && 
+                                            id_jal_redirect_req;        
+                wire redirect_fire = sys_or_irq_redirect_fire ||
+                                     ex_branch_redirect_fire  || 
+                                     id_jal_redirect_fire;
+
+                ID：检测目标未对齐
+                ├─ 禁止正常 JAL redirect
+                └─ 原指令携带 cause=0、tval=错误目标
+                                ↓
+                          EX → MEM → WB
+                                ↓
+                      wb_trap_fire=1
+                      wb_retire_fire=0
+                                ↓
+                禁止 rd 写回，保存异常现场
+                                ↓
+                   公共 redirect 路径跳到 mtvec
+
+        2、jalr jalr rd, offset(rs1)
+            原始地址 = x【rs1】+ 符号扩展后的offset
+            实际目标 = 原始地址清楚bit0
+            正常执行 ：x[rd] = pc + 4 
+            目前jalr + branch 的两类控制都处于ex_stage阶段进行，因为这两类需要进行ALU计算才能获取最后的执行目的结果。
+            同时，jalr +branch 属于同一类的target跳转目的地址的获取路径，因此redirect 也是同样的处理路径。
+
+        同样修改当前的对应到jalr+branch 位于顶层满足跳转之后的重定向：
+            ex阶段产生重定向的条件就是 jalr + branch 因此只需要在顶层根据ex_redirect_final 对应的跳转地址进行检查即可
+        wire ex_target_misaligned_final = ex_redirect_final &&
+                                         (ex_target_final[1:0] != 2'b00);
+                                         
+
+
+3、统一的执行流程：
+    1．各阶段检测，按“同一条指令”合并
+        这条指令已经携带的异常
+                     +
+        本阶段新检测到的异常
+                     ↓
+        按优先级选择一套：
+        exc_valid / exc_cause / exc_tval
+                     ↓
+        与这条指令的 PC、控制和数据一起进入下一级
+    2．WB 的公共处理可以复用
+        wb_trap_fire
+            ├─ 禁止故障指令普通 GPR/CSR 写入
+            ├─ 保存 mepc / mcause / mtval / mstatus
+            ├─ redirect 到 mtvec
+            └─ 取消年轻指令
+    3．每类异常需要抑制的普通动作不同
+        异常                            除检测、载荷合并外，还要处理
+        JAL/Branch/JALR 目标未对齐	    禁止故障指令的正常跳转
+        Load/Store 地址未对齐	        在请求发出前禁止错误访存，尤其是 Store/MMIO 副作用
+        访存返回错误	                绑定原指令，携带异常完成流水线推进；不能继续等待“成功响应”
+        已被取消的 IF 请求返回错误	     结束并排空旧事务，不把它作为有效指令异常提交
+
+4、2026-11-03 本轮接入与验收
+    当前 RTL：JAL 在 ID 检测；JALR/Branch 在顶层检查 ex_redirect_final 与 ex_target_final。
+    EX 新异常与 id_ex_exc_* 合并，异常随指令进入 EX/MEM、MEM/WB；禁止故障指令正常 redirect。
+    REF：JAL/JALR 已有对应判断，本轮补齐六类 Branch：先判断 taken，再检查目标四字节对齐。
+    本轮只修改 NEMU 六条 Branch 生产源码，没有修改 RTL。
+    REF 检查：修改前 144/168 通过，24 个 taken 未对齐 Branch 失败；修改后 168/168 通过。
+    生产 RTL Difftest：48 个自检场景、19 次预期 trap，默认与 seed=73 随机等待配置均 GOOD TRAP。
+    既有 CPU-test 镜像：35/35 通过。默认 REF 库已完整重编译，并重新通过指令级与定向 Difftest。
+    较老 WB trap/IRQ 同拍相撞、错误路径取消等专项动态覆盖仍待验收；本次没有 VCD。
+    详细记录：npc/notes/exception_interrupt/exception-00-acceptance.md。
